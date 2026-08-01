@@ -12,7 +12,7 @@ public static class SettingsEndpoints
 {
     public static void MapEndpoints(IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("settings").WithTags("Settings");
+        var group = app.MapGroup("settings").RequireAuthorization().WithTags("Settings");
 
         group.MapGet("", async (ISender sender) =>
         {

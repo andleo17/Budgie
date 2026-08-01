@@ -58,20 +58,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      if (!data.isConfigured) {
-        const { response: profileResponse } = await client.GET('/api/users/profile');
-        if (profileResponse && !profileResponse.ok) {
-          const body = await profileResponse.clone().json().catch(() => ({}));
-          const isUserNotFound = Array.isArray(body) && body.some(
-            (e) => e && typeof e === 'object' && 'code' in e && e.code === 'User.NotFound'
-          );
-          if (isUserNotFound) {
-            setToken(null);
-            return;
-          }
-        }
-      }
-
       startTransition(() => setIsConfigured(data.isConfigured));
       if (!data.isConfigured && window.location.pathname !== '/setup') {
         navigate('/setup');
