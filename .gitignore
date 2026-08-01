@@ -2,6 +2,11 @@
 # .NET / Visual Studio
 # ──────────────────────────────────────────────
 
+# ──────────────────────────────────────────────
+# Harness (opencode headless)
+# ──────────────────────────────────────────────
+harness/logs/
+
 # User-specific files
 *.rsuser
 *.suo
