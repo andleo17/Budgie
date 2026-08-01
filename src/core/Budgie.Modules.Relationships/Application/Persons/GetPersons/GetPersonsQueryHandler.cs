@@ -13,7 +13,7 @@ internal sealed class GetPersonsQueryHandler(RelationshipsDbContext dbContext)
     {
         var persons = await dbContext.Persons
             .Include(p => p.Tags)
-            .OrderBy(p => p.Name)
+            .OrderBy(p => p.Name.Value)
             .Select(p => new PersonResponse(
                 p.Id,
                 p.Name,

@@ -12,7 +12,7 @@ internal sealed class GetAccountsQueryHandler(FinancesDbContext dbContext)
     {
         var raw = await dbContext.Accounts
             .AsNoTracking()
-            .OrderBy(a => a.Name)
+            .OrderBy(a => a.Name.Value)
             .Select(a => new
             {
                 a.Id,
