@@ -14,9 +14,10 @@
 #   -a, --agent <a>         opencode agent (default: build)
 #   --no-verify             Skip the verification gate (fast iteration)
 #   --keep-changes          Do not revert changes after failed verification
-#   --commit <type>         Conventional commit after successful verification. Use "auto" to let the
-#                           agent generate both the type and the concise English message from the diff
-#                           (falls back to keyword inference if the agent fails), or use one explicitly:
+#   --commit <type>         Conventional commit after successful verification. Default: "auto", which lets
+#                           the agent generate both the type and the concise English message from the diff
+#                           (falls back to keyword inference if the agent fails). Pass "none" to skip the
+#                           commit, or use one explicitly:
 #                           (feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)
 #   --bump [level]          SemVer bump after the commit (default: auto; Conventional Commits rules)
 #   --title <text>          Concise commit title (English, truncated to 72 chars). Defaults to the task.
@@ -33,7 +34,7 @@ MODEL="opencode/deepseek-v4-flash-free"
 AGENT="build"
 VERIFY=1
 KEEP_CHANGES=0
-COMMIT_TYPE=""
+COMMIT_TYPE="auto"
 BUMP=""
 TITLE=""
 REF=""
@@ -50,10 +51,10 @@ while [[ $# -gt 0 ]]; do
     --no-verify) VERIFY=0; shift ;;
     --keep-changes) KEEP_CHANGES=1; shift ;;
     --commit)
-      if [[ "$2" == "auto" || "$2" =~ ^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)$ ]]; then
+      if [[ "$2" == "auto" || "$2" == "none" || "$2" =~ ^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)$ ]]; then
         COMMIT_TYPE="$2"; shift 2
       else
-        echo "ERROR: invalid commit type: $2 (use auto or a Conventional Commit type)" >&2; exit 2
+        echo "ERROR: invalid commit type: $2 (use auto, none or a Conventional Commit type)" >&2; exit 2
       fi ;;
     --bump)
       if [[ "${2:-}" =~ ^(auto|major|minor|patch)$ ]]; then BUMP="$2"; shift 2; else BUMP="auto"; shift; fi ;;
@@ -192,6 +193,8 @@ if [[ $STATUS == 0 ]]; then
   if [[ -n "$COMMIT_TYPE" ]]; then
     if [[ -z "$(git status --porcelain)" ]]; then
       echo "No changes to commit — skipping commit."
+    elif [[ "$COMMIT_TYPE" == "none" ]]; then
+      echo "Commit skipped (--commit none)."
     else
       git add -A
       type="$COMMIT_TYPE"
