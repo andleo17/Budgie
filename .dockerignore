@@ -1,0 +1,15 @@
+**/.git
+**/.gitignore
+**/.github
+**/.vscode
+**/.devcontainer
+**/.agents
+**/node_modules
+**/obj
+**/bin
+**/.env
+**/.env.*
+**/*.md
+**/AGENTS.md
+**/Thumbs.db
+**/.DS_Store

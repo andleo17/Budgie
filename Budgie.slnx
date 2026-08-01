@@ -1,0 +1,18 @@
+<Solution>
+  <Folder Name="/apps/">
+    <Project Path="src/apps/Budgie.Api/Budgie.Api.csproj" />
+  </Folder>
+  <Folder Name="/core/">
+    <Project Path="src/core/Budgie.Modules.Finances/Budgie.Modules.Finances.csproj" />
+    <Project Path="src/core/Budgie.Modules.Relationships/Budgie.Modules.Relationships.csproj" />
+    <Project Path="src/core/Budgie.Modules.Users/Budgie.Modules.Users.csproj" />
+    <Project Path="src/core/Budgie.Shared/Budgie.Shared.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Budgie.IntegrationTests/Budgie.IntegrationTests.csproj" />
+    <Project Path="tests/Budgie.Modules.Finances.UnitTests/Budgie.Modules.Finances.UnitTests.csproj" />
+    <Project Path="tests/Budgie.Modules.Relationships.UnitTests/Budgie.Modules.Relationships.UnitTests.csproj" />
+    <Project Path="tests/Budgie.Modules.Users.UnitTests/Budgie.Modules.Users.UnitTests.csproj" />
+    <Project Path="tests/Budgie.Shared.UnitTests/Budgie.Shared.UnitTests.csproj" />
+  </Folder>
+</Solution>

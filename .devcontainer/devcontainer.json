@@ -1,0 +1,50 @@
+{
+  "name": "Budgie",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "app",
+  "workspaceFolder": "/workspace",
+  "forwardPorts": [5057, 5173, 5051, 5432],
+  "portsAttributes": {
+    "5057": {
+      "label": "Budgie API",
+      "onAutoForward": "notify",
+      "protocol": "http"
+    },
+    "5173": {
+      "label": "Budgie Web",
+      "onAutoForward": "notify",
+      "protocol": "http"
+    },
+    "5051": {
+      "label": "pgAdmin",
+      "onAutoForward": "notify",
+      "protocol": "http"
+    },
+    "5432": {
+      "label": "PostgreSQL",
+      "onAutoForward": "notify"
+    }
+  },
+  "otherPortsAttributes": {
+    "onAutoForward": "ignore"
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-dotnettools.csharp",
+        "ms-dotnettools.csdevkit",
+        "dbaeumer.vscode-eslint",
+        "bradlc.vscode-tailwindcss",
+        "esbenp.prettier-vscode",
+        "ms-azuretools.vscode-docker",
+        "ckolkman.vscode-postgres",
+        "oven.bun-vscode"
+      ],
+      "settings": {
+        "dotnet.defaultSolution": "Budgie.slnx"
+      }
+    }
+  },
+  "postCreateCommand": "bun install --cwd src/apps/Budgie.Web && dotnet restore && dotnet build",
+  "remoteUser": "vscode"
+}
