@@ -12,7 +12,6 @@ internal sealed class GetAccountsQueryHandler(FinancesDbContext dbContext)
     {
         var raw = await dbContext.Accounts
             .AsNoTracking()
-            .OrderBy(a => a.Name.Value)
             .Select(a => new
             {
                 a.Id,
@@ -25,20 +24,22 @@ internal sealed class GetAccountsQueryHandler(FinancesDbContext dbContext)
             })
             .ToListAsync(cancellationToken);
 
-        var accounts = raw.Select(a => new AccountResponse(
-            a.Id,
-            a.Name,
-            a.Currency,
-            a.Balance,
-            a.Type,
-            a.CreditCardSettings?.CreditLimit?.Amount,
-            a.CreditCardSettings?.CreditConsumptionMode,
-            a.CreatedAt,
-            a.CreditCardSettings?.BillingCycleDay,
-            a.CreditCardSettings?.PaymentDueDay,
-            a.CreditCardSettings?.AnnualInterestRate != null ? (decimal?)a.CreditCardSettings.AnnualInterestRate.Value : null,
-            a.CreditCardSettings?.BillingCycleDayInclusive ?? true,
-            a.CreditCardSettings?.InterestCalculationMethod)).ToList();
+        var accounts = raw
+            .OrderBy(a => a.Name.Value, StringComparer.CurrentCultureIgnoreCase)
+            .Select(a => new AccountResponse(
+                a.Id,
+                a.Name,
+                a.Currency,
+                a.Balance,
+                a.Type,
+                a.CreditCardSettings?.CreditLimit?.Amount,
+                a.CreditCardSettings?.CreditConsumptionMode,
+                a.CreatedAt,
+                a.CreditCardSettings?.BillingCycleDay,
+                a.CreditCardSettings?.PaymentDueDay,
+                a.CreditCardSettings?.AnnualInterestRate != null ? (decimal?)a.CreditCardSettings.AnnualInterestRate.Value : null,
+                a.CreditCardSettings?.BillingCycleDayInclusive ?? true,
+                a.CreditCardSettings?.InterestCalculationMethod)).ToList();
 
         return accounts;
     }

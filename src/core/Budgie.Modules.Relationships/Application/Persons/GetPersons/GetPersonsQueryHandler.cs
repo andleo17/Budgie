@@ -11,15 +11,19 @@ internal sealed class GetPersonsQueryHandler(RelationshipsDbContext dbContext)
 {
     public async Task<ErrorOr<List<PersonResponse>>> Handle(GetPersonsQuery request, CancellationToken cancellationToken)
     {
-        var persons = await dbContext.Persons
+        var raw = await dbContext.Persons
+            .AsNoTracking()
             .Include(p => p.Tags)
-            .OrderBy(p => p.Name.Value)
+            .ToListAsync(cancellationToken);
+
+        var persons = raw
+            .OrderBy(p => p.Name.Value, StringComparer.CurrentCultureIgnoreCase)
             .Select(p => new PersonResponse(
                 p.Id,
                 p.Name,
                 p.Tags.Select(t => new TagResponse(t.Id, t.Name, t.Color)).ToList(),
                 p.PhotoPath != null ? "/" + p.PhotoPath : null))
-            .ToListAsync(cancellationToken);
+            .ToList();
 
         return persons;
     }
