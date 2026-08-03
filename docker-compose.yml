@@ -12,10 +12,6 @@ services:
       - Jwt__Secret=${JWT_SECRET:?error}
       - Jwt__Issuer=${JWT_ISSUER:-Budgie}
       - Jwt__Audience=${JWT_AUDIENCE:-Budgie}
-      - DP_KEYS_DIR=/app/dpkeys
-      - DP_CERT_PATH=/app/dpkeys/dp-cert.pfx
-    volumes:
-      - budgie_dp_keys:/app/dpkeys
     depends_on:
       db:
         condition: service_healthy
@@ -45,4 +41,3 @@ services:
 
 volumes:
   budgie_postgres_data:
-  budgie_dp_keys:

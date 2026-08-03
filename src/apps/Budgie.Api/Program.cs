@@ -8,9 +8,7 @@ using Budgie.Modules.Relationships.Infrastructure.Database;
 using Budgie.Modules.Users;
 using Budgie.Modules.Users.Infrastructure.Database;
 using Budgie.Shared.Abstractions;
-using System.Security.Cryptography.X509Certificates;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.IdentityModel.Tokens;
@@ -35,21 +33,6 @@ builder.Services
     .AddUsersModule()
     .AddFinancesModule()
     .AddRelationshipsModule();
-
-// Data Protection
-var dpKeysDir = Environment.GetEnvironmentVariable("DP_KEYS_DIR") ?? "/app/dpkeys";
-var dpCertPath = Environment.GetEnvironmentVariable("DP_CERT_PATH");
-
-var dpBuilder = builder.Services.AddDataProtection()
-    .PersistKeysToFileSystem(new DirectoryInfo(dpKeysDir))
-    .SetApplicationName("Budgie");
-
-if (!string.IsNullOrEmpty(dpCertPath) && File.Exists(dpCertPath))
-{
-#pragma warning disable SYSLIB0057
-    dpBuilder.ProtectKeysWithCertificate(new X509Certificate2(dpCertPath));
-#pragma warning restore SYSLIB0057
-}
 
 // Database
 builder.Services.AddHttpContextAccessor();

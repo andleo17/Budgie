@@ -17,16 +17,12 @@ EXPOSE 80
 
 ENV ASPNETCORE_URLS=http://0.0.0.0:80
 ENV ASPNETCORE_ENVIRONMENT=Production
-ENV DP_KEYS_DIR=/app/dpkeys
-ENV DP_CERT_PATH=/app/dpkeys/dp-cert.pfx
 
-RUN apt-get update && apt-get install -y --no-install-recommends openssl curl && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
 
 COPY --from=api-build /app/publish .
 COPY --from=frontend-build /src/dist wwwroot
 COPY src/apps/Budgie.Api/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
-
-VOLUME /app/dpkeys
 
 ENTRYPOINT ["/entrypoint.sh"]
