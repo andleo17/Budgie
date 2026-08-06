@@ -21,6 +21,10 @@
 #                           (feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)
 #   --bump [level]          SemVer bump after the commit (default: auto; Conventional Commits rules)
 #   --title <text>          Concise commit title (English, truncated to 72 chars). Defaults to the task.
+#   --session-name <name>   Name given to the opencode session. Default: asked to the AI model, which
+#                           derives a concise title from the task (falls back to a keyword heuristic if
+#                           the model is unavailable). The session is also resumed across clarification
+#                           questions the agent may ask.
 #   --issue <n>             Append GitHub "(#n)" to the commit header (links an issue)
 #   --pr <n>                Append GitHub "(#n)" to the commit header (links a pull request)
 #   -h, --help              Show help
@@ -39,6 +43,9 @@ BUMP=""
 TITLE=""
 REF=""
 TASK=""
+SESSION_NAME=""
+SESSION_ID=""
+MAX_QUESTIONS=5
 
 usage() {
   sed -n '2,24p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
@@ -59,6 +66,7 @@ while [[ $# -gt 0 ]]; do
     --bump)
       if [[ "${2:-}" =~ ^(auto|major|minor|patch)$ ]]; then BUMP="$2"; shift 2; else BUMP="auto"; shift; fi ;;
     --title) TITLE="$2"; shift 2 ;;
+    --session-name) SESSION_NAME="$2"; shift 2 ;;
     --issue|--pr) REF="$2"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     *) TASK="${TASK:+$TASK }$1"; shift ;;
@@ -121,6 +129,96 @@ Output ONLY that single line, nothing else."
   return 1
 }
 
+# Run one agent pass, streaming JSON events to $RUN_LOG. Continues the same
+# session on retries (so the model keeps context of its own question). Sets
+# SESSION_ID on the first pass and SESSION_NAME for the session title.
+run_agent_pass() {
+  local args=()
+  if [[ -n "$SESSION_ID" ]]; then
+    args+=(--session "$SESSION_ID" --continue)
+  else
+    SESSION_NAME="${SESSION_NAME:-$(generate_session_name)}"
+    args+=(--title "$SESSION_NAME")
+  fi
+  if ! opencode run --model "$MODEL" --agent "$AGENT" --format json \
+       "${args[@]}" "$1" >"$RUN_LOG" 2>&1; then
+    echo "WARN: opencode run exited with error (code $?). Check $RUN_LOG" >&2
+  fi
+  if [[ -z "$SESSION_ID" ]]; then
+    SESSION_ID="$(jq -r 'select(.type=="step_start") | .part.sessionID' "$RUN_LOG" 2>/dev/null | head -1 || true)"
+  fi
+}
+
+# Deduce a concise session name from the task: strips leading instructions and
+# filler words, keeps the core subject, sanitizes and truncates to ~40 chars.
+derive_session_name() {
+  local t="${TASK,,}"
+  # Remove leading instruction verbs / polite fillers (Spanish + English)
+  while [[ "$t" =~ ^(por favor|please|podr[ií]as|puedes|hazme|necesito|quiero|debo|porfa|que|then|could you|can you|please add|pls|hey|ok)[[:space:]]+(.*)$ ]]; do
+    t="${BASH_REMATCH[2]}"
+  done
+  t="$(printf '%s' "$t" | sed -E 's/^(agrega|añade|anade|agregar|añadir|anadir|crea|crear|implementa|implementar|implement|implements|add|adds?|haz|hacer|make|creates?|creates|corrige|corriges|corrijas|arregla|arreglas|fix|fixes|refactoriza|refactor|documenta|document|docs?|actualiza|update|actualizar)\s+//')"
+  # Drop trailing meta-instructions after a ';' or 'si / y luego / and then' clause
+  t="$(printf '%s' "$t" | sed -E 's/^(.*?);.*/\1/' | sed -E 's/\s+(si|if|pero|but|con|with|usando|using|y luego|and then|despu[ée]s|after).*$//')"
+  # Sanitize: alnum + spaces only, collapse spaces, cap at 40 chars
+  t="$(printf '%s' "$t" | tr -c 'a-zA-Z0-9 ' ' ' | tr -s ' ' | sed -E 's/^ | $//g' | cut -c1-40)"
+  printf '%s' "${t:-$TASK}"
+}
+
+# Ask the model to pick a concise session name for the task. Falls back to the
+# heuristic derive_session_name if the model is unavailable or fails to answer.
+generate_session_name() {
+  local prompt out line
+  prompt="Given this task for the Budgie repo:
+$TASK
+
+Write ONE concise session title (max 5 words, no punctuation, no quotes).
+Output ONLY that title, nothing else."
+  out="$(opencode run --model "$MODEL" "$prompt" 2>/dev/null || true)"
+  line="$(printf '%s\n' "$out" | grep -vE '^\s*$' | tail -1 || true)"
+  line="$(printf '%s' "$line" | tr -c 'a-zA-Z0-9 ' ' ' | tr -s ' ' | sed -E 's/^ | $//g' | cut -c1-40)"
+  printf '%s' "${line:-$(derive_session_name)}"
+}
+
+# Detect a single "QUESTION: ..." line the agent emitted in $RUN_LOG. If found,
+# returns it (non-empty) so the caller can relay it to the user and retry.
+extract_question() {
+  jq -r 'select(.type=="text") | .part.text' "$RUN_LOG" 2>/dev/null \
+    | grep -E '^QUESTION: ' | head -1 | sed 's/^QUESTION: //' || true
+}
+
+# Run the agent in a clarification loop: if it asks "QUESTION: ...", show it to
+# the user on the terminal, read the answer, and retry the same session with the
+# answer appended. Stops when the agent stops asking (or after MAX_QUESTIONS).
+run_agent() {
+  local i=0 question answer prompt="$1"
+  run_agent_pass "$prompt"
+  while (( i < MAX_QUESTIONS )); do
+    question="$(extract_question)"
+    if [[ -z "$question" ]]; then
+      return 0
+    fi
+    ((i++))
+    echo ""
+    echo "  The agent needs clarification:"
+    echo "  → $question"
+    printf '  Your answer (or leave empty to abort): '
+    if [[ ! -t 0 ]]; then
+      read -r answer </dev/tty || { echo ""; echo "  WARN: no terminal available to answer — aborting loop." >&2; return 0; }
+    else
+      read -r answer || answer=""
+    fi
+    if [[ -z "$answer" ]]; then
+      echo "  No answer provided — stopping (agent left a pending question)." >&2
+      return 0
+    fi
+    echo ""
+    echo "  Retrying session with your answer…"
+    run_agent_pass "$answer"
+  done
+  echo "  WARN: reached max clarifications ($MAX_QUESTIONS) — continuing with last result." >&2
+}
+
 LOGS="$ROOT/harness/logs"
 mkdir -p "$LOGS"
 TS="$(date +%Y%m%d-%H%M%S)"
@@ -146,12 +244,14 @@ else
   BASELINE_COMMIT="$(git rev-parse HEAD)"
 fi
 
-# 2) Run the agent
+# 2) Run the agent (with clarification loop)
 echo "[2/3] Running opencode run…"
-if ! opencode run --model "$MODEL" --agent "$AGENT" --format json \
-     "$TASK" >"$RUN_LOG" 2>&1; then
-  echo "WARN: opencode run exited with error (code $?). Check $RUN_LOG" >&2
-fi
+AGENT_PROMPT="TASK: $TASK
+
+If you need clarification from the user before you can complete the task, output EXACTLY ONE line in this format and nothing else:
+QUESTION: <your question in the user's language>
+The harness will relay your question to the user and resume this same session with their answer, so you can continue the task. Only use QUESTION: when you genuinely cannot proceed without an answer."
+run_agent "$AGENT_PROMPT"
 
 # 3) Verification
 STATUS=1
@@ -175,6 +275,7 @@ fi
   echo "Task        : $TASK"
   echo "Model       : $MODEL"
   echo "Agent       : $AGENT"
+  echo "Session     : ${SESSION_NAME:-n/a} (${SESSION_ID:-n/a})"
   echo "Timestamp   : $TS"
   echo "Baseline    : $BASELINE_COMMIT"
   echo "Verification: $([[ $STATUS == 0 ]] && echo PASS || echo FAIL)"
