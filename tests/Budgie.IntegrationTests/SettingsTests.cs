@@ -2,8 +2,12 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Budgie.Modules.Users.Application.Settings.UpdateSettings;
+using Budgie.Modules.Users.Domain;
+using Budgie.Modules.Users.Infrastructure.Database;
 using Budgie.Shared.Enums;
 using FluentAssertions;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace Budgie.IntegrationTests;
@@ -46,6 +50,37 @@ public class SettingsTests : IClassFixture<BudgieWebApplicationFactory>
         // 5. Try to access dashboard again (should be allowed)
         var dashboardResponse2 = await _client.GetAsync("/api/finances/reports/dashboard");
         dashboardResponse2.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task Session_WhenUserDeleted_ShouldReturnUnauthorized()
+    {
+        // 1. Register + Login
+        var email = $"test_{Guid.NewGuid()}@example.com";
+        var regResponse = await _client.PostAsJsonAsync("/api/users/register", new { Email = email, Password = "Password123!", Name = "Test User" });
+        regResponse.EnsureSuccessStatusCode();
+
+        var loginResponse = await _client.PostAsJsonAsync("/api/users/login", new { Email = email, Password = "Password123!" });
+        loginResponse.EnsureSuccessStatusCode();
+        var loginResult = await loginResponse.Content.ReadFromJsonAsync<LoginResult>();
+
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", loginResult!.Token);
+
+        // 2. Delete the user (simulates a wiped database after the token was issued)
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<UsersDbContext>();
+            var user = await db.Users.FirstAsync(u => u.Email == email);
+            db.Users.Remove(user);
+            await db.SaveChangesAsync();
+        }
+
+        // 3. Every protected route must reject the stale session
+        var settingsResponse = await _client.GetAsync("/api/users/settings");
+        settingsResponse.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+
+        var dashboardResponse = await _client.GetAsync("/api/finances/reports/dashboard");
+        dashboardResponse.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
     private record LoginResult(string Token);

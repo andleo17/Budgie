@@ -16,6 +16,8 @@ using OpenTelemetry;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
 using Scalar.AspNetCore;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -96,6 +98,28 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidAudience = builder.Configuration["Jwt:Audience"] ?? "Budgie",
             IssuerSigningKey = new SymmetricSecurityKey(
                 Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Secret"] ?? "a-very-long-and-secure-secret-key-123456789"))
+        };
+
+        options.Events = new JwtBearerEvents
+        {
+            OnTokenValidated = async context =>
+            {
+                var userIdClaim = context.Principal?.FindFirstValue(ClaimTypes.NameIdentifier)
+                                  ?? context.Principal?.FindFirstValue(JwtRegisteredClaimNames.Sub);
+
+                if (!Guid.TryParse(userIdClaim, out var userId))
+                {
+                    context.Fail("Invalid token: missing user identifier.");
+                    return;
+                }
+
+                var dbContext = context.HttpContext.RequestServices.GetRequiredService<UsersDbContext>();
+                var userExists = await dbContext.Users.AnyAsync(u => u.Id == userId);
+                if (!userExists)
+                {
+                    context.Fail("User no longer exists.");
+                }
+            }
         };
     });
 
