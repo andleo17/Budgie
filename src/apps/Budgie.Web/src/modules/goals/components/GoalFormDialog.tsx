@@ -174,6 +174,7 @@ export default function GoalFormDialog({
                         <Combobox
                           items={sorted}
                           itemToStringValue={(a) => `${a.name} (${a.currency})`}
+                          itemToStringLabel={(a) => `${a.name} (${a.currency})`}
                           value={selected}
                           onValueChange={(a) => field.onChange(a?.id ?? "")}
                         >

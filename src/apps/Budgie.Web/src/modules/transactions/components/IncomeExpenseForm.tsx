@@ -364,6 +364,7 @@ const sorted = accounts ?? [];
                   <Combobox
                     items={sorted}
                     itemToStringValue={(a) => a.name}
+                    itemToStringLabel={(a) => a.name}
                     value={selected}
                     onValueChange={(a) => field.onChange(a?.id ?? "")}
                   >

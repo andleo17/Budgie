@@ -257,6 +257,7 @@ export function CollectionPaymentForm({ defaultAccountId, onSuccess, onCancel }:
         <Combobox
           items={persons ?? []}
           itemToStringValue={(p) => p.name}
+          itemToStringLabel={(p) => p.name}
           value={(persons ?? []).find((p) => p.id === selectedPersonId) ?? null}
           onValueChange={(p) => p && handlePersonChange(p.id)}
         >
@@ -287,6 +288,7 @@ export function CollectionPaymentForm({ defaultAccountId, onSuccess, onCancel }:
                 <Combobox
                   items={accounts ?? []}
                   itemToStringValue={(a) => `${a.name} (${a.currency})`}
+                  itemToStringLabel={(a) => `${a.name} (${a.currency})`}
                   value={selectedAccount ?? null}
                   onValueChange={(a) => a && setAccountId(a.id)}
                 >

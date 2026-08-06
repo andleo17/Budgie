@@ -125,6 +125,7 @@ export function TransferForm({ defaultAccountId, onSuccess, onCancel }: Transfer
               <Combobox
                 items={sorted}
                 itemToStringValue={(a) => `${a.name} (${a.currency})`}
+                itemToStringLabel={(a) => `${a.name} (${a.currency})`}
                 value={selected}
                 onValueChange={(a) => field.onChange(a?.id ?? "")}
               >
@@ -157,6 +158,7 @@ export function TransferForm({ defaultAccountId, onSuccess, onCancel }: Transfer
               <Combobox
                 items={sorted}
                 itemToStringValue={(a) => `${a.name} (${a.currency})`}
+                itemToStringLabel={(a) => `${a.name} (${a.currency})`}
                 value={selected}
                 onValueChange={(a) => field.onChange(a?.id ?? "")}
               >

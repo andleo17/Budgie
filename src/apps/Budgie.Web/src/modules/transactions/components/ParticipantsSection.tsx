@@ -81,6 +81,7 @@ export function ParticipantsSection({ participants, onChange, accounts, currency
           <Combobox<PersonResponse>
             items={availablePersons}
             itemToStringValue={(p: PersonResponse) => p.name}
+            itemToStringLabel={(p: PersonResponse) => p.name}
             onValueChange={(p: PersonResponse | null) => p && addPerson(p.id)}
           >
             <ComboboxTrigger
@@ -180,6 +181,7 @@ export function ParticipantsSection({ participants, onChange, accounts, currency
                   <Combobox<AccountResponse>
                     items={sortedAccounts}
                     itemToStringValue={(a: AccountResponse) => a.name}
+                    itemToStringLabel={(a: AccountResponse) => a.name}
                     value={sortedAccounts.find((a: AccountResponse) => a.id === p.destinationAccountId) ?? null}
                     onValueChange={(a: AccountResponse | null) => updatePerson(i, { destinationAccountId: a?.id ?? undefined })}
                   >
