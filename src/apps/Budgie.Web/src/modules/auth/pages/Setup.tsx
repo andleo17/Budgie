@@ -8,10 +8,12 @@ import { useMutation } from "@tanstack/react-query";
 import client from "@/lib/api-client";
 import { useAuth } from "@/modules/auth/useAuth";
 import { Button } from "@/components/ui/button";
-import { Loader2, Activity, Wallet, CreditCard } from "lucide-react";
+import { Loader2, Activity, Languages, Wallet, CreditCard, Settings2 } from "lucide-react";
 import { SetupStepIndicator } from "../components/SetupStepIndicator";
+import { SetupLanguageStep } from "../components/SetupLanguageStep";
 import { SetupCurrencyStep } from "../components/SetupCurrencyStep";
 import { SetupCreditStep } from "../components/SetupCreditStep";
+import { SetupPreferencesStep } from "../components/SetupPreferencesStep";
 import { AuthErrorBanner } from "../components/AuthErrorBanner";
 
 export default function Setup() {
@@ -23,8 +25,12 @@ export default function Setup() {
   const form = useForm<SetupFormValues>({
     resolver: zodResolver(setupSchema),
     defaultValues: {
+      language: "en",
       mainCurrency: "USD",
       defaultCreditConsumptionMode: "0",
+      transactionPageSize: 100,
+      defaultRecurringApplicability: "1",
+      autoApplyOnLoad: true,
     },
   });
 
@@ -39,6 +45,11 @@ export default function Setup() {
     mutationFn: async (body: {
       mainCurrency: string;
       defaultCreditConsumptionMode: number;
+      supportedCurrencies: string[];
+      language: string;
+      transactionPageSize: number;
+      defaultRecurringApplicability: number;
+      autoApplyOnLoad: boolean;
     }) => {
       const { error } = await client.POST("/api/users/settings/setup", {
         body,
@@ -53,6 +64,11 @@ export default function Setup() {
 
   const steps = [
     {
+      icon: Languages,
+      title: t("setup.language.title"),
+      description: t("setup.language.description"),
+    },
+    {
       icon: Wallet,
       title: t("setup.currency.title"),
       description: t("setup.currency.description"),
@@ -62,6 +78,11 @@ export default function Setup() {
       title: t("setup.credit.title"),
       description: t("setup.credit.description"),
     },
+    {
+      icon: Settings2,
+      title: t("setup.preferences.title"),
+      description: t("setup.preferences.description"),
+    },
   ];
 
   const isLastStep = step === steps.length - 1;
@@ -69,9 +90,22 @@ export default function Setup() {
   const StepIcon = currentStep.icon;
 
   const handleNext = async () => {
-    const valid = await (step === 0
-      ? trigger("mainCurrency")
-      : trigger("defaultCreditConsumptionMode"));
+    const valid = await (() => {
+      switch (step) {
+        case 0:
+          return trigger("language");
+        case 1:
+          return trigger("mainCurrency");
+        case 2:
+          return trigger("defaultCreditConsumptionMode");
+        default:
+          return trigger([
+            "transactionPageSize",
+            "defaultRecurringApplicability",
+            "autoApplyOnLoad",
+          ]);
+      }
+    })();
     if (!valid) return;
 
     if (!isLastStep) {
@@ -79,10 +113,22 @@ export default function Setup() {
       return;
     }
 
-    const { mainCurrency, defaultCreditConsumptionMode } = getValues();
+    const {
+      mainCurrency,
+      defaultCreditConsumptionMode,
+      language,
+      transactionPageSize,
+      defaultRecurringApplicability,
+      autoApplyOnLoad,
+    } = getValues();
     updateSettingMutation.mutate({
       mainCurrency,
       defaultCreditConsumptionMode: parseInt(defaultCreditConsumptionMode, 10),
+      supportedCurrencies: [mainCurrency],
+      language,
+      transactionPageSize,
+      defaultRecurringApplicability: parseInt(defaultRecurringApplicability, 10),
+      autoApplyOnLoad,
     });
   };
 
@@ -130,11 +176,19 @@ export default function Setup() {
           />
 
           {step === 0 && (
-            <SetupCurrencyStep control={control} errors={errors} t={t} />
+            <SetupLanguageStep control={control} t={t} />
           )}
 
           {step === 1 && (
+            <SetupCurrencyStep control={control} errors={errors} t={t} />
+          )}
+
+          {step === 2 && (
             <SetupCreditStep control={control} errors={errors} t={t} />
+          )}
+
+          {step === 3 && (
+            <SetupPreferencesStep control={control} errors={errors} t={t} />
           )}
 
           <div className="mt-8 flex items-center gap-3">

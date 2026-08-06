@@ -77,6 +77,11 @@ const es = {
   setup: {
     title: "Configura Budgie",
     subtitle: "Solo un par de preferencias antes de empezar",
+    language: {
+      title: "Idioma",
+      description: "Elige el idioma que quieres usar.",
+      label: "Idioma preferido",
+    },
     currency: {
       title: "Moneda base",
       description: "Define tu moneda principal para informes y conversiones.",
@@ -93,6 +98,15 @@ const es = {
       totalDesc: "El monto total de la compra se descuenta de tu crédito disponible de inmediato.",
       partial: "Consumo parcial por cuota",
       partialDesc: "Cada cuota se descuenta individualmente de tu crédito disponible.",
+    },
+    preferences: {
+      title: "Preferencias",
+      description: "Revisa el resto de configuraciones: ya tienen valores por defecto sensatos.",
+      pageSize: "Tamaño de página",
+      pageSizeDesc: "Máximo de transacciones a mostrar sin paginación.",
+      applicability: "Aplicabilidad por defecto de las transacciones repetitivas",
+      autoApply: "Aplicar transacciones repetitivas automáticamente al iniciar",
+      autoApplyDesc: "Crear automáticamente las transacciones repetitivas vencidas al cargar la app.",
     },
     back: "Atrás",
     continue: "Continuar",

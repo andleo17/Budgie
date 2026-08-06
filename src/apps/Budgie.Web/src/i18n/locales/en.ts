@@ -77,6 +77,11 @@ const en = {
   setup: {
     title: "Let's set up Budgie",
     subtitle: "Just a couple of preferences before we start",
+    language: {
+      title: "Language",
+      description: "Choose the language you want to use.",
+      label: "Preferred language",
+    },
     currency: {
       title: "Base currency",
       description: "Set your primary currency for reports and conversion.",
@@ -92,6 +97,15 @@ const en = {
       totalDesc: "The full purchase amount is deducted from your available credit immediately.",
       partial: "Per-installment consumption",
       partialDesc: "Each installment is deducted individually from your available credit.",
+    },
+    preferences: {
+      title: "Preferences",
+      description: "Review the remaining settings — they already use sensible defaults.",
+      pageSize: "Page size",
+      pageSizeDesc: "Maximum transactions to show without pagination.",
+      applicability: "Default applicability for recurring transactions",
+      autoApply: "Auto-apply recurring transactions on start",
+      autoApplyDesc: "Automatically create due recurring transactions when the app loads.",
     },
     back: "Back",
     continue: "Continue",
