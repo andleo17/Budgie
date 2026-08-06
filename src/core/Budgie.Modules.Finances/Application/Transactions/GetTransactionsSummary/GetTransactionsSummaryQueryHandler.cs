@@ -8,11 +8,15 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Budgie.Modules.Finances.Application.Transactions.GetTransactionsSummary;
 
-internal sealed class GetTransactionsSummaryQueryHandler(FinancesDbContext dbContext)
+internal sealed class GetTransactionsSummaryQueryHandler(
+    FinancesDbContext dbContext,
+    IUserSettingsProvider settingsProvider)
     : IRequestHandler<GetTransactionsSummaryQuery, ErrorOr<GetTransactionsSummaryResponse>>
 {
     public async Task<ErrorOr<GetTransactionsSummaryResponse>> Handle(GetTransactionsSummaryQuery request, CancellationToken cancellationToken)
     {
+        var mainCurrency = await settingsProvider.GetMainCurrencyAsync();
+
         var query = dbContext.Transactions
             .Include(t => t.Account)
             .Where(t => t.ParentTransactionId == null)
@@ -43,10 +47,6 @@ internal sealed class GetTransactionsSummaryQueryHandler(FinancesDbContext dbCon
             })
             .OrderByDescending(c => Math.Abs(c.Balance))
             .ToList();
-
-        var mainCurrency = byCurrency.Count != 0
-            ? byCurrency.First().Currency
-            : "USD";
 
         var approximateIncome = 0m;
         var approximateExpenses = 0m;

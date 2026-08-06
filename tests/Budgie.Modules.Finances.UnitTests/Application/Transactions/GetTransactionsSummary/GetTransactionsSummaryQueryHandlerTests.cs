@@ -16,6 +16,7 @@ public class GetTransactionsSummaryQueryHandlerTests
     private readonly FinancesDbContext _dbContext;
     private readonly GetTransactionsSummaryQueryHandler _handler;
     private readonly ICurrentUserProvider _currentUserProvider;
+    private readonly IUserSettingsProvider _settingsProvider;
     private readonly Guid _userId = Guid.NewGuid();
 
     public GetTransactionsSummaryQueryHandlerTests()
@@ -23,12 +24,15 @@ public class GetTransactionsSummaryQueryHandlerTests
         _currentUserProvider = Substitute.For<ICurrentUserProvider>();
         _currentUserProvider.UserId.Returns(_userId);
 
+        _settingsProvider = Substitute.For<IUserSettingsProvider>();
+        _settingsProvider.GetMainCurrencyAsync().Returns("USD");
+
         var options = new DbContextOptionsBuilder<FinancesDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
 
         _dbContext = new FinancesDbContext(options, _currentUserProvider);
-        _handler = new GetTransactionsSummaryQueryHandler(_dbContext);
+        _handler = new GetTransactionsSummaryQueryHandler(_dbContext, _settingsProvider);
     }
 
     [Fact]
@@ -90,5 +94,39 @@ public class GetTransactionsSummaryQueryHandlerTests
 
         result.IsError.Should().BeFalse();
         result.Value.Currencies[0].Income.Should().Be(500m);
+    }
+
+    [Fact]
+    public async Task Handle_ShouldUseUserMainCurrency()
+    {
+        _settingsProvider.GetMainCurrencyAsync().Returns("PEN");
+        var account = Account.Create(_userId, "Bank", "USD", 2000m);
+        _dbContext.Accounts.Add(account);
+        var now = DateTime.UtcNow;
+        var start = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+        _dbContext.Transactions.Add(
+            Transaction.Create(_userId, account.Id, null, 1000m, "USD", 1m, start.AddDays(2), "Salary", TransactionType.Income));
+        await _dbContext.SaveChangesAsync();
+
+        var result = await _handler.Handle(
+            new GetTransactionsSummaryQuery(start, start.AddMonths(1)), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        result.Value.MainCurrency.Should().Be("PEN");
+    }
+
+    [Fact]
+    public async Task Handle_NoTransactions_ShouldUseUserMainCurrency()
+    {
+        _settingsProvider.GetMainCurrencyAsync().Returns("PEN");
+        var now = DateTime.UtcNow;
+        var start = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+
+        var result = await _handler.Handle(
+            new GetTransactionsSummaryQuery(start, start.AddMonths(1)), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        result.Value.MainCurrency.Should().Be("PEN");
+        result.Value.Currencies.Should().BeEmpty();
     }
 }
