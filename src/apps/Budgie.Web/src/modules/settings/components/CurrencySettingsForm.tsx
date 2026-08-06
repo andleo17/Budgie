@@ -23,6 +23,13 @@ export function CurrencySettingsForm({ settingsData }: CurrencySettingsFormProps
   const queryClient = useQueryClient()
 
   const [supported, setSupported] = useState<string[]>(() => settingsData?.supportedCurrencies ?? [])
+  const [prevSettings, setPrevSettings] = useState(settingsData)
+  if (settingsData !== prevSettings) {
+    setPrevSettings(settingsData)
+    if (settingsData?.supportedCurrencies?.length) {
+      setSupported(settingsData.supportedCurrencies)
+    }
+  }
 
   const currencyOptions = enrichCurrencies(supported, i18n.language)
   const allCurrencies = getCurrencies(i18n.language)
