@@ -39,6 +39,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
 
   const setToken = useCallback((newToken: string | null) => {
+    if (newToken) {
+      localStorage.setItem('token', newToken);
+      startTransition(() => setIsLoading(true));
+    } else {
+      localStorage.removeItem('token');
+      localStorage.removeItem('refreshToken');
+    }
     setTokenState(newToken);
     setUser(decodeUser(newToken));
   }, []);
@@ -71,7 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (token) {
-      localStorage.setItem('token', token);
+      startTransition(() => setIsLoading(true));
       setTimeout(() =>
         checkSettings().finally(() => startTransition(() => setIsLoading(false))),
         0
