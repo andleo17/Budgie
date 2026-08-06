@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -16,14 +17,23 @@ interface AccountFormDialogProps {
 
 export function AccountFormDialog({ open, onOpenChange, account }: AccountFormDialogProps) {
   const close = () => onOpenChange(false);
-  const isEditing = !!account;
-  const dialogKey = account?.id ?? "create";
+
+  const [formAccount, setFormAccount] = useState<AccountResponse | null>(account ?? null);
+  const [prevOpen, setPrevOpen] = useState(open);
+
+  if (open !== prevOpen) {
+    setPrevOpen(open);
+    if (open) setFormAccount(account ?? null);
+  }
+
+  const isEditing = !!formAccount;
+  const dialogKey = formAccount?.id ?? "create";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent key={dialogKey}>
         {isEditing
-          ? <EditAccountForm key={`edit-${account!.id}`} account={account!} onSuccess={close} />
+          ? <EditAccountForm key={`edit-${formAccount!.id}`} account={formAccount!} onSuccess={close} />
           : <CreateAccountForm key="create" onSuccess={close} onCancel={close} />
         }
       </DialogContent>
