@@ -25,15 +25,18 @@ public sealed record HexColor
 
     public static HexColor? FromNullable(string? value)
     {
-        if (string.IsNullOrWhiteSpace(value)) return null;
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
         return From(value);
     }
 
     public static HexColor? TryFrom(string? value)
     {
-        if (string.IsNullOrWhiteSpace(value)) return null;
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
         value = value.Trim();
-        if (!ColorRegex.IsMatch(value)) return null;
+        if (!ColorRegex.IsMatch(value))
+            return null;
         return new HexColor(value);
     }
 
