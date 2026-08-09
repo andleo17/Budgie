@@ -44,7 +44,7 @@ export function SpendingChartCard({
           </div>
         ) : spending && spending.length > 0 ? (
           <div className="h-87.5">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height={350}>
               <BarChart
                 data={spending}
                 margin={{ top: 20, right: 30, left: 20, bottom: 5 }}

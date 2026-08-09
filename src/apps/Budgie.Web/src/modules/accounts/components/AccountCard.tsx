@@ -5,11 +5,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { AreaChart, Area, Tooltip, ResponsiveContainer } from "recharts";
 import client from "@/lib/api-client";
 import type { components } from "@/lib/api-types";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -54,7 +50,11 @@ function badgeClass(typeCode: number) {
   }
 }
 
-export function AccountCard({ account, dailyBalances, onEdit }: AccountCardProps) {
+export function AccountCard({
+  account,
+  dailyBalances,
+  onEdit,
+}: AccountCardProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -74,47 +74,74 @@ export function AccountCard({ account, dailyBalances, onEdit }: AccountCardProps
 
   const isCredit = account.type === AccountType.Credit;
   const balance = Number(account.balance);
-  const creditLimit = account.creditLimit != null ? Number(account.creditLimit) : null;
+  const creditLimit =
+    account.creditLimit != null ? Number(account.creditLimit) : null;
 
-  const sparklineData = dailyBalances.map((value, index) => ({ day: index, value }));
+  const sparklineData = dailyBalances.map((value, index) => ({
+    day: index,
+    value,
+  }));
 
   return (
     <>
       <Card
         className="group cursor-pointer transition-all hover:shadow-md"
         onClick={(e) => {
-          if ((e.target as HTMLElement).closest('[data-slot="dropdown-menu-trigger"], [data-slot="dropdown-menu-content"]')) return;
+          if (
+            (e.target as HTMLElement).closest(
+              '[data-slot="dropdown-menu-trigger"], [data-slot="dropdown-menu-content"]',
+            )
+          )
+            return;
           const now = new Date();
-          if (account.type === AccountType.Credit && account.billingCycleDay != null) {
+          if (
+            account.type === AccountType.Credit &&
+            account.billingCycleDay != null
+          ) {
             const periodKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-            navigate(`/transactions?accounts=${account.id}&period=${periodKey}`);
+            navigate(
+              `/transactions?accounts=${account.id}&period=${periodKey}`,
+            );
           } else {
             const periodKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-            navigate(`/transactions?accounts=${account.id}&period=${periodKey}`);
+            navigate(
+              `/transactions?accounts=${account.id}&period=${periodKey}`,
+            );
           }
         }}
       >
         <CardHeader className="flex flex-row items-start justify-between gap-2 p-4 pb-0">
           <div className="flex items-center gap-2 min-w-0">
             <span className="font-semibold truncate">{account.name}</span>
-            <Badge variant="outline" className={cn("shrink-0", badgeClass(account.type))}>
+            <Badge
+              variant="outline"
+              className={cn("shrink-0", badgeClass(account.type))}
+            >
               {t(`accounts.${ACCOUNT_TYPE_LABELS[account.type] ?? "unknown"}`)}
             </Badge>
           </div>
-            <DropdownMenu>
+          <DropdownMenu>
             <DropdownMenuTrigger
-              render={<Button variant="ghost" size="icon-xs" className="size-6" />}
+              render={
+                <Button variant="ghost" size="icon-xs" className="size-6" />
+              }
             >
               <MoreHorizontal className="size-4" />
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="min-w-40" onClick={(e) => e.stopPropagation()}>
+            <DropdownMenuContent
+              align="end"
+              className="min-w-40"
+              onClick={(e) => e.stopPropagation()}
+            >
               <DropdownMenuItem onClick={() => onEdit(account)}>
                 <Pencil className="mr-2 size-4" />
                 <span className="whitespace-nowrap">{t("accounts.edit")}</span>
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setDeleteOpen(true)}>
                 <Trash2 className="mr-2 size-4" />
-                <span className="whitespace-nowrap">{t("accounts.delete")}</span>
+                <span className="whitespace-nowrap">
+                  {t("accounts.delete")}
+                </span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -122,24 +149,48 @@ export function AccountCard({ account, dailyBalances, onEdit }: AccountCardProps
         <CardContent className="p-4 pt-2">
           {isCredit && creditLimit !== null ? (
             <div className="mb-1">
-              <span className="text-2xl font-bold">{formatCurrency(balance, account.currency)}</span>
-              <span className="text-muted-foreground text-sm ml-1">
-                {t("accounts.of")} {formatCurrency(creditLimit, account.currency)}
+              <span className="text-2xl font-bold">
+                {formatCurrency(balance, account.currency)}
               </span>
-              <div className="text-xs text-muted-foreground">{t("accounts.availableCredit")}</div>
+              <span className="text-muted-foreground text-sm ml-1">
+                {t("accounts.of")}{" "}
+                {formatCurrency(creditLimit, account.currency)}
+              </span>
+              <div className="text-xs text-muted-foreground">
+                {t("accounts.availableCredit")}
+              </div>
             </div>
           ) : (
             <div className="mb-1">
-              <span className="text-2xl font-bold">{formatCurrency(balance, account.currency)}</span>
+              <span className="text-2xl font-bold">
+                {formatCurrency(balance, account.currency)}
+              </span>
             </div>
           )}
           <div className="h-10 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={sparklineData} margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
+            <ResponsiveContainer width="100%" height={40}>
+              <AreaChart
+                data={sparklineData}
+                margin={{ top: 0, right: 0, bottom: 0, left: 0 }}
+              >
                 <defs>
-                  <linearGradient id={`sf-${account.id}`} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                  <linearGradient
+                    id={`sf-${account.id}`}
+                    x1="0"
+                    y1="0"
+                    x2="0"
+                    y2="1"
+                  >
+                    <stop
+                      offset="5%"
+                      stopColor="hsl(var(--primary))"
+                      stopOpacity={0.3}
+                    />
+                    <stop
+                      offset="95%"
+                      stopColor="hsl(var(--primary))"
+                      stopOpacity={0}
+                    />
                   </linearGradient>
                 </defs>
                 <Tooltip
@@ -172,8 +223,12 @@ export function AccountCard({ account, dailyBalances, onEdit }: AccountCardProps
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent onClick={(e) => e.stopPropagation()}>
           <AlertDialogHeader>
-            <AlertDialogTitle>{t("accounts.deleteConfirmTitle")}</AlertDialogTitle>
-            <AlertDialogDescription>{t("accounts.deleteConfirmDesc")}</AlertDialogDescription>
+            <AlertDialogTitle>
+              {t("accounts.deleteConfirmTitle")}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("accounts.deleteConfirmDesc")}
+            </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>{t("accounts.cancel")}</AlertDialogCancel>
@@ -185,7 +240,9 @@ export function AccountCard({ account, dailyBalances, onEdit }: AccountCardProps
               }}
               disabled={deleteMutation.isPending}
             >
-              {deleteMutation.isPending && <Loader2 className="mr-1 size-4 animate-spin" />}
+              {deleteMutation.isPending && (
+                <Loader2 className="mr-1 size-4 animate-spin" />
+              )}
               {t("accounts.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
