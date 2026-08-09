@@ -72,7 +72,7 @@ public class RegisterUserCommandHandlerTests
         var handler = new RegisterUserCommandHandler(_dbContext, NullLogger<RegisterUserCommandHandler>.Instance);
         var command = new RegisterUserCommand("not-an-email", "password123", "Test User");
 
-        Func<Task> act = () => handler.Handle(command, CancellationToken.None);
+        Func<Task> act = () => handler.Handle(command, CancellationToken.None).AsTask();
 
         await act.Should().ThrowExactlyAsync<ArgumentException>();
     }
@@ -83,7 +83,7 @@ public class RegisterUserCommandHandlerTests
         var handler = new RegisterUserCommandHandler(_dbContext, NullLogger<RegisterUserCommandHandler>.Instance);
         var command = new RegisterUserCommand("test@example.com", "password123", "");
 
-        Func<Task> act = () => handler.Handle(command, CancellationToken.None);
+        Func<Task> act = () => handler.Handle(command, CancellationToken.None).AsTask();
 
         await act.Should().ThrowExactlyAsync<ArgumentException>();
     }
@@ -94,7 +94,7 @@ public class RegisterUserCommandHandlerTests
         var handler = new RegisterUserCommandHandler(_dbContext, NullLogger<RegisterUserCommandHandler>.Instance);
         var command = new RegisterUserCommand("test@example.com", "password123", null!);
 
-        Func<Task> act = () => handler.Handle(command, CancellationToken.None);
+        Func<Task> act = () => handler.Handle(command, CancellationToken.None).AsTask();
 
         await act.Should().ThrowExactlyAsync<ArgumentException>();
     }

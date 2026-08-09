@@ -36,6 +36,10 @@ builder.Services
     .AddFinancesModule()
     .AddRelationshipsModule();
 
+// Mediator (CQRS): handlers live in the module assemblies, generated mediator lives here.
+// Scoped lifetime so handlers can safely depend on scoped DbContexts and ICurrentUserProvider.
+builder.Services.AddMediator(options => options.ServiceLifetime = ServiceLifetime.Scoped);
+
 // Database
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserProvider, CurrentUserProvider>();

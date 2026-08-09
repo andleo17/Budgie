@@ -3,7 +3,7 @@ using Budgie.Shared.Domain.ValueObjects;
 using Budgie.Shared.Enums;
 using Budgie.Modules.Finances.Infrastructure.Database;
 using ErrorOr;
-using MediatR;
+using Mediator;
 using Microsoft.EntityFrameworkCore;
 
 namespace Budgie.Modules.Finances.Application.Transactions.GetTransactionsSummary;
@@ -13,7 +13,7 @@ internal sealed class GetTransactionsSummaryQueryHandler(
     IUserSettingsProvider settingsProvider)
     : IRequestHandler<GetTransactionsSummaryQuery, ErrorOr<GetTransactionsSummaryResponse>>
 {
-    public async Task<ErrorOr<GetTransactionsSummaryResponse>> Handle(GetTransactionsSummaryQuery request, CancellationToken cancellationToken)
+    public async ValueTask<ErrorOr<GetTransactionsSummaryResponse>> Handle(GetTransactionsSummaryQuery request, CancellationToken cancellationToken)
     {
         var mainCurrency = await settingsProvider.GetMainCurrencyAsync();
 

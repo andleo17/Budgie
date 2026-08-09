@@ -6,7 +6,6 @@ using Budgie.Modules.Finances.Infrastructure.Database;
 using Budgie.Shared.Abstractions;
 using ErrorOr;
 using FluentAssertions;
-using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
@@ -241,7 +240,7 @@ public class CategoryCrudHandlersTests
         var handler = new CreateCategoryCommandHandler(_dbContext, _currentUserProvider, NullLogger<CreateCategoryCommandHandler>.Instance);
         var command = new CreateCategoryCommand(" ", null, null, 1);
 
-        await Assert.ThrowsAsync<ArgumentException>(() => handler.Handle(command, CancellationToken.None));
+        await Assert.ThrowsAsync<ArgumentException>(() => handler.Handle(command, CancellationToken.None).AsTask());
     }
 
     [Fact]
@@ -273,7 +272,7 @@ public class CategoryCrudHandlersTests
         var handler = new UpdateCategoryCommandHandler(_dbContext, NullLogger<UpdateCategoryCommandHandler>.Instance);
         var command = new UpdateCategoryCommand(category.Id, "", null, null);
 
-        await Assert.ThrowsAsync<ArgumentException>(() => handler.Handle(command, CancellationToken.None));
+        await Assert.ThrowsAsync<ArgumentException>(() => handler.Handle(command, CancellationToken.None).AsTask());
     }
 
     [Fact]

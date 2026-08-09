@@ -4,7 +4,7 @@ using Budgie.Modules.Relationships.Infrastructure.Database;
 using Budgie.Modules.Relationships.Infrastructure.Logging;
 using Budgie.Shared.Abstractions;
 using ErrorOr;
-using MediatR;
+using Mediator;
 using Microsoft.EntityFrameworkCore;
 
 namespace Budgie.Modules.Relationships.Application.Persons.CreatePerson;
@@ -15,7 +15,7 @@ internal sealed class CreatePersonCommandHandler(
     ILogger<CreatePersonCommandHandler> logger)
     : IRequestHandler<CreatePersonCommand, ErrorOr<Guid>>
 {
-    public async Task<ErrorOr<Guid>> Handle(CreatePersonCommand request, CancellationToken cancellationToken)
+    public async ValueTask<ErrorOr<Guid>> Handle(CreatePersonCommand request, CancellationToken cancellationToken)
     {
         var userId = currentUserProvider.GetUserId();
         var person = Person.Create(userId, request.Name);

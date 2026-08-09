@@ -3,7 +3,7 @@ using Budgie.Modules.Finances.Infrastructure.Database;
 using Budgie.Shared.Abstractions;
 using Budgie.Shared.Domain.ValueObjects;
 using ErrorOr;
-using MediatR;
+using Mediator;
 using Microsoft.EntityFrameworkCore;
 
 namespace Budgie.Modules.Finances.Application.RecurringTransactions.GetRecurringTransactions;
@@ -13,7 +13,7 @@ internal sealed class GetRecurringTransactionsQueryHandler(
     ICurrentUserProvider currentUserProvider)
     : IRequestHandler<GetRecurringTransactionsQuery, ErrorOr<List<RecurringTransactionResponse>>>
 {
-    public async Task<ErrorOr<List<RecurringTransactionResponse>>> Handle(GetRecurringTransactionsQuery request, CancellationToken cancellationToken)
+    public async ValueTask<ErrorOr<List<RecurringTransactionResponse>>> Handle(GetRecurringTransactionsQuery request, CancellationToken cancellationToken)
     {
         var userId = currentUserProvider.GetUserId();
 

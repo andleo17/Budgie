@@ -1,6 +1,6 @@
 using Budgie.Shared.Enums;
 using ErrorOr;
-using MediatR;
+using Mediator;
 
 namespace Budgie.Modules.Finances.Application.Transactions.GetTransactions;
 

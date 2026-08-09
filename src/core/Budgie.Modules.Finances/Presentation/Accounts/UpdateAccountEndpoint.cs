@@ -1,6 +1,6 @@
 using Budgie.Modules.Finances.Application.Accounts.UpdateAccount;
 using Budgie.Shared.Enums;
-using MediatR;
+using Mediator;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;

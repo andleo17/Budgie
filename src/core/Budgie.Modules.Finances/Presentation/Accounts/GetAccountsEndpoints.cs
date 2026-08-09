@@ -2,7 +2,7 @@ using Budgie.Modules.Finances.Application.Accounts;
 using Budgie.Modules.Finances.Application.Accounts.GetAccounts;
 using Budgie.Modules.Finances.Application.Accounts.GetAccountById;
 using ErrorOr;
-using MediatR;
+using Mediator;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;

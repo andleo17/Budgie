@@ -10,11 +10,6 @@ public static class RelationshipsModule
 {
     public static IServiceCollection AddRelationshipsModule(this IServiceCollection services)
     {
-        services.AddMediatR(config =>
-        {
-            config.RegisterServicesFromAssembly(typeof(RelationshipsModule).Assembly);
-        });
-
         return services;
     }
 

@@ -2,7 +2,7 @@ using Budgie.Modules.Relationships.Application.Tags;
 using Budgie.Modules.Relationships.Application.Tags.DeleteTag;
 using Budgie.Modules.Relationships.Application.Tags.GetTags;
 using Budgie.Modules.Relationships.Application.Tags.UpdateTag;
-using MediatR;
+using Mediator;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;

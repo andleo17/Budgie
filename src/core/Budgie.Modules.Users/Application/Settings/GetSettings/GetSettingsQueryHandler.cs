@@ -2,7 +2,7 @@ using Budgie.Modules.Users.Infrastructure.Database;
 using Budgie.Shared.Abstractions;
 using Budgie.Shared.Enums;
 using ErrorOr;
-using MediatR;
+using Mediator;
 using Microsoft.EntityFrameworkCore;
 
 namespace Budgie.Modules.Users.Application.Settings.GetSettings;
@@ -12,7 +12,7 @@ internal sealed class GetSettingsQueryHandler(
     ICurrentUserProvider currentUserProvider)
     : IRequestHandler<GetSettingsQuery, ErrorOr<UserSettingsResponse>>
 {
-    public async Task<ErrorOr<UserSettingsResponse>> Handle(GetSettingsQuery request, CancellationToken cancellationToken)
+    public async ValueTask<ErrorOr<UserSettingsResponse>> Handle(GetSettingsQuery request, CancellationToken cancellationToken)
     {
         var userId = currentUserProvider.GetUserId();
         var settings = await dbContext.UserSettings.FirstOrDefaultAsync(s => s.UserId == userId, cancellationToken);

@@ -3,7 +3,7 @@ using Budgie.Modules.Finances.Infrastructure.Database;
 using Budgie.Modules.Finances.Infrastructure.Logging;
 using Budgie.Shared.Abstractions;
 using ErrorOr;
-using MediatR;
+using Mediator;
 using Microsoft.EntityFrameworkCore;
 
 namespace Budgie.Modules.Finances.Application.Goals.CreateGoal;
@@ -14,7 +14,7 @@ internal sealed class CreateGoalCommandHandler(
     ILogger<CreateGoalCommandHandler> logger)
     : IRequestHandler<CreateGoalCommand, ErrorOr<Guid>>
 {
-    public async Task<ErrorOr<Guid>> Handle(CreateGoalCommand request, CancellationToken cancellationToken)
+    public async ValueTask<ErrorOr<Guid>> Handle(CreateGoalCommand request, CancellationToken cancellationToken)
     {
         var account = await dbContext.Accounts.FirstOrDefaultAsync(a => a.Id == request.AccountId, cancellationToken);
 

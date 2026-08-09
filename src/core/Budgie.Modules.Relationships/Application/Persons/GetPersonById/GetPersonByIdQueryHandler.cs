@@ -1,7 +1,7 @@
 using Budgie.Modules.Relationships.Application.Tags;
 using Budgie.Modules.Relationships.Infrastructure.Database;
 using ErrorOr;
-using MediatR;
+using Mediator;
 using Microsoft.EntityFrameworkCore;
 
 namespace Budgie.Modules.Relationships.Application.Persons.GetPersonById;
@@ -9,7 +9,7 @@ namespace Budgie.Modules.Relationships.Application.Persons.GetPersonById;
 internal sealed class GetPersonByIdQueryHandler(RelationshipsDbContext dbContext)
     : IRequestHandler<GetPersonByIdQuery, ErrorOr<PersonResponse>>
 {
-    public async Task<ErrorOr<PersonResponse>> Handle(GetPersonByIdQuery request, CancellationToken cancellationToken)
+    public async ValueTask<ErrorOr<PersonResponse>> Handle(GetPersonByIdQuery request, CancellationToken cancellationToken)
     {
         var person = await dbContext.Persons
             .Include(p => p.Tags)

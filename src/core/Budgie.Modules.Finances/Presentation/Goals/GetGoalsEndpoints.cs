@@ -1,6 +1,6 @@
 using Budgie.Modules.Finances.Application.Goals;
 using Budgie.Modules.Finances.Application.Goals.GetGoals;
-using MediatR;
+using Mediator;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;

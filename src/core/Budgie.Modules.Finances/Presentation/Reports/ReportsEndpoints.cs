@@ -3,7 +3,7 @@ using Budgie.Modules.Finances.Application.Reports.GetCategorySpending;
 using Budgie.Modules.Finances.Application.Reports.GetDashboardSummary;
 using Budgie.Modules.Finances.Application.Reports.GetGoalsStatus;
 using Budgie.Shared.Abstractions;
-using MediatR;
+using Mediator;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;

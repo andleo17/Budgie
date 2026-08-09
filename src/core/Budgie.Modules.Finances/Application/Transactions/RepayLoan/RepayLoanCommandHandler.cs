@@ -7,7 +7,7 @@ using Budgie.Shared.Abstractions;
 using Budgie.Shared.Domain.ValueObjects;
 using Budgie.Shared.Enums;
 using ErrorOr;
-using MediatR;
+using Mediator;
 using Microsoft.EntityFrameworkCore;
 
 namespace Budgie.Modules.Finances.Application.Transactions.RepayLoan;
@@ -20,7 +20,7 @@ internal sealed class RepayLoanCommandHandler(
     ILogger<RepayLoanCommandHandler> logger)
     : IRequestHandler<RepayLoanCommand, ErrorOr<Guid>>
 {
-    public async Task<ErrorOr<Guid>> Handle(RepayLoanCommand request, CancellationToken cancellationToken)
+    public async ValueTask<ErrorOr<Guid>> Handle(RepayLoanCommand request, CancellationToken cancellationToken)
     {
         var originalTransaction = await dbContext.Transactions
             .Include(t => t.Participants)

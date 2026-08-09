@@ -1,7 +1,7 @@
 using Budgie.Modules.Finances.Infrastructure.Database;
 using Budgie.Shared.Domain.ValueObjects;
 using ErrorOr;
-using MediatR;
+using Mediator;
 using Microsoft.EntityFrameworkCore;
 
 namespace Budgie.Modules.Finances.Application.Persons.GetPersonSummary;
@@ -9,7 +9,7 @@ namespace Budgie.Modules.Finances.Application.Persons.GetPersonSummary;
 internal sealed class GetPersonSummaryQueryHandler(FinancesDbContext dbContext)
     : IRequestHandler<GetPersonSummaryQuery, ErrorOr<PersonSummaryResponse>>
 {
-    public async Task<ErrorOr<PersonSummaryResponse>> Handle(GetPersonSummaryQuery request, CancellationToken cancellationToken)
+    public async ValueTask<ErrorOr<PersonSummaryResponse>> Handle(GetPersonSummaryQuery request, CancellationToken cancellationToken)
     {
         var participants = await dbContext.TransactionParticipants
             .Where(tp => tp.PersonId == request.PersonId)

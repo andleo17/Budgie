@@ -1,7 +1,7 @@
 using Budgie.Modules.Finances.Application.Transactions.CreateTransaction;
 using Budgie.Shared.Enums;
 using ErrorOr;
-using MediatR;
+using Mediator;
 
 namespace Budgie.Modules.Finances.Application.Transactions.UpdateTransaction;
 

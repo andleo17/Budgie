@@ -3,7 +3,7 @@ using Budgie.Modules.Users.Domain;
 using Budgie.Modules.Users.Infrastructure.Authentication;
 using Budgie.Modules.Users.Infrastructure.Database;
 using ErrorOr;
-using MediatR;
+using Mediator;
 using Microsoft.EntityFrameworkCore;
 
 namespace Budgie.Modules.Users.Application.Refresh;
@@ -14,7 +14,7 @@ internal sealed class RefreshCommandHandler(
     IRefreshTokenService refreshTokenService)
     : IRequestHandler<RefreshCommand, ErrorOr<LoginResponse>>
 {
-    public async Task<ErrorOr<LoginResponse>> Handle(RefreshCommand request, CancellationToken cancellationToken)
+    public async ValueTask<ErrorOr<LoginResponse>> Handle(RefreshCommand request, CancellationToken cancellationToken)
     {
         var tokenHash = refreshTokenService.HashToken(request.RefreshToken);
         var storedToken = await dbContext.RefreshTokens

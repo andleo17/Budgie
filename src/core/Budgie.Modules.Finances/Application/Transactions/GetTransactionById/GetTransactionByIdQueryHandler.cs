@@ -4,7 +4,7 @@ using Budgie.Shared.Domain.ValueObjects;
 using Budgie.Shared.Enums;
 using Budgie.Modules.Finances.Infrastructure.Database;
 using ErrorOr;
-using MediatR;
+using Mediator;
 using Microsoft.EntityFrameworkCore;
 
 namespace Budgie.Modules.Finances.Application.Transactions.GetTransactionById;
@@ -12,7 +12,7 @@ namespace Budgie.Modules.Finances.Application.Transactions.GetTransactionById;
 internal sealed class GetTransactionByIdQueryHandler(FinancesDbContext dbContext)
     : IRequestHandler<GetTransactionByIdQuery, ErrorOr<TransactionResponse>>
 {
-    public async Task<ErrorOr<TransactionResponse>> Handle(GetTransactionByIdQuery request, CancellationToken cancellationToken)
+    public async ValueTask<ErrorOr<TransactionResponse>> Handle(GetTransactionByIdQuery request, CancellationToken cancellationToken)
     {
         var transaction = await dbContext.Transactions
             .Include(t => t.Account)

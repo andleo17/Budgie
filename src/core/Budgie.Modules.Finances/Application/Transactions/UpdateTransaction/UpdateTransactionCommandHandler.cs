@@ -4,7 +4,7 @@ using Budgie.Modules.Finances.Infrastructure.Logging;
 using Budgie.Shared.Domain.ValueObjects;
 using Budgie.Shared.Enums;
 using ErrorOr;
-using MediatR;
+using Mediator;
 using Microsoft.EntityFrameworkCore;
 
 namespace Budgie.Modules.Finances.Application.Transactions.UpdateTransaction;
@@ -14,7 +14,7 @@ internal sealed class UpdateTransactionCommandHandler(
     ILogger<UpdateTransactionCommandHandler> logger)
     : IRequestHandler<UpdateTransactionCommand, ErrorOr<Success>>
 {
-    public async Task<ErrorOr<Success>> Handle(UpdateTransactionCommand request, CancellationToken cancellationToken)
+    public async ValueTask<ErrorOr<Success>> Handle(UpdateTransactionCommand request, CancellationToken cancellationToken)
     {
         var transaction = await dbContext.Transactions
             .Include(t => t.Account)

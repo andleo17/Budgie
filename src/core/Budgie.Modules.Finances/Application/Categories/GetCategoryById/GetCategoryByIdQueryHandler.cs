@@ -1,6 +1,6 @@
 using Budgie.Modules.Finances.Infrastructure.Database;
 using ErrorOr;
-using MediatR;
+using Mediator;
 using Microsoft.EntityFrameworkCore;
 
 namespace Budgie.Modules.Finances.Application.Categories.GetCategoryById;
@@ -8,7 +8,7 @@ namespace Budgie.Modules.Finances.Application.Categories.GetCategoryById;
 internal sealed class GetCategoryByIdQueryHandler(FinancesDbContext dbContext)
     : IRequestHandler<GetCategoryByIdQuery, ErrorOr<CategoryResponse>>
 {
-    public async Task<ErrorOr<CategoryResponse>> Handle(GetCategoryByIdQuery request, CancellationToken cancellationToken)
+    public async ValueTask<ErrorOr<CategoryResponse>> Handle(GetCategoryByIdQuery request, CancellationToken cancellationToken)
     {
         var category = await dbContext.Categories
             .Where(c => c.Id == request.Id)

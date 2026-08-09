@@ -7,7 +7,7 @@ using Budgie.Shared.Abstractions;
 using Budgie.Shared.Domain.ValueObjects;
 using Budgie.Shared.Enums;
 using ErrorOr;
-using MediatR;
+using Mediator;
 using Microsoft.EntityFrameworkCore;
 
 namespace Budgie.Modules.Finances.Application.Transactions.Transfer;
@@ -20,7 +20,7 @@ internal sealed class TransferCommandHandler(
     ILogger<TransferCommandHandler> logger)
     : IRequestHandler<TransferCommand, ErrorOr<Guid>>
 {
-    public async Task<ErrorOr<Guid>> Handle(TransferCommand request, CancellationToken cancellationToken)
+    public async ValueTask<ErrorOr<Guid>> Handle(TransferCommand request, CancellationToken cancellationToken)
     {
         var fromAccount = await dbContext.Accounts.FirstOrDefaultAsync(a => a.Id == request.FromAccountId, cancellationToken);
         var toAccount = await dbContext.Accounts.FirstOrDefaultAsync(a => a.Id == request.ToAccountId, cancellationToken);

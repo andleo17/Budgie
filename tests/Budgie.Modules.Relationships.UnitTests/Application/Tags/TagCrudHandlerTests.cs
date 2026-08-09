@@ -6,7 +6,6 @@ using Budgie.Modules.Relationships.Infrastructure.Database;
 using Budgie.Shared.Abstractions;
 using ErrorOr;
 using FluentAssertions;
-using MediatR;
 using Microsoft.EntityFrameworkCore;
 using NSubstitute;
 using Xunit;
@@ -52,7 +51,7 @@ public class TagCrudHandlerTests
         var handler = new CreateTagCommandHandler(_dbContext, _currentUserProvider);
         var command = new CreateTagCommand("");
 
-        var act = () => handler.Handle(command, CancellationToken.None);
+        var act = () => handler.Handle(command, CancellationToken.None).AsTask();
 
         await act.Should().ThrowAsync<ArgumentException>();
     }

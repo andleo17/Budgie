@@ -1,7 +1,7 @@
 using Budgie.Modules.Relationships.Infrastructure.Database;
 using Budgie.Modules.Relationships.Infrastructure.Logging;
 using ErrorOr;
-using MediatR;
+using Mediator;
 using Microsoft.EntityFrameworkCore;
 
 namespace Budgie.Modules.Relationships.Application.Persons.DeletePerson;
@@ -11,7 +11,7 @@ internal sealed class DeletePersonCommandHandler(
     ILogger<DeletePersonCommandHandler> logger)
     : IRequestHandler<DeletePersonCommand, ErrorOr<Success>>
 {
-    public async Task<ErrorOr<Success>> Handle(DeletePersonCommand request, CancellationToken cancellationToken)
+    public async ValueTask<ErrorOr<Success>> Handle(DeletePersonCommand request, CancellationToken cancellationToken)
     {
         var person = await dbContext.Persons.FirstOrDefaultAsync(p => p.Id == request.Id, cancellationToken);
         if (person is null) return Error.NotFound("Person.NotFound", "Person not found.");

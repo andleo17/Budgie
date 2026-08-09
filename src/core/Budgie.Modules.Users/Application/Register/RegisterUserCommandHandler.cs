@@ -2,7 +2,7 @@ using Budgie.Modules.Users.Domain;
 using Budgie.Modules.Users.Infrastructure.Database;
 using Budgie.Modules.Users.Infrastructure.Logging;
 using ErrorOr;
-using MediatR;
+using Mediator;
 using Microsoft.EntityFrameworkCore;
 using BC = BCrypt.Net.BCrypt;
 
@@ -13,7 +13,7 @@ internal sealed class RegisterUserCommandHandler(
     ILogger<RegisterUserCommandHandler> logger)
     : IRequestHandler<RegisterUserCommand, ErrorOr<Guid>>
 {
-    public async Task<ErrorOr<Guid>> Handle(RegisterUserCommand request, CancellationToken cancellationToken)
+    public async ValueTask<ErrorOr<Guid>> Handle(RegisterUserCommand request, CancellationToken cancellationToken)
     {
         if (await dbContext.Users.AnyAsync(u => u.Email == request.Email, cancellationToken))
         {

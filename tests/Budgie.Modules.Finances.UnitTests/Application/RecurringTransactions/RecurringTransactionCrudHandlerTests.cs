@@ -7,7 +7,6 @@ using Budgie.Shared.Domain.ValueObjects;
 using Budgie.Shared.Enums;
 using ErrorOr;
 using FluentAssertions;
-using MediatR;
 using Microsoft.EntityFrameworkCore;
 using NSubstitute;
 using Xunit;
@@ -122,7 +121,7 @@ public class RecurringTransactionCrudHandlerTests
             null, RecurringEndType.Never, null, DateTime.UtcNow.AddYears(1),
             DateTime.UtcNow);
 
-        var act = () => handler.Handle(command, CancellationToken.None);
+        var act = () => handler.Handle(command, CancellationToken.None).AsTask();
 
         await act.Should().ThrowAsync<ArgumentException>();
     }

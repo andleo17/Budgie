@@ -5,7 +5,7 @@ using Budgie.Modules.Users.Infrastructure;
 using Budgie.Modules.Users.Infrastructure.Authentication;
 using Budgie.Shared.Abstractions;
 using Budgie.Shared.Dtos;
-using MediatR;
+using Mediator;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -20,11 +20,6 @@ public static class UsersModule
         services.AddScoped<IJwtProvider, JwtProvider>();
         services.AddScoped<IUserSettingsProvider, UserSettingsProvider>();
         services.AddScoped<IRefreshTokenService, RefreshTokenService>();
-
-        services.AddMediatR(config =>
-        {
-            config.RegisterServicesFromAssembly(typeof(UsersModule).Assembly);
-        });
 
         return services;
     }

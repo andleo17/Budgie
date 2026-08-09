@@ -3,7 +3,7 @@ using Budgie.Modules.Users.Infrastructure.Authentication;
 using Budgie.Modules.Users.Infrastructure.Database;
 using Budgie.Modules.Users.Infrastructure.Logging;
 using ErrorOr;
-using MediatR;
+using Mediator;
 using Microsoft.EntityFrameworkCore;
 using BC = BCrypt.Net.BCrypt;
 
@@ -16,7 +16,7 @@ internal sealed class LoginCommandHandler(
     ILogger<LoginCommandHandler> logger)
     : IRequestHandler<LoginCommand, ErrorOr<LoginResponse>>
 {
-    public async Task<ErrorOr<LoginResponse>> Handle(LoginCommand request, CancellationToken cancellationToken)
+    public async ValueTask<ErrorOr<LoginResponse>> Handle(LoginCommand request, CancellationToken cancellationToken)
     {
         var user = await dbContext.Users.FirstOrDefaultAsync(u => u.Email == request.Email, cancellationToken);
 

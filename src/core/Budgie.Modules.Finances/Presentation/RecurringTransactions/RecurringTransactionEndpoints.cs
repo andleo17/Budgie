@@ -9,7 +9,7 @@ using Budgie.Modules.Finances.Application.RecurringTransactions.Shared;
 using Budgie.Modules.Finances.Application.RecurringTransactions.UpdateRecurringTransaction;
 using Budgie.Shared.Dtos;
 using Budgie.Shared.Enums;
-using MediatR;
+using Mediator;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;

@@ -6,7 +6,7 @@
 
   <ItemGroup>
     <PackageReference Include="ErrorOr" Version="2.0.1" />
-    <PackageReference Include="MediatR" Version="12.5.0" />
+    <PackageReference Include="Mediator.Abstractions" Version="3.0.2" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.8" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.2" />
   </ItemGroup>
@@ -23,6 +23,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="Budgie.Modules.Relationships.UnitTests" />
+    <InternalsVisibleTo Include="Budgie.Api" />
   </ItemGroup>
 
   <ItemGroup>

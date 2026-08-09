@@ -3,7 +3,7 @@ using Budgie.Modules.Relationships.Infrastructure.Database;
 using Budgie.Modules.Relationships.Infrastructure.Logging;
 using Budgie.Shared.Abstractions;
 using ErrorOr;
-using MediatR;
+using Mediator;
 using Microsoft.EntityFrameworkCore;
 
 namespace Budgie.Modules.Relationships.Application.Persons.UpdatePerson;
@@ -14,7 +14,7 @@ internal sealed class UpdatePersonCommandHandler(
     ILogger<UpdatePersonCommandHandler> logger)
     : IRequestHandler<UpdatePersonCommand, ErrorOr<Success>>
 {
-    public async Task<ErrorOr<Success>> Handle(UpdatePersonCommand request, CancellationToken cancellationToken)
+    public async ValueTask<ErrorOr<Success>> Handle(UpdatePersonCommand request, CancellationToken cancellationToken)
     {
         var person = await dbContext.Persons
             .Include(p => p.Tags)

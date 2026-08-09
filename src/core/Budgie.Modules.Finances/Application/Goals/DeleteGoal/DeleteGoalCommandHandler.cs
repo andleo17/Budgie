@@ -1,7 +1,7 @@
 using Budgie.Modules.Finances.Infrastructure.Database;
 using Budgie.Modules.Finances.Infrastructure.Logging;
 using ErrorOr;
-using MediatR;
+using Mediator;
 using Microsoft.EntityFrameworkCore;
 
 namespace Budgie.Modules.Finances.Application.Goals.DeleteGoal;
@@ -11,7 +11,7 @@ internal sealed class DeleteGoalCommandHandler(
     ILogger<DeleteGoalCommandHandler> logger)
     : IRequestHandler<DeleteGoalCommand, ErrorOr<Success>>
 {
-    public async Task<ErrorOr<Success>> Handle(DeleteGoalCommand request, CancellationToken cancellationToken)
+    public async ValueTask<ErrorOr<Success>> Handle(DeleteGoalCommand request, CancellationToken cancellationToken)
     {
         var goal = await dbContext.Goals.FirstOrDefaultAsync(g => g.Id == request.Id, cancellationToken);
 

@@ -1,7 +1,7 @@
 using Budgie.Modules.Users.Application.Profile;
 using Budgie.Modules.Users.Application.Profile.GetProfile;
 using Budgie.Modules.Users.Application.Profile.UpdateProfile;
-using MediatR;
+using Mediator;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;

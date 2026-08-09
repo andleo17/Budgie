@@ -1,6 +1,6 @@
 using Budgie.Modules.Finances.Infrastructure.Database;
 using ErrorOr;
-using MediatR;
+using Mediator;
 using Microsoft.EntityFrameworkCore;
 
 namespace Budgie.Modules.Finances.Application.Reports.GetGoalsStatus;
@@ -8,7 +8,7 @@ namespace Budgie.Modules.Finances.Application.Reports.GetGoalsStatus;
 internal sealed class GetGoalsStatusQueryHandler(FinancesDbContext dbContext)
     : IRequestHandler<GetGoalsStatusQuery, ErrorOr<List<GoalStatus>>>
 {
-    public async Task<ErrorOr<List<GoalStatus>>> Handle(GetGoalsStatusQuery request, CancellationToken cancellationToken)
+    public async ValueTask<ErrorOr<List<GoalStatus>>> Handle(GetGoalsStatusQuery request, CancellationToken cancellationToken)
     {
         var goalsData = await dbContext.Goals
             .AsNoTracking()

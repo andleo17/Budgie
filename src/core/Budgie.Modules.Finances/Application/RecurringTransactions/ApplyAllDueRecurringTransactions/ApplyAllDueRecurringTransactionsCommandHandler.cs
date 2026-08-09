@@ -4,7 +4,7 @@ using Budgie.Modules.Finances.Infrastructure.Database;
 using Budgie.Shared.Abstractions;
 using Budgie.Shared.Enums;
 using ErrorOr;
-using MediatR;
+using Mediator;
 using Microsoft.EntityFrameworkCore;
 
 namespace Budgie.Modules.Finances.Application.RecurringTransactions.ApplyAllDueRecurringTransactions;
@@ -14,7 +14,7 @@ internal sealed class ApplyAllDueRecurringTransactionsCommandHandler(
     ICurrentUserProvider currentUserProvider)
     : IRequestHandler<ApplyAllDueRecurringTransactionsCommand, ErrorOr<List<Guid>>>
 {
-    public async Task<ErrorOr<List<Guid>>> Handle(ApplyAllDueRecurringTransactionsCommand request, CancellationToken cancellationToken)
+    public async ValueTask<ErrorOr<List<Guid>>> Handle(ApplyAllDueRecurringTransactionsCommand request, CancellationToken cancellationToken)
     {
         var userId = currentUserProvider.GetUserId();
         var now = DateTime.UtcNow;

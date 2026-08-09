@@ -6,7 +6,6 @@ using Budgie.Shared.Domain.ValueObjects;
 using Budgie.Shared.Enums;
 using ErrorOr;
 using FluentAssertions;
-using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
@@ -71,7 +70,7 @@ public class CreateGoalCommandHandlerTests
 
         var command = new CreateGoalCommand(account.Id, 0m, null);
 
-        await Assert.ThrowsAsync<ArgumentException>(() => _handler.Handle(command, CancellationToken.None));
+        await Assert.ThrowsAsync<ArgumentException>(() => _handler.Handle(command, CancellationToken.None).AsTask());
     }
 
     [Fact]
@@ -83,6 +82,6 @@ public class CreateGoalCommandHandlerTests
 
         var command = new CreateGoalCommand(account.Id, -100m, null);
 
-        await Assert.ThrowsAsync<ArgumentException>(() => _handler.Handle(command, CancellationToken.None));
+        await Assert.ThrowsAsync<ArgumentException>(() => _handler.Handle(command, CancellationToken.None).AsTask());
     }
 }

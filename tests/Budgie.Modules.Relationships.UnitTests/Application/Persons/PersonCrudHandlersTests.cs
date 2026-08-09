@@ -6,7 +6,6 @@ using Budgie.Modules.Relationships.Infrastructure.Database;
 using Budgie.Shared.Abstractions;
 using ErrorOr;
 using FluentAssertions;
-using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;

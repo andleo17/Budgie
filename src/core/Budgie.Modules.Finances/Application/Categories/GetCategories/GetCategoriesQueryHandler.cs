@@ -1,7 +1,7 @@
 using Budgie.Modules.Finances.Infrastructure.Database;
 using Budgie.Shared.Abstractions;
 using ErrorOr;
-using MediatR;
+using Mediator;
 using Microsoft.EntityFrameworkCore;
 
 namespace Budgie.Modules.Finances.Application.Categories.GetCategories;
@@ -11,7 +11,7 @@ internal sealed class GetCategoriesQueryHandler(
     ICurrentUserProvider currentUserProvider)
     : IRequestHandler<GetCategoriesQuery, ErrorOr<List<CategoryResponse>>>
 {
-    public async Task<ErrorOr<List<CategoryResponse>>> Handle(GetCategoriesQuery request, CancellationToken cancellationToken)
+    public async ValueTask<ErrorOr<List<CategoryResponse>>> Handle(GetCategoriesQuery request, CancellationToken cancellationToken)
     {
         var query = request.IncludeSystem
             ? dbContext.Categories.IgnoreQueryFilters()

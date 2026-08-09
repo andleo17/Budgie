@@ -5,7 +5,7 @@ using Budgie.Shared.Domain.ValueObjects;
 using Budgie.Shared.Enums;
 using Budgie.Modules.Finances.Infrastructure.Database;
 using ErrorOr;
-using MediatR;
+using Mediator;
 using Microsoft.EntityFrameworkCore;
 
 namespace Budgie.Modules.Finances.Application.Transactions.GetTransactions;
@@ -13,7 +13,7 @@ namespace Budgie.Modules.Finances.Application.Transactions.GetTransactions;
 internal sealed class GetTransactionsQueryHandler(FinancesDbContext dbContext)
     : IRequestHandler<GetTransactionsQuery, ErrorOr<PagedResponse<TransactionResponse>>>
 {
-    public async Task<ErrorOr<PagedResponse<TransactionResponse>>> Handle(GetTransactionsQuery request, CancellationToken cancellationToken)
+    public async ValueTask<ErrorOr<PagedResponse<TransactionResponse>>> Handle(GetTransactionsQuery request, CancellationToken cancellationToken)
     {
         var startDate = request.StartDate is { } sd
             ? Guard.NormalizeDate(sd) : (DateTime?)null;

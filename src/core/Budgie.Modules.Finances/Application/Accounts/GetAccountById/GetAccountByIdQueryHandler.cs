@@ -1,6 +1,6 @@
 using Budgie.Modules.Finances.Infrastructure.Database;
 using ErrorOr;
-using MediatR;
+using Mediator;
 using Microsoft.EntityFrameworkCore;
 
 namespace Budgie.Modules.Finances.Application.Accounts.GetAccountById;
@@ -8,7 +8,7 @@ namespace Budgie.Modules.Finances.Application.Accounts.GetAccountById;
 internal sealed class GetAccountByIdQueryHandler(FinancesDbContext dbContext)
     : IRequestHandler<GetAccountByIdQuery, ErrorOr<AccountResponse>>
 {
-    public async Task<ErrorOr<AccountResponse>> Handle(GetAccountByIdQuery request, CancellationToken cancellationToken)
+    public async ValueTask<ErrorOr<AccountResponse>> Handle(GetAccountByIdQuery request, CancellationToken cancellationToken)
     {
         var account = await dbContext.Accounts
             .AsNoTracking()

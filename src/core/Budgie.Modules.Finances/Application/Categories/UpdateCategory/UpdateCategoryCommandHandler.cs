@@ -2,7 +2,7 @@ using Budgie.Modules.Finances.Domain.Categories;
 using Budgie.Modules.Finances.Infrastructure.Database;
 using Budgie.Modules.Finances.Infrastructure.Logging;
 using ErrorOr;
-using MediatR;
+using Mediator;
 using Microsoft.EntityFrameworkCore;
 
 namespace Budgie.Modules.Finances.Application.Categories.UpdateCategory;
@@ -12,7 +12,7 @@ internal sealed class UpdateCategoryCommandHandler(
     ILogger<UpdateCategoryCommandHandler> logger)
     : IRequestHandler<UpdateCategoryCommand, ErrorOr<Success>>
 {
-    public async Task<ErrorOr<Success>> Handle(UpdateCategoryCommand request, CancellationToken cancellationToken)
+    public async ValueTask<ErrorOr<Success>> Handle(UpdateCategoryCommand request, CancellationToken cancellationToken)
     {
         var category = await dbContext.Categories.FirstOrDefaultAsync(c => c.Id == request.Id, cancellationToken);
         if (category is null) return Error.NotFound("Category.NotFound", "Category not found.");

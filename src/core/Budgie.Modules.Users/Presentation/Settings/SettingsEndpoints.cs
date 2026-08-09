@@ -1,7 +1,7 @@
 using Budgie.Modules.Users.Application.Settings;
 using Budgie.Modules.Users.Application.Settings.GetSettings;
 using Budgie.Modules.Users.Application.Settings.UpdateSettings;
-using MediatR;
+using Mediator;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;

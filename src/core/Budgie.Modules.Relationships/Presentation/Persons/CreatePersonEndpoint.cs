@@ -1,6 +1,6 @@
 using Budgie.Modules.Relationships.Application.Persons.CreatePerson;
 using Budgie.Shared.Dtos;
-using MediatR;
+using Mediator;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;

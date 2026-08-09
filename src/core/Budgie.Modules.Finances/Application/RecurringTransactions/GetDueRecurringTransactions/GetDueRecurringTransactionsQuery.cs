@@ -1,6 +1,6 @@
 using Budgie.Modules.Finances.Application.RecurringTransactions.Shared;
 using ErrorOr;
-using MediatR;
+using Mediator;
 
 namespace Budgie.Modules.Finances.Application.RecurringTransactions.GetDueRecurringTransactions;
 

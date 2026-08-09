@@ -6,7 +6,7 @@ using Budgie.Shared.Abstractions;
 using Budgie.Shared.Domain.ValueObjects;
 using Budgie.Shared.Enums;
 using ErrorOr;
-using MediatR;
+using Mediator;
 using Microsoft.EntityFrameworkCore;
 
 namespace Budgie.Modules.Finances.Application.Accounts.UpdateAccount;
@@ -17,7 +17,7 @@ internal sealed class UpdateAccountCommandHandler(
     ILogger<UpdateAccountCommandHandler> logger)
     : IRequestHandler<UpdateAccountCommand, ErrorOr<Success>>
 {
-    public async Task<ErrorOr<Success>> Handle(UpdateAccountCommand request, CancellationToken cancellationToken)
+    public async ValueTask<ErrorOr<Success>> Handle(UpdateAccountCommand request, CancellationToken cancellationToken)
     {
         var account = await dbContext.Accounts.FirstOrDefaultAsync(a => a.Id == request.Id, cancellationToken);
 

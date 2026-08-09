@@ -5,7 +5,7 @@ using Budgie.Modules.Finances.Infrastructure.Logging;
 using Budgie.Shared.Domain.ValueObjects;
 using Budgie.Shared.Enums;
 using ErrorOr;
-using MediatR;
+using Mediator;
 using Microsoft.EntityFrameworkCore;
 
 namespace Budgie.Modules.Finances.Application.Transactions.DeleteTransaction;
@@ -15,7 +15,7 @@ internal sealed class DeleteTransactionCommandHandler(
     ILogger<DeleteTransactionCommandHandler> logger)
     : IRequestHandler<DeleteTransactionCommand, ErrorOr<Success>>
 {
-    public async Task<ErrorOr<Success>> Handle(DeleteTransactionCommand request, CancellationToken cancellationToken)
+    public async ValueTask<ErrorOr<Success>> Handle(DeleteTransactionCommand request, CancellationToken cancellationToken)
     {
         var transaction = await dbContext.Transactions
             .Include(t => t.Account)

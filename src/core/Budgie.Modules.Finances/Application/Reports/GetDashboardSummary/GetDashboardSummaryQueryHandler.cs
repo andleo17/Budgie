@@ -3,7 +3,7 @@ using Budgie.Modules.Finances.Infrastructure.Database;
 using Budgie.Shared.Domain.ValueObjects;
 using Budgie.Shared.Enums;
 using ErrorOr;
-using MediatR;
+using Mediator;
 using Microsoft.EntityFrameworkCore;
 
 namespace Budgie.Modules.Finances.Application.Reports.GetDashboardSummary;
@@ -11,7 +11,7 @@ namespace Budgie.Modules.Finances.Application.Reports.GetDashboardSummary;
 internal sealed class GetDashboardSummaryQueryHandler(FinancesDbContext dbContext)
     : IRequestHandler<GetDashboardSummaryQuery, ErrorOr<DashboardSummary>>
 {
-    public async Task<ErrorOr<DashboardSummary>> Handle(GetDashboardSummaryQuery request, CancellationToken cancellationToken)
+    public async ValueTask<ErrorOr<DashboardSummary>> Handle(GetDashboardSummaryQuery request, CancellationToken cancellationToken)
     {
         var accounts = await dbContext.Accounts.AsNoTracking().ToListAsync(cancellationToken);
 

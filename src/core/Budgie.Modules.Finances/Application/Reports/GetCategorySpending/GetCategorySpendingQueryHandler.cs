@@ -3,7 +3,7 @@ using Budgie.Modules.Finances.Infrastructure.Database;
 using Budgie.Shared.Domain.ValueObjects;
 using Budgie.Shared.Enums;
 using ErrorOr;
-using MediatR;
+using Mediator;
 using Microsoft.EntityFrameworkCore;
 
 namespace Budgie.Modules.Finances.Application.Reports.GetCategorySpending;
@@ -11,7 +11,7 @@ namespace Budgie.Modules.Finances.Application.Reports.GetCategorySpending;
 internal sealed class GetCategorySpendingQueryHandler(FinancesDbContext dbContext)
     : IRequestHandler<GetCategorySpendingQuery, ErrorOr<List<CategorySpending>>>
 {
-    public async Task<ErrorOr<List<CategorySpending>>> Handle(GetCategorySpendingQuery request, CancellationToken cancellationToken)
+    public async ValueTask<ErrorOr<List<CategorySpending>>> Handle(GetCategorySpendingQuery request, CancellationToken cancellationToken)
     {
         var startDate = Guard.NormalizeDate(request.StartDate);
         var endDate = Guard.NormalizeDate(request.EndDate);

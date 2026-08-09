@@ -7,7 +7,7 @@ using Budgie.Shared.Abstractions;
 using Budgie.Shared.Domain.ValueObjects;
 using Budgie.Shared.Enums;
 using ErrorOr;
-using MediatR;
+using Mediator;
 using Microsoft.EntityFrameworkCore;
 
 namespace Budgie.Modules.Finances.Application.Transactions.BulkRepay;
@@ -18,7 +18,7 @@ internal sealed class BulkRepayCommandHandler(
     ILogger<BulkRepayCommandHandler> logger)
     : IRequestHandler<BulkRepayCommand, ErrorOr<Guid>>
 {
-    public async Task<ErrorOr<Guid>> Handle(BulkRepayCommand request, CancellationToken cancellationToken)
+    public async ValueTask<ErrorOr<Guid>> Handle(BulkRepayCommand request, CancellationToken cancellationToken)
     {
         var account = await dbContext.Accounts.FirstOrDefaultAsync(a => a.Id == request.AccountId, cancellationToken);
         if (account is null)

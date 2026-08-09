@@ -3,7 +3,7 @@ using Budgie.Modules.Users.Infrastructure.Database;
 using Budgie.Modules.Users.Infrastructure.Logging;
 using Budgie.Shared.Abstractions;
 using ErrorOr;
-using MediatR;
+using Mediator;
 using Microsoft.EntityFrameworkCore;
 
 namespace Budgie.Modules.Users.Application.Settings.UpdateSettings;
@@ -15,7 +15,7 @@ internal sealed class UpdateSettingsCommandHandler(
     ILogger<UpdateSettingsCommandHandler> logger)
     : IRequestHandler<UpdateSettingsCommand, ErrorOr<Success>>
 {
-    public async Task<ErrorOr<Success>> Handle(UpdateSettingsCommand request, CancellationToken cancellationToken)
+    public async ValueTask<ErrorOr<Success>> Handle(UpdateSettingsCommand request, CancellationToken cancellationToken)
     {
         var userId = currentUserProvider.GetUserId();
         var settings = await dbContext.UserSettings.FirstOrDefaultAsync(s => s.UserId == userId, cancellationToken);

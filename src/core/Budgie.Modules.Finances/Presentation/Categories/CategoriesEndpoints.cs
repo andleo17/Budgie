@@ -4,7 +4,7 @@ using Budgie.Modules.Finances.Application.Categories.GetCategoryById;
 using Budgie.Modules.Finances.Application.Categories.DeleteCategory;
 using Budgie.Modules.Finances.Application.Categories.UpdateCategory;
 using ErrorOr;
-using MediatR;
+using Mediator;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;

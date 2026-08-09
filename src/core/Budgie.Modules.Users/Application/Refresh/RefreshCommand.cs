@@ -1,6 +1,6 @@
 using Budgie.Modules.Users.Application.Login;
 using ErrorOr;
-using MediatR;
+using Mediator;
 
 namespace Budgie.Modules.Users.Application.Refresh;
 

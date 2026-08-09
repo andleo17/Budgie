@@ -8,7 +8,7 @@ using Budgie.Shared.Abstractions;
 using Budgie.Shared.Domain.ValueObjects;
 using Budgie.Shared.Enums;
 using ErrorOr;
-using MediatR;
+using Mediator;
 using Microsoft.EntityFrameworkCore;
 
 namespace Budgie.Modules.Finances.Application.Accounts.CreateAccount;
@@ -22,7 +22,7 @@ internal sealed class CreateAccountCommandHandler(
     ILogger<CreateAccountCommandHandler> logger) 
     : IRequestHandler<CreateAccountCommand, ErrorOr<Guid>>
 {
-    public async Task<ErrorOr<Guid>> Handle(CreateAccountCommand request, CancellationToken cancellationToken)
+    public async ValueTask<ErrorOr<Guid>> Handle(CreateAccountCommand request, CancellationToken cancellationToken)
     {
         var consumptionMode = request.CreditConsumptionMode;
         if (request.Type == AccountType.Credit && consumptionMode == null)

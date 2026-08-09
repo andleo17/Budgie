@@ -2,7 +2,7 @@ using Budgie.Modules.Finances.Domain.RecurringTransactions;
 using Budgie.Modules.Finances.Infrastructure.Database;
 using Budgie.Shared.Abstractions;
 using ErrorOr;
-using MediatR;
+using Mediator;
 using Microsoft.EntityFrameworkCore;
 
 namespace Budgie.Modules.Finances.Application.RecurringTransactions.CreateRecurringTransaction;
@@ -12,7 +12,7 @@ internal sealed class CreateRecurringTransactionCommandHandler(
     ICurrentUserProvider currentUserProvider)
     : IRequestHandler<CreateRecurringTransactionCommand, ErrorOr<Guid>>
 {
-    public async Task<ErrorOr<Guid>> Handle(CreateRecurringTransactionCommand request, CancellationToken cancellationToken)
+    public async ValueTask<ErrorOr<Guid>> Handle(CreateRecurringTransactionCommand request, CancellationToken cancellationToken)
     {
         var userId = currentUserProvider.GetUserId();
 

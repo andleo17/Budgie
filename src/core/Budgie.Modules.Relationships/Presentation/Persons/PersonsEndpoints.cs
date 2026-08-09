@@ -4,7 +4,7 @@ using Budgie.Modules.Relationships.Application.Persons.GetPersonById;
 using Budgie.Modules.Relationships.Application.Persons.DeletePerson;
 using Budgie.Modules.Relationships.Application.Persons.UpdatePerson;
 using ErrorOr;
-using MediatR;
+using Mediator;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;

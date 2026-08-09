@@ -3,7 +3,7 @@ using Budgie.Modules.Finances.Infrastructure.Database;
 using Budgie.Modules.Finances.Infrastructure.Logging;
 using Budgie.Shared.Abstractions;
 using ErrorOr;
-using MediatR;
+using Mediator;
 using Microsoft.EntityFrameworkCore;
 
 namespace Budgie.Modules.Finances.Application.Categories.CreateCategory;
@@ -14,7 +14,7 @@ internal sealed class CreateCategoryCommandHandler(
     ILogger<CreateCategoryCommandHandler> logger) 
     : IRequestHandler<CreateCategoryCommand, ErrorOr<Guid>>
 {
-    public async Task<ErrorOr<Guid>> Handle(CreateCategoryCommand request, CancellationToken cancellationToken)
+    public async ValueTask<ErrorOr<Guid>> Handle(CreateCategoryCommand request, CancellationToken cancellationToken)
     {
         if (request.ParentId.HasValue)
         {

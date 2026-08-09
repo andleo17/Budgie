@@ -1,7 +1,7 @@
 using Budgie.Modules.Users.Infrastructure.Database;
 using Budgie.Shared.Abstractions;
 using ErrorOr;
-using MediatR;
+using Mediator;
 using Microsoft.EntityFrameworkCore;
 
 namespace Budgie.Modules.Users.Application.Profile.GetProfile;
@@ -11,7 +11,7 @@ internal sealed class GetProfileQueryHandler(
     ICurrentUserProvider currentUserProvider)
     : IRequestHandler<GetProfileQuery, ErrorOr<ProfileResponse>>
 {
-    public async Task<ErrorOr<ProfileResponse>> Handle(GetProfileQuery request, CancellationToken cancellationToken)
+    public async ValueTask<ErrorOr<ProfileResponse>> Handle(GetProfileQuery request, CancellationToken cancellationToken)
     {
         var userId = currentUserProvider.GetUserId();
         var user = await dbContext.Users

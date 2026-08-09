@@ -110,7 +110,7 @@ public class CreateAccountCommandHandlerTests : IDisposable
             CreditConsumptionMode.Total, 32, 20, 15m);
 
         await Assert.ThrowsAsync<ArgumentException>(() =>
-            _handler.Handle(command, CancellationToken.None));
+            _handler.Handle(command, CancellationToken.None).AsTask());
     }
 
     [Fact]

@@ -19,11 +19,6 @@ public static class FinancesModule
 {
     public static IServiceCollection AddFinancesModule(this IServiceCollection services)
     {
-        services.AddMediatR(config =>
-        {
-            config.RegisterServicesFromAssembly(typeof(FinancesModule).Assembly);
-        });
-
         services.AddScoped<ICurrencyUsageChecker, CurrencyUsageChecker>();
         services.AddScoped<ILanguageProvider, LanguageProvider>();
         services.AddSingleton<ITranslationService, TranslationService>();

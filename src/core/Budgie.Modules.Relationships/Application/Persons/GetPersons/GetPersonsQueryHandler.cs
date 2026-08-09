@@ -1,7 +1,7 @@
 using Budgie.Modules.Relationships.Application.Tags;
 using Budgie.Modules.Relationships.Infrastructure.Database;
 using ErrorOr;
-using MediatR;
+using Mediator;
 using Microsoft.EntityFrameworkCore;
 
 namespace Budgie.Modules.Relationships.Application.Persons.GetPersons;
@@ -9,7 +9,7 @@ namespace Budgie.Modules.Relationships.Application.Persons.GetPersons;
 internal sealed class GetPersonsQueryHandler(RelationshipsDbContext dbContext)
     : IRequestHandler<GetPersonsQuery, ErrorOr<List<PersonResponse>>>
 {
-    public async Task<ErrorOr<List<PersonResponse>>> Handle(GetPersonsQuery request, CancellationToken cancellationToken)
+    public async ValueTask<ErrorOr<List<PersonResponse>>> Handle(GetPersonsQuery request, CancellationToken cancellationToken)
     {
         var raw = await dbContext.Persons
             .AsNoTracking()

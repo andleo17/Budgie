@@ -7,7 +7,7 @@ using Budgie.Modules.Finances.Application.Transactions.DeleteTransaction;
 using Budgie.Modules.Finances.Application.Transactions.UpdateTransaction;
 using Budgie.Shared.Enums;
 using ErrorOr;
-using MediatR;
+using Mediator;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
