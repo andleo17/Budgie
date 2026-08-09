@@ -1,6 +1,6 @@
-import { Link, useLocation } from 'react-router-dom';
-import { useTranslation } from 'react-i18next';
-import { useAuth } from '@/modules/auth/useAuth';
+import { Link, useLocation } from "react-router-dom";
+import { useTranslation } from "react-i18next";
+import { useAuth } from "@/modules/auth/useAuth";
 import {
   Sidebar,
   SidebarContent,
@@ -13,10 +13,10 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarSeparator,
-} from '@/components/ui/sidebar';
-import { Activity } from 'lucide-react';
-import { MAIN_NAV_ITEMS } from './sidebar-config';
-import { UserDropdownMenu } from './components/UserDropdownMenu';
+} from "@/components/ui/sidebar";
+import { Activity } from "lucide-react";
+import { MAIN_NAV_ITEMS } from "./sidebar-config";
+import { UserDropdownMenu } from "./components/UserDropdownMenu";
 
 export function AppSidebar() {
   const { t } = useTranslation();
@@ -28,8 +28,14 @@ export function AppSidebar() {
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" render={<Link to="/dashboard" />}>
-              <Activity className="text-primary" />
+            <SidebarMenuButton
+              className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+              size="lg"
+              render={<Link to="/dashboard" />}
+            >
+              <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+                <Activity className="text-primary size-4" />
+              </div>
               <span className="font-semibold tracking-tight">Budgie</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -38,7 +44,7 @@ export function AppSidebar() {
 
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>{t('sidebar.navigation')}</SidebarGroupLabel>
+          <SidebarGroupLabel>{t("sidebar.navigation")}</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {MAIN_NAV_ITEMS.map((item) => {
