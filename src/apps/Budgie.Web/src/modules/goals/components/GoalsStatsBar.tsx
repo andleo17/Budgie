@@ -29,7 +29,7 @@ export function GoalsStatsBar({ goals }: GoalsStatsBarProps) {
           <div className="min-w-0">
             <p className="text-xs text-muted-foreground truncate">{s.label}</p>
             <p className="text-lg font-bold tabular-nums leading-tight">{s.value}</p>
-            <p className="text-[11px] text-muted-foreground/70">{s.sub}</p>
+            <p className="text-xs text-muted-foreground/70">{s.sub}</p>
           </div>
         </div>
       ))}

@@ -104,7 +104,7 @@ export function TransactionSummaryBar({
               </div>
             </div>
             {hasBreakdown && (
-              <div className="mt-2 flex flex-wrap items-center gap-x-0 gap-y-0.5 text-[11px] text-muted-foreground/60 leading-tight">
+              <div className="mt-2 flex flex-wrap items-center gap-x-0 gap-y-0.5 text-xs text-muted-foreground/60 leading-tight">
                 {nonZeroItems.map((i, idx) => (
                   <span key={i.currency}>
                     {idx > 0 && <span className="mx-1 text-muted-foreground/30">|</span>}

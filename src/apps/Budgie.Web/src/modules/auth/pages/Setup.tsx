@@ -144,7 +144,7 @@ export default function Setup() {
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 ring-1 ring-primary/20">
             <Activity className="h-6 w-6 text-primary" />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight glow-primary">
+          <h1 className="text-2xl font-bold tracking-tight [text-shadow:0_0_12px_hsl(var(--primary)/0.6)]">
             {t("setup.title")}
           </h1>
           <p className="text-sm text-muted-foreground">{t("setup.subtitle")}</p>

@@ -1,47 +1,26 @@
-using Budgie.Modules.Users.Infrastructure.Database;
+using Budgie.Modules.Users.Application;
 using Budgie.Shared.Abstractions;
 using Budgie.Shared.Enums;
-using Microsoft.EntityFrameworkCore;
 
 namespace Budgie.Modules.Users.Infrastructure;
 
 internal sealed class UserSettingsProvider(
-    UsersDbContext dbContext,
+    IUserSettingsRepository settingsRepository,
     ICurrentUserProvider currentUserProvider) : IUserSettingsProvider
 {
     public async Task<bool> IsConfiguredAsync()
     {
-        var userId = currentUserProvider.GetUserId();
-        return await dbContext.UserSettings
-            .Where(s => s.UserId == userId)
-            .Select(s => s.IsConfigured)
-            .FirstOrDefaultAsync();
+        var settings = await settingsRepository.GetByUserIdAsync(currentUserProvider.GetUserId(), CancellationToken.None);
+        return settings?.IsConfigured ?? false;
     }
 
     public async Task<string> GetMainCurrencyAsync()
-    {
-        var userId = currentUserProvider.GetUserId();
-        return await dbContext.UserSettings
-            .Where(s => s.UserId == userId)
-            .Select(s => s.MainCurrency)
-            .FirstOrDefaultAsync() ?? "USD";
-    }
+        => (await settingsRepository.GetByUserIdAsync(currentUserProvider.GetUserId(), CancellationToken.None))?.MainCurrency ?? "USD";
 
     public async Task<CreditConsumptionMode> GetDefaultCreditConsumptionModeAsync()
-    {
-        var userId = currentUserProvider.GetUserId();
-        return await dbContext.UserSettings
-            .Where(s => s.UserId == userId)
-            .Select(s => s.DefaultCreditConsumptionMode)
-            .FirstOrDefaultAsync();
-    }
+        => (await settingsRepository.GetByUserIdAsync(currentUserProvider.GetUserId(), CancellationToken.None))?.DefaultCreditConsumptionMode
+           ?? CreditConsumptionMode.Total;
 
     public async Task<string> GetLanguageAsync()
-    {
-        var userId = currentUserProvider.GetUserId();
-        return await dbContext.UserSettings
-            .Where(s => s.UserId == userId)
-            .Select(s => s.Language)
-            .FirstOrDefaultAsync() ?? "en";
-    }
+        => (await settingsRepository.GetByUserIdAsync(currentUserProvider.GetUserId(), CancellationToken.None))?.Language ?? "en";
 }

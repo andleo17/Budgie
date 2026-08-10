@@ -8,24 +8,24 @@ namespace Budgie.Modules.Finances.Domain.Transactions;
 
 public class Transaction : Entity
 {
-    public Guid Id { get; private set; }
-    public Guid UserId { get; private set; }
-    public Guid AccountId { get; private set; }
-    public Guid? CategoryId { get; private set; }
-    public Money Amount { get; private set; } = null!;
-    public decimal ExchangeRate { get; private set; } = 1;
-    public DateTime Date { get; private set; }
-    public string? Notes { get; private set; }
-    public TransactionType Type { get; private set; }
-    public int Installments { get; private set; }
-    public Guid? LinkedTransactionId { get; private set; }
-    public Guid? ParentTransactionId { get; private set; }
-    public bool IsInitialBalance { get; private set; }
-    public Guid? InstallmentGroupId { get; private set; }
-    public int InstallmentNumber { get; private set; } = 1;
-    public int TotalInstallments { get; private set; } = 1;
-    public Percentage InterestRate { get; private set; } = Percentage.From(0);
-    public string? RepaidParticipants { get; private set; }
+    public Guid Id { get; internal set; }
+    public Guid UserId { get; internal set; }
+    public Guid AccountId { get; internal set; }
+    public Guid? CategoryId { get; internal set; }
+    public Money Amount { get; internal set; } = null!;
+    public decimal ExchangeRate { get; internal set; } = 1;
+    public DateTime Date { get; internal set; }
+    public string? Notes { get; internal set; }
+    public TransactionType Type { get; internal set; }
+    public int Installments { get; internal set; }
+    public Guid? LinkedTransactionId { get; internal set; }
+    public Guid? ParentTransactionId { get; internal set; }
+    public bool IsInitialBalance { get; internal set; }
+    public Guid? InstallmentGroupId { get; internal set; }
+    public int InstallmentNumber { get; internal set; } = 1;
+    public int TotalInstallments { get; internal set; } = 1;
+    public Percentage InterestRate { get; internal set; } = Percentage.From(0);
+    public string? RepaidParticipants { get; internal set; }
 
     private readonly List<TransactionParticipant> _participants = new();
     public IReadOnlyCollection<TransactionParticipant> Participants => _participants.AsReadOnly();
@@ -33,11 +33,11 @@ public class Transaction : Entity
     private readonly List<Transaction> _childTransactions = new();
     public IReadOnlyCollection<Transaction> ChildTransactions => _childTransactions.AsReadOnly();
 
-    public Account Account { get; private set; } = null!;
-    public Category? Category { get; private set; }
-    public Transaction? ParentTransaction { get; private set; }
+    public Account Account { get; internal set; } = null!;
+    public Category? Category { get; internal set; }
+    public Transaction? ParentTransaction { get; internal set; }
 
-    private Transaction() { }
+    public Transaction() { }
 
     public static Transaction Create(
         Guid userId,

@@ -1,44 +1,37 @@
-using Budgie.Modules.Relationships.Domain.Persons;
-using Budgie.Modules.Relationships.Domain.Tags;
-using Budgie.Modules.Relationships.Infrastructure.Database;
-using Budgie.Modules.Relationships.Infrastructure.Logging;
 using Budgie.Shared.Abstractions;
+using Budgie.Shared.Infrastructure;
 using ErrorOr;
 using Mediator;
-using Microsoft.EntityFrameworkCore;
 
 namespace Budgie.Modules.Relationships.Application.Persons.CreatePerson;
 
+public record CreatePersonCommand(string Name, List<string>? TagNames) : IRequest<ErrorOr<Guid>>;
+
 internal sealed class CreatePersonCommandHandler(
-    RelationshipsDbContext dbContext,
-    ICurrentUserProvider currentUserProvider,
-    ILogger<CreatePersonCommandHandler> logger)
+    IDbConnectionFactory factory, ICurrentUserProvider currentUserProvider)
     : IRequestHandler<CreatePersonCommand, ErrorOr<Guid>>
 {
-    public async ValueTask<ErrorOr<Guid>> Handle(CreatePersonCommand request, CancellationToken cancellationToken)
+    public async ValueTask<ErrorOr<Guid>> Handle(CreatePersonCommand request, CancellationToken ct)
     {
         var userId = currentUserProvider.GetUserId();
-        var person = Person.Create(userId, request.Name);
+        var personId = Guid.NewGuid();
+        await factory.ExecuteAsync(
+            @"INSERT INTO ""Persons"" (""Id"",""UserId"",""Name"",""CreatedAt"") VALUES (@Id,@UserId,@Name,NOW())",
+            new { Id = personId, UserId = userId, request.Name }, ct);
 
         if (request.TagNames is { Count: > 0 })
         {
-            var existingTags = await dbContext.Tags
-                .Where(t => t.UserId == userId && request.TagNames.Contains(t.Name))
-                .ToListAsync(cancellationToken);
-
             foreach (var tagName in request.TagNames)
             {
-                var tag = existingTags.FirstOrDefault(t => t.Name == tagName)
-                    ?? Tag.Create(userId, tagName);
-                person.Tags.Add(tag);
+                var tag = await factory.QuerySingleOrDefaultAsync<(Guid Id, string, string?)>(
+                    @"SELECT ""Id"",""Name"",""Color"" FROM ""Tags"" WHERE ""UserId"" = @UserId AND ""Name"" = @Name",
+                    new { UserId = userId, Name = tagName }, ct);
+                if (tag.Id != default)
+                    await factory.ExecuteAsync(
+                        @"INSERT INTO ""PersonTags"" (""PersonId"",""TagId"") VALUES (@PId,@TId) ON CONFLICT DO NOTHING",
+                        new { PId = personId, TId = tag.Id }, ct);
             }
         }
-
-        dbContext.Persons.Add(person);
-        await dbContext.SaveChangesAsync(cancellationToken);
-
-        LogMessages.PersonCreated(logger, person.Id, person.Name);
-
-        return person.Id;
+        return personId;
     }
 }

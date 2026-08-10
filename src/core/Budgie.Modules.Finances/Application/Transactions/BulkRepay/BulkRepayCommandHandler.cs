@@ -1,84 +1,47 @@
-using System.Text.Json;
+using Budgie.Modules.Finances.Application;
 using Budgie.Modules.Finances.Domain.Categories;
 using Budgie.Modules.Finances.Domain.Transactions;
-using Budgie.Modules.Finances.Infrastructure.Database;
-using Budgie.Modules.Finances.Infrastructure.Logging;
 using Budgie.Shared.Abstractions;
-using Budgie.Shared.Domain.ValueObjects;
 using Budgie.Shared.Enums;
 using ErrorOr;
 using Mediator;
-using Microsoft.EntityFrameworkCore;
 
 namespace Budgie.Modules.Finances.Application.Transactions.BulkRepay;
 
+public record DebtRepayment(Guid ParticipantId, decimal Amount, Guid TransactionId);
+
+public record BulkRepayCommand(Guid AccountId, decimal Amount, string Currency,
+    decimal ExchangeRate, DateTime Date, string? Notes, List<DebtRepayment> Debts)
+    : IRequest<ErrorOr<Guid>>;
+
 internal sealed class BulkRepayCommandHandler(
-    FinancesDbContext dbContext,
-    ICurrentUserProvider currentUserProvider,
-    ILogger<BulkRepayCommandHandler> logger)
+    IAccountRepository accountRepository,
+    ITransactionRepository txRepository,
+    ICurrentUserProvider currentUserProvider)
     : IRequestHandler<BulkRepayCommand, ErrorOr<Guid>>
 {
-    public async ValueTask<ErrorOr<Guid>> Handle(BulkRepayCommand request, CancellationToken cancellationToken)
+    public async ValueTask<ErrorOr<Guid>> Handle(BulkRepayCommand request, CancellationToken ct)
     {
-        var account = await dbContext.Accounts.FirstOrDefaultAsync(a => a.Id == request.AccountId, cancellationToken);
-        if (account is null)
-            return Error.NotFound("Account.NotFound", "Account not found.");
+        var userId = currentUserProvider.GetUserId();
+        var account = await accountRepository.GetByIdAsync(request.AccountId, userId, ct);
+        if (account is null) return Error.NotFound("Account.NotFound", "Account not found.");
 
-        var normalizedDate = request.Date;
+        var repayment = Transaction.Create(userId, request.AccountId, SystemCategoryIds.LoanRepayment,
+            request.Amount, request.Currency, request.ExchangeRate, request.Date,
+            request.Notes, TransactionType.Repayment);
 
-        // Reduce remaining amounts on each selected debt and track what was repaid
-        var repaidEntries = new List<object>();
         foreach (var debt in request.Debts)
         {
-            var participant = await dbContext.TransactionParticipants
-                .Include(tp => tp.Transaction)
-                .FirstOrDefaultAsync(tp => tp.Id == debt.ParticipantId, cancellationToken);
-
-            if (participant is null) continue;
-
-            participant.ReduceRemaining(debt.Amount);
-            repaidEntries.Add(new { p = debt.ParticipantId.ToString(), a = debt.Amount });
-
-            // Also reduce the parent transaction's participant (same person)
-            if (participant.Transaction.ParentTransactionId.HasValue)
-            {
-                var parentParticipant = await dbContext.TransactionParticipants
-                    .FirstOrDefaultAsync(tp =>
-                        tp.TransactionId == participant.Transaction.ParentTransactionId.Value &&
-                        tp.PersonId == participant.PersonId &&
-                        tp.RemainingAmount.Amount > 0,
-                        cancellationToken);
-
-                parentParticipant?.ReduceRemaining(debt.Amount);
-            }
+            await txRepository.ReduceParticipantRemainingAsync(debt.ParticipantId, debt.Amount, ct);
+            await txRepository.ReduceParentParticipantRemainingAsync(debt.ParticipantId, debt.Amount, ct);
+            await txRepository.AddRepaymentDetailAsync(repayment.Id, debt.ParticipantId, debt.Amount, ct);
         }
 
-        // Store repaid participant IDs for later restoration on delete
-        var repaidMeta = repaidEntries.Count > 0
-            ? JsonSerializer.Serialize(new { repaid = repaidEntries })
-            : null;
+        await txRepository.AddAsync(repayment, ct);
 
-        var repaymentWithMeta = Transaction.Create(
-            currentUserProvider.GetUserId(),
-            request.AccountId,
-            SystemCategoryIds.LoanRepayment,
-            request.Amount,
-            request.Currency,
-            request.ExchangeRate,
-            normalizedDate,
-            request.Notes,
-            TransactionType.Repayment);
+        var newBalance = account.Balance.Amount + request.Amount;
+        await accountRepository.UpdateBalanceAsync(account.Id, newBalance, ct);
 
-        if (repaidMeta is not null)
-            repaymentWithMeta.RecordRepaidParticipants(repaidMeta);
-
-        account.ApplyTransaction(Money.FromPositive(request.Amount, CurrencyCode.From(request.Currency)), request.ExchangeRate, 1, TransactionType.Repayment);
-
-        dbContext.Transactions.Add(repaymentWithMeta);
-        await dbContext.SaveChangesAsync(cancellationToken);
-
-        LogMessages.LoanRepaid(logger, repaymentWithMeta.Id, request.Amount, request.Currency);
-
-        return repaymentWithMeta.Id;
+        return repayment.Id;
     }
 }

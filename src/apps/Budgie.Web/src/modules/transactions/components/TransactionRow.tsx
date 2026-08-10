@@ -49,30 +49,30 @@ export function TransactionRow({ transaction, showRunningBalance, onEdit, mainCu
                 {transaction.notes}
               </span>
               {transaction.installmentGroupId && (
-                <span className="text-[10px] uppercase tracking-wider text-blue-400/70 font-medium">
-                  {transaction.installmentNumber}/{transaction.totalInstallments} cuotas
+                <span className="text-xs uppercase tracking-wider text-blue-400/70 font-medium">
+                  {transaction.installmentNumber}/{transaction.totalInstallments} {t("transactions.installments")}
                 </span>
               )}
               {isVirtualChild && (
-                <span className="text-[10px] uppercase tracking-wider text-muted-foreground/60 font-medium">
+                <span className="text-xs uppercase tracking-wider text-muted-foreground/60 font-medium">
                   {t("transactions.virtualDebt")}
                 </span>
               )}
             </div>
           ) : isVirtualChild ? (
             <div className="flex items-center gap-2">
-              <span className="text-[10px] uppercase tracking-wider text-muted-foreground/60 font-medium">
+              <span className="text-xs uppercase tracking-wider text-muted-foreground/60 font-medium">
                 {t("transactions.virtualDebt")}
               </span>
               {transaction.installmentGroupId && (
-                <span className="text-[10px] uppercase tracking-wider text-blue-400/70 font-medium">
-                  {transaction.installmentNumber}/{transaction.totalInstallments} cuotas
+                <span className="text-xs uppercase tracking-wider text-blue-400/70 font-medium">
+                  {transaction.installmentNumber}/{transaction.totalInstallments} {t("transactions.installments")}
                 </span>
               )}
             </div>
           ) : transaction.installmentGroupId ? (
-            <span className="text-[10px] uppercase tracking-wider text-blue-400/70 font-medium">
-              {transaction.installmentNumber}/{transaction.totalInstallments} cuotas
+            <span className="text-xs uppercase tracking-wider text-blue-400/70 font-medium">
+              {transaction.installmentNumber}/{transaction.totalInstallments} {t("transactions.installments")}
             </span>
           ) : null}
           <div className="flex items-center gap-2 text-xs text-muted-foreground">

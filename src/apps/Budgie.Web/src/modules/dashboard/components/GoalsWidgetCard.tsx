@@ -74,7 +74,7 @@ export function GoalsWidgetCard({
             </div>
             <Link
               to="/goals"
-              className="inline-flex h-7 items-center justify-center gap-1 rounded-lg border border-border bg-background px-2.5 text-[0.8rem] font-medium text-foreground transition-all hover:bg-muted mt-2"
+              className="inline-flex h-7 items-center justify-center gap-1 rounded-lg border border-border bg-background px-2.5 text-xs font-medium text-foreground transition-all hover:bg-muted mt-2"
             >
               {t("dashboard.createSavingsGoal")}
             </Link>

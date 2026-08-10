@@ -38,7 +38,7 @@ export function TransactionTypeDropdown({ onSelect }: TransactionTypeDropdownPro
         <DropdownMenuTrigger className="inline-flex h-10 w-8 items-center justify-center rounded-r-lg border-l border-primary-foreground/20 bg-primary text-primary-foreground transition-all hover:bg-primary/80 active:translate-y-px">
           <ChevronDown className="size-4" />
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="min-w-[180px]">
+        <DropdownMenuContent align="end" className="min-w-45">
           {items.map((item) => {
             const Icon = item.icon;
             return (

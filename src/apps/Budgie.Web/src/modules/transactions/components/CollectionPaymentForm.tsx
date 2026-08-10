@@ -350,7 +350,7 @@ export function CollectionPaymentForm({ defaultAccountId, onSuccess, onCancel }:
                           </div>
                           <div className="flex items-center gap-1 shrink-0">
                             {payAmount > 0 && payAmount < remaining && (
-                              <span className="text-[11px] text-emerald-400 font-medium">
+                              <span className="text-xs text-emerald-400 font-medium">
                                 -{formatCurrency(payAmount, currency)}
                               </span>
                             )}

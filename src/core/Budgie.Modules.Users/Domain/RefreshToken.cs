@@ -4,14 +4,14 @@ namespace Budgie.Modules.Users.Domain;
 
 public class RefreshToken : Entity
 {
-    public Guid Id { get; private set; }
-    public Guid UserId { get; private set; }
-    public string TokenHash { get; private set; } = null!;
-    public DateTime ExpiresAt { get; private set; }
-    public DateTime CreatedAt { get; private set; }
-    public bool IsRevoked { get; private set; }
+    public Guid Id { get; internal set; }
+    public Guid UserId { get; internal set; }
+    public string TokenHash { get; internal set; } = null!;
+    public DateTime ExpiresAt { get; internal set; }
+    public DateTime CreatedAt { get; internal set; }
+    public bool IsRevoked { get; internal set; }
 
-    private RefreshToken() { }
+    public RefreshToken() { }
 
     public static RefreshToken Create(Guid userId, string tokenHash, DateTime expiresAt)
     {

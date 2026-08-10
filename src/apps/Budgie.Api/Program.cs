@@ -1,20 +1,16 @@
 using Budgie.Api.Infrastructure;
-using Budgie.Api.Infrastructure.Logging;
 using Budgie.Api.Infrastructure.Middlewares;
 using Budgie.Modules.Finances;
-using Budgie.Modules.Finances.Infrastructure.Database;
 using Budgie.Modules.Relationships;
-using Budgie.Modules.Relationships.Infrastructure.Database;
 using Budgie.Modules.Users;
-using Budgie.Modules.Users.Infrastructure.Database;
 using Budgie.Shared.Abstractions;
+using Budgie.Shared.Infrastructure;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.IdentityModel.Tokens;
-using OpenTelemetry;
-using OpenTelemetry.Metrics;
+using Npgsql;
 using OpenTelemetry.Trace;
+using OpenTelemetry.Metrics;
+using OpenTelemetry;
 using Scalar.AspNetCore;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
@@ -22,65 +18,36 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
 builder.Services.AddOpenApi();
 builder.Services.AddProblemDetails();
 
-// Ignore HTTP_PORTS env var to prevent conflict with ASPNETCORE_URLS
 builder.WebHost.UseSetting("HTTP_PORTS", string.Empty);
 builder.WebHost.UseSetting("HTTPS_PORTS", string.Empty);
 
-// Register Modules
+// Npgsql Data Source (AOT-compatible, pooled connections)
+var connectionString = builder.Configuration.GetConnectionString("BudgieDb")!;
+builder.Services.AddSingleton<NpgsqlDataSource>(_ =>
+{
+    var dataSourceBuilder = new NpgsqlDataSourceBuilder(connectionString);
+    return dataSourceBuilder.Build();
+});
+builder.Services.AddSingleton<IDbConnectionFactory, NpgsqlConnectionFactory>();
+
 builder.Services
     .AddUsersModule()
     .AddFinancesModule()
     .AddRelationshipsModule();
 
-// Mediator (CQRS): handlers live in the module assemblies, generated mediator lives here.
-// Scoped lifetime so handlers can safely depend on scoped DbContexts and ICurrentUserProvider.
 builder.Services.AddMediator(options => options.ServiceLifetime = ServiceLifetime.Scoped);
 
-// Database
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserProvider, CurrentUserProvider>();
 
-var connectionString = builder.Configuration.GetConnectionString("BudgieDb");
-if (builder.Configuration.GetValue<bool>("UseInMemoryDatabase"))
-{
-    var dbName = builder.Configuration.GetConnectionString("BudgieDb") ?? "Budgie";
-    builder.Services.AddDbContext<UsersDbContext>(options => options.UseInMemoryDatabase(dbName));
-    builder.Services.AddDbContext<FinancesDbContext>(options => options
-        .UseInMemoryDatabase(dbName)
-        .ConfigureWarnings(w => w.Ignore(CoreEventId.PossibleIncorrectRequiredNavigationWithQueryFilterInteractionWarning)));
-    builder.Services.AddDbContext<RelationshipsDbContext>(options => options.UseInMemoryDatabase(dbName));
-}
-else
-{
-    Action<DbContextOptionsBuilder> efConfig = o => o
-        .ConfigureWarnings(w => w.Ignore(CoreEventId.PossibleIncorrectRequiredNavigationWithQueryFilterInteractionWarning));
-    builder.Services.AddDbContext<UsersDbContext>(options =>
-    {
-        options.UseNpgsql(connectionString, b => b.MigrationsAssembly(typeof(Program).Assembly.FullName));
-        efConfig(options);
-    });
-    builder.Services.AddDbContext<FinancesDbContext>(options =>
-    {
-        options.UseNpgsql(connectionString, b => b.MigrationsAssembly(typeof(Program).Assembly.FullName));
-        efConfig(options);
-    });
-    builder.Services.AddDbContext<RelationshipsDbContext>(options =>
-    {
-        options.UseNpgsql(connectionString, b => b.MigrationsAssembly(typeof(Program).Assembly.FullName));
-        efConfig(options);
-    });
-}
-
-// OpenTelemetry (configured via OTEL_SERVICE_NAME, OTEL_EXPORTER_OTLP_ENDPOINT, etc.)
+// OpenTelemetry
 builder.Services.AddOpenTelemetry()
     .WithTracing(tracing =>
     {
-        tracing.AddAspNetCoreInstrumentation()
-               .AddEntityFrameworkCoreInstrumentation();
+        tracing.AddAspNetCoreInstrumentation();
     })
     .WithMetrics(metrics =>
     {
@@ -88,7 +55,7 @@ builder.Services.AddOpenTelemetry()
     })
     .UseOtlpExporter();
 
-// Configure Authentication
+// Authentication
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -117,12 +84,14 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                     return;
                 }
 
-                var dbContext = context.HttpContext.RequestServices.GetRequiredService<UsersDbContext>();
-                var userExists = await dbContext.Users.AnyAsync(u => u.Id == userId);
-                if (!userExists)
-                {
+                var factory = context.HttpContext.RequestServices.GetRequiredService<IDbConnectionFactory>();
+                var exists = await factory.QuerySingleAsync<bool>(
+                    @"SELECT EXISTS(SELECT 1 FROM ""Users"" WHERE ""Id"" = @Id)",
+                    new { Id = userId },
+                    context.HttpContext.RequestAborted);
+
+                if (!exists)
                     context.Fail("User no longer exists.");
-                }
             }
         };
     });
@@ -131,7 +100,6 @@ builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
 app.UseExceptionHandler();
 app.UseStatusCodePages();
 
@@ -146,38 +114,66 @@ app.UseMiddleware<ConfigurationCheckMiddleware>();
 app.MapOpenApi();
 app.MapScalarApiReference();
 
-// Health check
 app.MapGet("/health", () => Results.Ok(new { status = "healthy" }));
 
-// Map Module Endpoints
 app.MapFinancesEndpoints();
-app.MapGoalsEndpoints();
 app.MapRelationshipsEndpoints();
 app.MapUsersEndpoints();
 
-// Apply migrations on startup (only for real database)
+// Apply schema on startup
 if (!app.Configuration.GetValue<bool>("UseInMemoryDatabase"))
 {
     using var scope = app.Services.CreateScope();
-    var services = scope.ServiceProvider;
+    var factory = scope.ServiceProvider.GetRequiredService<IDbConnectionFactory>();
 
-    try
+    var scriptsPath = Path.Combine(app.Environment.ContentRootPath, "sql");
+    if (Directory.Exists(scriptsPath))
     {
-        var usersDb = services.GetRequiredService<UsersDbContext>();
-        await usersDb.Database.MigrateAsync();
-
-        var financesDb = services.GetRequiredService<FinancesDbContext>();
-        await financesDb.Database.MigrateAsync();
-
-        var relationshipsDb = services.GetRequiredService<RelationshipsDbContext>();
-        await relationshipsDb.Database.MigrateAsync();
+        foreach (var file in Directory.GetFiles(scriptsPath, "*.sql").OrderBy(f => f))
+        {
+            var sql = await File.ReadAllTextAsync(file);
+            await factory.ExecuteAsync(sql);
+        }
     }
-    catch (Exception ex)
-    {
-        var logger = services.GetRequiredService<ILogger<Program>>();
-        LogMessages.DatabaseMigrationError(logger, ex);
-        throw;
-    }
+
+    // Seed system categories
+    await SeedSystemCategoriesAsync(factory);
 }
 
 app.Run();
+
+static async Task SeedSystemCategoriesAsync(IDbConnectionFactory factory)
+{
+    var exists = await factory.QuerySingleAsync<bool>(
+        @"SELECT EXISTS(SELECT 1 FROM ""Categories"" WHERE ""IsSystem"" = TRUE)");
+
+    if (exists) return;
+
+    var systemCategories = new[]
+    {
+        (Id: Guid.Parse("a0000000-0000-0000-0000-000000000001"), Name: "Salary", Type: 0),
+        (Id: Guid.Parse("a0000000-0000-0000-0000-000000000002"), Name: "Freelance", Type: 0),
+        (Id: Guid.Parse("a0000000-0000-0000-0000-000000000003"), Name: "Investment", Type: 0),
+        (Id: Guid.Parse("a0000000-0000-0000-0000-000000000004"), Name: "Loan Repayment", Type: 0),
+        (Id: Guid.Parse("b0000000-0000-0000-0000-000000000001"), Name: "Food", Type: 1),
+        (Id: Guid.Parse("b0000000-0000-0000-0000-000000000002"), Name: "Transport", Type: 1),
+        (Id: Guid.Parse("b0000000-0000-0000-0000-000000000003"), Name: "Housing", Type: 1),
+        (Id: Guid.Parse("b0000000-0000-0000-0000-000000000004"), Name: "Health", Type: 1),
+        (Id: Guid.Parse("b0000000-0000-0000-0000-000000000005"), Name: "Entertainment", Type: 1),
+        (Id: Guid.Parse("b0000000-0000-0000-0000-000000000006"), Name: "Education", Type: 1),
+        (Id: Guid.Parse("b0000000-0000-0000-0000-000000000007"), Name: "Bills", Type: 1),
+        (Id: Guid.Parse("b0000000-0000-0000-0000-000000000008"), Name: "Transfer", Type: 2),
+        (Id: Guid.Parse("b0000000-0000-0000-0000-000000000009"), Name: "Initial Balance", Type: 3),
+    };
+
+    foreach (var cat in systemCategories)
+    {
+        await factory.ExecuteAsync(
+            @"INSERT INTO ""Categories"" (""Id"", ""Name"", ""Type"", ""IsSystem"")
+              VALUES (@Id, @Name, @Type, TRUE)
+              ON CONFLICT DO NOTHING",
+            new { cat.Id, cat.Name, cat.Type });
+    }
+}
+
+public partial class Program { }

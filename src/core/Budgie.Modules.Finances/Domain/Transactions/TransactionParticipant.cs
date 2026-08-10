@@ -5,17 +5,17 @@ namespace Budgie.Modules.Finances.Domain.Transactions;
 
 public class TransactionParticipant
 {
-    public Guid Id { get; private set; }
+    public Guid Id { get; internal set; }
     public Guid TransactionId { get; internal set; }
-    public Guid PersonId { get; private set; }
-    public Money ContributedAmount { get; private set; } = null!;
-    public Money RemainingAmount { get; private set; } = null!;
-    public bool IsTrackingOnly { get; private set; }
-    public Guid? DestinationAccountId { get; private set; }
-    public Transaction Transaction { get; private set; } = null!;
-    public Account? DestinationAccount { get; private set; }
+    public Guid PersonId { get; internal set; }
+    public Money ContributedAmount { get; internal set; } = null!;
+    public Money RemainingAmount { get; internal set; } = null!;
+    public bool IsTrackingOnly { get; internal set; }
+    public Guid? DestinationAccountId { get; internal set; }
+    public Transaction Transaction { get; internal set; } = null!;
+    public Account? DestinationAccount { get; internal set; }
 
-    private TransactionParticipant() { }
+    public TransactionParticipant() { }
 
     public static TransactionParticipant Create(Guid personId, decimal contributedAmount, CurrencyCode currency, decimal remainingAmount = 0, bool isTrackingOnly = false, Guid? destinationAccountId = null)
     {

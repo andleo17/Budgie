@@ -148,7 +148,7 @@ export function TagSelector({ value, onChange }: TagSelectorProps) {
             blurTimerRef.current = setTimeout(() => setOpen(false), 200);
           }}
           placeholder={value.length === 0 ? t("persons.tagsPlaceholder") : undefined}
-          className="min-w-[120px] flex-1 border-0 p-0 shadow-none focus-visible:ring-0"
+          className="min-w-30 flex-1 border-0 py-0 shadow-none focus-visible:ring-0"
         />
       </div>
 

@@ -1,3 +1,4 @@
+using Budgie.Shared.Infrastructure;
 namespace Budgie.Modules.Finances.Infrastructure;
 
 internal interface ITranslationService

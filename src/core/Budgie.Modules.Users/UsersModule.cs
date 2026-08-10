@@ -1,11 +1,7 @@
-using Budgie.Modules.Users.Application.Login;
-using Budgie.Modules.Users.Application.Refresh;
-using Budgie.Modules.Users.Application.Register;
 using Budgie.Modules.Users.Infrastructure;
 using Budgie.Modules.Users.Infrastructure.Authentication;
+using Budgie.Modules.Users.Infrastructure.Database;
 using Budgie.Shared.Abstractions;
-using Budgie.Shared.Dtos;
-using Mediator;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -20,7 +16,9 @@ public static class UsersModule
         services.AddScoped<IJwtProvider, JwtProvider>();
         services.AddScoped<IUserSettingsProvider, UserSettingsProvider>();
         services.AddScoped<IRefreshTokenService, RefreshTokenService>();
-
+        services.AddScoped<Application.IUserRepository, UserRepository>();
+        services.AddScoped<Application.IUserSettingsRepository, UserSettingsRepository>();
+        services.AddScoped<Application.IRefreshTokenRepository, RefreshTokenRepository>();
         return services;
     }
 
@@ -28,32 +26,32 @@ public static class UsersModule
     {
         var group = app.MapGroup("/api/users").WithTags("Users");
 
-        group.MapPost("/register", async (RegisterUserCommand command, IMediator mediator) =>
+        group.MapPost("/register", async (Application.Register.RegisterUserCommand command, Mediator.IMediator mediator) =>
         {
             var result = await mediator.Send(command);
             return result.Match(
                 userId => Results.Created($"/api/users/{userId}", new { Id = userId }),
                 errors => Results.BadRequest(errors));
         })
-        .Produces<CreatedResponse>(StatusCodes.Status201Created);
+        .Produces<Budgie.Shared.Dtos.CreatedResponse>(StatusCodes.Status201Created);
 
-        group.MapPost("/login", async (LoginCommand command, IMediator mediator) =>
+        group.MapPost("/login", async (Application.Login.LoginCommand command, Mediator.IMediator mediator) =>
         {
             var result = await mediator.Send(command);
             return result.Match(
                 response => Results.Ok(response),
                 errors => Results.Unauthorized());
         })
-        .Produces<LoginResponse>(200);
+        .Produces<Application.Login.LoginResponse>(200);
 
-        group.MapPost("/refresh", async (RefreshCommand command, IMediator mediator) =>
+        group.MapPost("/refresh", async (Application.Refresh.RefreshCommand command, Mediator.IMediator mediator) =>
         {
             var result = await mediator.Send(command);
             return result.Match(
                 response => Results.Ok(response),
                 errors => Results.Unauthorized());
         })
-        .Produces<LoginResponse>(200);
+        .Produces<Application.Login.LoginResponse>(200);
 
         Budgie.Modules.Users.Presentation.Settings.SettingsEndpoints.MapEndpoints(group);
         Budgie.Modules.Users.Presentation.Profile.ProfileEndpoints.MapEndpoints(group);

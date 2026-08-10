@@ -150,6 +150,34 @@ public class RepayLoanCommandHandlerTests : IDisposable
         updatedChild.Participants.First().RemainingAmount.Amount.Should().Be(0);
     }
 
+    [Fact]
+    public async Task Handle_ShouldAssociateRepaymentWithPerson()
+    {
+        var account = Account.Create(_userId, "Wallet", "USD", 1000m);
+        _dbContext.Accounts.Add(account);
+
+        var personId = Guid.NewGuid();
+        var loan = Transaction.Create(_userId, account.Id, null, 100m, "USD", 1m, DateTime.UtcNow, "Loan", TransactionType.Loan);
+        loan.CreateParticipant(personId, 100m, remainingAmount: 100m);
+        _dbContext.Transactions.Add(loan);
+        account.ApplyTransaction(Money.FromPositive(100m, CurrencyCode.From("USD")), 1m, 1, TransactionType.Loan);
+        await _dbContext.SaveChangesAsync();
+
+        var command = new RepayLoanCommand(loan.Id, 100m, "USD", 1m, DateTime.UtcNow, "Pago");
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+
+        var repayment = await _dbContext.Transactions
+            .Include(t => t.Participants)
+            .FirstAsync(t => t.Type == TransactionType.Repayment);
+
+        repayment.Participants.Should().ContainSingle();
+        repayment.Participants.Single().PersonId.Should().Be(personId);
+        repayment.Participants.Single().IsTrackingOnly.Should().BeTrue();
+    }
+
     public void Dispose()
     {
         _dbContext.Dispose();

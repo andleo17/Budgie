@@ -33,7 +33,7 @@ export function UserDropdownMenu({ user }: UserDropdownMenuProps) {
         }
       >
         <Avatar className="size-5 border border-border">
-          <AvatarFallback className="text-[10px]">{user?.name ? getInitials(user.name) : 'U'}</AvatarFallback>
+          <AvatarFallback className="text-xs">{user?.name ? getInitials(user.name) : 'U'}</AvatarFallback>
         </Avatar>
         <span className="truncate">{user?.name || t('sidebar.user')}</span>
         <ChevronUp className="ml-auto" />

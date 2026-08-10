@@ -131,7 +131,6 @@
 
   html {
     @apply font-sans;
-    font-size: 16px;
   }
 
   body {
@@ -148,47 +147,5 @@
 
   code, pre {
     font-family: 'JetBrains Mono', monospace;
-  }
-
-  /* Subtle glow on focus - OLED dark mode signature */
-  :focus-visible {
-    outline: 2px solid hsl(var(--ring));
-    outline-offset: 2px;
-  }
-
-  /* Smooth transitions on interactive elements */
-  button, [role="button"], a {
-    transition: all 150ms ease-out;
-  }
-
-  /* Tabular figures for financial data */
-  .tabular-nums {
-    font-variant-numeric: tabular-nums;
-  }
-}
-
-@layer components {
-  /* Income / expense semantic badges */
-  .amount-positive {
-    @apply text-emerald-400 font-semibold tabular-nums;
-  }
-  .amount-negative {
-    @apply text-red-400 font-semibold tabular-nums;
-  }
-  .amount-neutral {
-    @apply text-slate-300 font-semibold tabular-nums;
-  }
-
-  /* Minimal glow effect - OLED signature */
-  .glow-primary {
-    text-shadow: 0 0 12px hsl(var(--primary) / 0.6);
-  }
-  .glow-accent {
-    text-shadow: 0 0 12px hsl(var(--accent) / 0.6);
-  }
-
-  /* Card hover lift */
-  .card-hover {
-    @apply transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 hover:border-border/80;
   }
 }

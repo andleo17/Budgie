@@ -187,6 +187,36 @@ public class BulkRepayCommandHandlerTests : IDisposable
         repayment.RepaidParticipants.Should().Contain(participant.Id.ToString());
     }
 
+    [Fact]
+    public async Task Handle_ShouldAssociateRepaymentWithPerson()
+    {
+        var account = Account.Create(_userId, "Wallet", "USD", 1000m);
+        _dbContext.Accounts.Add(account);
+
+        var personId = Guid.NewGuid();
+        var loan = Transaction.Create(_userId, account.Id, null, 100m, "USD", 1m, DateTime.UtcNow, "Loan", TransactionType.Loan);
+        var participant = loan.CreateParticipant(personId, 100m, remainingAmount: 100m);
+        account.ApplyTransaction(Money.FromPositive(100m, CurrencyCode.From("USD")), 1m, 1, TransactionType.Loan);
+        _dbContext.Transactions.Add(loan);
+        await _dbContext.SaveChangesAsync();
+
+        var command = new BulkRepayCommand(
+            account.Id, 100m, "USD", 1m, DateTime.UtcNow, "Pago total",
+            [new DebtRepayment(participant.Id, 100m, loan.Id)]);
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+
+        var repayment = await _dbContext.Transactions
+            .Include(t => t.Participants)
+            .FirstAsync(t => t.Type == TransactionType.Repayment);
+
+        repayment.Participants.Should().ContainSingle();
+        repayment.Participants.Single().PersonId.Should().Be(personId);
+        repayment.Participants.Single().IsTrackingOnly.Should().BeTrue();
+    }
+
     public void Dispose()
     {
         _dbContext.Dispose();

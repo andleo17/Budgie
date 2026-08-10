@@ -1,27 +1,20 @@
-using Budgie.Modules.Finances.Infrastructure.Database;
-using Budgie.Shared.Abstractions;
+using Budgie.Shared.Infrastructure;
 using ErrorOr;
 using Mediator;
-using Microsoft.EntityFrameworkCore;
 
 namespace Budgie.Modules.Finances.Application.Categories.GetCategories;
 
-internal sealed class GetCategoriesQueryHandler(
-    FinancesDbContext dbContext,
-    ICurrentUserProvider currentUserProvider)
+public record GetCategoriesQuery : IRequest<ErrorOr<List<CategoryResponse>>>;
+
+public record CategoryResponse(Guid Id, string Name, string? Color, string? Icon,
+    int Type, bool IsSystem, Guid? ParentId);
+
+internal sealed class GetCategoriesQueryHandler(IDbConnectionFactory factory)
     : IRequestHandler<GetCategoriesQuery, ErrorOr<List<CategoryResponse>>>
 {
-    public async ValueTask<ErrorOr<List<CategoryResponse>>> Handle(GetCategoriesQuery request, CancellationToken cancellationToken)
+    public async ValueTask<ErrorOr<List<CategoryResponse>>> Handle(GetCategoriesQuery request, CancellationToken ct)
     {
-        var query = request.IncludeSystem
-            ? dbContext.Categories.IgnoreQueryFilters()
-                .Where(c => c.UserId == null || c.UserId == currentUserProvider.UserId)
-            : dbContext.Categories.Where(c => !c.IsSystem);
-
-        var categories = await query
-            .Select(c => new CategoryResponse(c.Id, c.Name, c.Color, c.Icon, c.Type, c.ParentId, c.IsSystem))
-            .ToListAsync(cancellationToken);
-
-        return categories;
+        return (await factory.QueryListAsync<CategoryResponse>(
+            @"SELECT ""Id"",""Name"",""Color"",""Icon"",""Type"",""IsSystem"",""ParentId"" FROM ""Categories"" ORDER BY ""Name""", null, ct)).ToList();
     }
 }

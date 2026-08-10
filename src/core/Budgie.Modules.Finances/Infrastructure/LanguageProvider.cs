@@ -1,3 +1,4 @@
+using Budgie.Shared.Infrastructure;
 using Budgie.Shared.Abstractions;
 
 namespace Budgie.Modules.Finances.Infrastructure;

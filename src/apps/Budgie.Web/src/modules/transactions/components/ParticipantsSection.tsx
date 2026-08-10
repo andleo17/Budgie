@@ -116,7 +116,7 @@ export function ParticipantsSection({ participants, onChange, accounts, currency
           {participants.map((p, i) => (
             <div key={i} className="rounded-md border bg-card p-2 space-y-2">
               <div className="flex items-center gap-2">
-                <span className="min-w-[80px] text-sm font-medium truncate">
+                <span className="min-w-20 text-sm font-medium truncate">
                   {p.personName || (persons ?? []).find((pp) => pp.id === p.personId)?.name || p.personId.slice(0, 8)}
                 </span>
                 {p.paymentCondition !== "tag" && (
@@ -162,7 +162,7 @@ export function ParticipantsSection({ participants, onChange, accounts, currency
                           ? (p.destinationAccountId || defaultAccountId)
                           : undefined,
                       })}
-                      className={`flex items-center gap-1 rounded-md px-2 py-1 text-[11px] transition-colors ${
+                      className={`flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors ${
                         isActive
                           ? `${c.color} bg-muted font-semibold`
                           : "text-muted-foreground hover:text-foreground"
@@ -177,7 +177,7 @@ export function ParticipantsSection({ participants, onChange, accounts, currency
 
               {p.paymentCondition === "cash" && (
                 <div className="flex items-center gap-2">
-                  <span className="text-[11px] text-muted-foreground shrink-0">{t("transactions.toAccount")}</span>
+                  <span className="text-xs text-muted-foreground shrink-0">{t("transactions.toAccount")}</span>
                   <Combobox<AccountResponse>
                     items={sortedAccounts}
                     itemToStringValue={(a: AccountResponse) => a.name}

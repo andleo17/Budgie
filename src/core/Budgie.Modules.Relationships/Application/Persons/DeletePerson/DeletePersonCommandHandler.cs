@@ -1,26 +1,22 @@
-using Budgie.Modules.Relationships.Infrastructure.Database;
-using Budgie.Modules.Relationships.Infrastructure.Logging;
+using Budgie.Shared.Abstractions;
+using Budgie.Shared.Infrastructure;
 using ErrorOr;
 using Mediator;
-using Microsoft.EntityFrameworkCore;
 
 namespace Budgie.Modules.Relationships.Application.Persons.DeletePerson;
 
+public record DeletePersonCommand(Guid Id) : IRequest<ErrorOr<Success>>;
+
 internal sealed class DeletePersonCommandHandler(
-    RelationshipsDbContext dbContext,
-    ILogger<DeletePersonCommandHandler> logger)
+    IDbConnectionFactory factory, ICurrentUserProvider currentUserProvider)
     : IRequestHandler<DeletePersonCommand, ErrorOr<Success>>
 {
-    public async ValueTask<ErrorOr<Success>> Handle(DeletePersonCommand request, CancellationToken cancellationToken)
+    public async ValueTask<ErrorOr<Success>> Handle(DeletePersonCommand request, CancellationToken ct)
     {
-        var person = await dbContext.Persons.FirstOrDefaultAsync(p => p.Id == request.Id, cancellationToken);
-        if (person is null) return Error.NotFound("Person.NotFound", "Person not found.");
-
-        dbContext.Persons.Remove(person);
-        await dbContext.SaveChangesAsync(cancellationToken);
-
-        LogMessages.PersonDeleted(logger, request.Id);
-
-        return Result.Success;
+        var userId = currentUserProvider.GetUserId();
+        var affected = await factory.ExecuteAsync(
+            @"DELETE FROM ""Persons"" WHERE ""Id"" = @Id AND ""UserId"" = @UserId",
+            new { request.Id, UserId = userId }, ct);
+        return affected > 0 ? Result.Success : Error.NotFound("Person.NotFound", "Person not found.");
     }
 }

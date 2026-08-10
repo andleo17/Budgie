@@ -1,24 +1,24 @@
+using Budgie.Modules.Users.Application;
 using Budgie.Modules.Users.Domain;
 using Budgie.Modules.Users.Infrastructure.Authentication;
-using Budgie.Modules.Users.Infrastructure.Database;
 using Budgie.Modules.Users.Infrastructure.Logging;
 using ErrorOr;
 using Mediator;
-using Microsoft.EntityFrameworkCore;
 using BC = BCrypt.Net.BCrypt;
 
 namespace Budgie.Modules.Users.Application.Login;
 
 internal sealed class LoginCommandHandler(
-    UsersDbContext dbContext,
+    IUserRepository userRepository,
+    IRefreshTokenRepository refreshTokenRepository,
     IJwtProvider jwtProvider,
     IRefreshTokenService refreshTokenService,
     ILogger<LoginCommandHandler> logger)
     : IRequestHandler<LoginCommand, ErrorOr<LoginResponse>>
 {
-    public async ValueTask<ErrorOr<LoginResponse>> Handle(LoginCommand request, CancellationToken cancellationToken)
+    public async ValueTask<ErrorOr<LoginResponse>> Handle(LoginCommand request, CancellationToken ct)
     {
-        var user = await dbContext.Users.FirstOrDefaultAsync(u => u.Email == request.Email, cancellationToken);
+        var user = await userRepository.GetByEmailAsync(request.Email, ct);
 
         if (user is null || !BC.Verify(request.Password, user.PasswordHash))
         {
@@ -27,18 +27,11 @@ internal sealed class LoginCommandHandler(
         }
 
         var token = jwtProvider.Generate(user);
-
-        var (refreshToken, tokenHash) = refreshTokenService.CreateRefreshToken();
-        var refreshTokenEntity = RefreshToken.Create(
-            user.Id,
-            tokenHash,
-            DateTime.UtcNow.AddDays(30));
-
-        dbContext.RefreshTokens.Add(refreshTokenEntity);
-        await dbContext.SaveChangesAsync(cancellationToken);
+        var (refreshTokenValue, tokenHash) = refreshTokenService.CreateRefreshToken();
+        var refreshTokenEntity = RefreshToken.Create(user.Id, tokenHash, DateTime.UtcNow.AddDays(30));
+        await refreshTokenRepository.AddAsync(refreshTokenEntity, ct);
 
         LogMessages.UserLoggedIn(logger, request.Email);
-
-        return new LoginResponse(token, refreshToken);
+        return new LoginResponse(token, refreshTokenValue);
     }
 }

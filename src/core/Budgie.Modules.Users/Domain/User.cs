@@ -5,12 +5,12 @@ namespace Budgie.Modules.Users.Domain;
 
 public class User : Entity
 {
-    public Guid Id { get; private set; }
-    public EmailAddress Email { get; private set; } = null!;
-    public string PasswordHash { get; private set; } = null!;
-    public Name Name { get; private set; } = null!;
+    public Guid Id { get; internal set; }
+    public EmailAddress Email { get; internal set; } = null!;
+    public string PasswordHash { get; internal set; } = null!;
+    public Name Name { get; internal set; } = null!;
 
-    private User() { }
+    public User() { }
 
     public static User Create(string email, string passwordHash, string name)
     {

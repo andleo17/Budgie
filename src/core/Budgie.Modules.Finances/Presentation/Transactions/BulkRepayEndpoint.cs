@@ -1,5 +1,4 @@
 using Budgie.Modules.Finances.Application.Transactions.BulkRepay;
-using Budgie.Shared.Dtos;
 using Mediator;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -9,18 +8,14 @@ namespace Budgie.Modules.Finances.Presentation.Transactions;
 
 public static class BulkRepayEndpoint
 {
-    public static void MapEndpoint(IEndpointRouteBuilder app)
+    public static void MapEndpoint(RouteGroupBuilder group)
     {
-        app.MapPost("transactions/bulk-repay", async (BulkRepayCommand command, IMediator mediator) =>
+        group.MapPost("/transactions/bulk-repay", async (BulkRepayCommand cmd, IMediator mediator) =>
         {
-            var result = await mediator.Send(command);
-
-            return result.Match<IResult>(
-                transactionId => TypedResults.Created($"/api/finances/transactions/{transactionId}", new { Id = transactionId }),
-                errors => TypedResults.BadRequest(errors.ToDictionary(e => e.Code, e => new[] { e.Description }))
-            );
-        })
-        .Produces<CreatedResponse>(StatusCodes.Status201Created)
-        .WithTags("Transactions");
+            var result = await mediator.Send(cmd);
+            return result.Match(
+                id => Results.Created($"/api/finances/transactions/{id}", new { id }),
+                err => Results.BadRequest(err.ToDictionary(e => e.Code, e => new[] { e.Description })));
+        });
     }
 }

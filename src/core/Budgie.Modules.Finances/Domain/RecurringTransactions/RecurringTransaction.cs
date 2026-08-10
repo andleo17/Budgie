@@ -10,36 +10,36 @@ public class RecurringTransaction : Entity
 {
     private const int MaxNameLength = 100;
 
-    public Guid Id { get; private set; }
-    public Guid UserId { get; private set; }
-    public Name Name { get; private set; } = null!;
-    public Guid AccountId { get; private set; }
-    public Guid? CategoryId { get; private set; }
-    public Money Amount { get; private set; } = null!;
-    public decimal ExchangeRate { get; private set; } = 1;
-    public TransactionType Type { get; private set; }
-    public string? Notes { get; private set; }
-    public int Installments { get; private set; } = 1;
-    public bool IsInterestFree { get; private set; } = true;
-    public RecurringApplicability Applicability { get; private set; }
-    public RecurringFrequency? Frequency { get; private set; }
-    public int? CustomIntervalDays { get; private set; }
-    public RecurringEndType? EndType { get; private set; }
-    public int? EndAfterCount { get; private set; }
-    public DateTime? EndDate { get; private set; }
-    public DateTime? StartDate { get; private set; }
-    public DateTime? NextDueDate { get; private set; }
-    public int TimesApplied { get; private set; }
-    public DateTime? LastAppliedDate { get; private set; }
-    public bool IsActive { get; private set; } = true;
+    public Guid Id { get; internal set; }
+    public Guid UserId { get; internal set; }
+    public Name Name { get; internal set; } = null!;
+    public Guid AccountId { get; internal set; }
+    public Guid? CategoryId { get; internal set; }
+    public Money Amount { get; internal set; } = null!;
+    public decimal ExchangeRate { get; internal set; } = 1;
+    public TransactionType Type { get; internal set; }
+    public string? Notes { get; internal set; }
+    public int Installments { get; internal set; } = 1;
+    public bool IsInterestFree { get; internal set; } = true;
+    public RecurringApplicability Applicability { get; internal set; }
+    public RecurringFrequency? Frequency { get; internal set; }
+    public int? CustomIntervalDays { get; internal set; }
+    public RecurringEndType? EndType { get; internal set; }
+    public int? EndAfterCount { get; internal set; }
+    public DateTime? EndDate { get; internal set; }
+    public DateTime? StartDate { get; internal set; }
+    public DateTime? NextDueDate { get; internal set; }
+    public int TimesApplied { get; internal set; }
+    public DateTime? LastAppliedDate { get; internal set; }
+    public bool IsActive { get; internal set; } = true;
 
     private readonly List<RecurringTransactionParticipant> _participants = new();
     public IReadOnlyCollection<RecurringTransactionParticipant> Participants => _participants.AsReadOnly();
 
-    public Account Account { get; private set; } = null!;
-    public Category? Category { get; private set; }
+    public Account Account { get; internal set; } = null!;
+    public Category? Category { get; internal set; }
 
-    private RecurringTransaction() { }
+    public RecurringTransaction() { }
 
     public static RecurringTransaction Create(
         Guid userId,

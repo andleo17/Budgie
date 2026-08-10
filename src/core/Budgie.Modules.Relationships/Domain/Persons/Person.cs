@@ -8,13 +8,13 @@ public class Person : Entity
 {
     private const int MaxNameLength = 100;
 
-    public Guid Id { get; private set; }
-    public Guid UserId { get; private set; }
-    public Name Name { get; private set; } = null!;
-    public string? PhotoPath { get; private set; }
-    public ICollection<Tag> Tags { get; private set; } = new List<Tag>();
+    public Guid Id { get; internal set; }
+    public Guid UserId { get; internal set; }
+    public Name Name { get; internal set; } = null!;
+    public string? PhotoPath { get; internal set; }
+    public ICollection<Tag> Tags { get; internal set; } = new List<Tag>();
 
-    private Person() { }
+    public Person() { }
 
     public static Person Create(Guid userId, string name)
     {

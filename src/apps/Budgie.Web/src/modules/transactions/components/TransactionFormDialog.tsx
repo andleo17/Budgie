@@ -16,6 +16,8 @@ import { CollectionPaymentForm } from "./CollectionPaymentForm";
 import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/format";
 import { parseDbDate, getDateLocale } from "@/lib/date-locale";
+import client from "@/lib/api-client";
+import { useQuery } from "@tanstack/react-query";
 
 type TransactionResponse = components["schemas"]["TransactionResponse"];
 type RecurringTransactionResponse = components["schemas"]["RecurringTransactionResponse"];
@@ -54,6 +56,15 @@ export function TransactionFormDialog({ open, onOpenChange, transaction, templat
   const dateLocale = getDateLocale(i18n.language);
   const type = formType ?? getFormType(transaction) ?? (template ? templateToFormType(template) : "income-expense");
   const isEdit = !!transaction;
+
+  const { data: persons } = useQuery({
+    queryKey: ["persons"],
+    queryFn: async () => {
+      const { data, error } = await client.GET("/api/relationships/persons");
+      if (error) throw error;
+      return data;
+    },
+  });
 
   const handleSuccess = () => {
     onOpenChange(false);
@@ -130,8 +141,7 @@ export function TransactionFormDialog({ open, onOpenChange, transaction, templat
                   <span className="text-muted-foreground text-xs">{t("transactions.participants")}</span>
                   {transaction.participants.map((p) => (
                     <div key={p.personId} className="flex justify-between text-sm mt-1">
-                      <span>{p.personId.slice(0, 8)}</span>
-                      <span>{formatCurrency(Number(p.contributedAmount), transaction.currency)}</span>
+                      <span>{persons?.find((x) => x.id === p.personId)?.name ?? p.personId.slice(0, 8)}</span>
                     </div>
                   ))}
                 </div>

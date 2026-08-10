@@ -8,18 +8,18 @@ public class Category : Entity
     private const int MaxNameLength = 50;
     public const int MaxDepth = 3;
 
-    public Guid Id { get; private set; }
-    public Guid? UserId { get; private set; }
-    public Name Name { get; private set; } = null!;
-    public HexColor? Color { get; private set; }
-    public string? Icon { get; private set; }
-    public int Type { get; private set; }
-    public bool IsSystem { get; private set; }
-    public Guid? ParentId { get; private set; }
-    public Category? Parent { get; private set; }
-    public ICollection<Category> Children { get; private set; } = [];
+    public Guid Id { get; internal set; }
+    public Guid? UserId { get; internal set; }
+    public Name Name { get; internal set; } = null!;
+    public HexColor? Color { get; internal set; }
+    public string? Icon { get; internal set; }
+    public int Type { get; internal set; }
+    public bool IsSystem { get; internal set; }
+    public Guid? ParentId { get; internal set; }
+    public Category? Parent { get; internal set; }
+    public ICollection<Category> Children { get; internal set; } = [];
 
-    private Category() { }
+    public Category() { }
 
     public static Category Create(Guid userId, string name, int type, string? color = null, string? icon = null, Guid? parentId = null)
     {

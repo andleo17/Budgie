@@ -1,3 +1,4 @@
+using Budgie.Shared.Infrastructure;
 namespace Budgie.Modules.Relationships.Infrastructure.Logging;
 
 public static partial class LogMessages

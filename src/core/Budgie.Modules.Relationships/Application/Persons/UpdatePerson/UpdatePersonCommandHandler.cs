@@ -1,58 +1,38 @@
-using Budgie.Modules.Relationships.Domain.Tags;
-using Budgie.Modules.Relationships.Infrastructure.Database;
-using Budgie.Modules.Relationships.Infrastructure.Logging;
 using Budgie.Shared.Abstractions;
+using Budgie.Shared.Infrastructure;
 using ErrorOr;
 using Mediator;
-using Microsoft.EntityFrameworkCore;
 
 namespace Budgie.Modules.Relationships.Application.Persons.UpdatePerson;
 
+public record UpdatePersonCommand(Guid Id, string Name, List<string>? TagNames) : IRequest<ErrorOr<Success>>;
+
 internal sealed class UpdatePersonCommandHandler(
-    RelationshipsDbContext dbContext,
-    ICurrentUserProvider currentUserProvider,
-    ILogger<UpdatePersonCommandHandler> logger)
+    IDbConnectionFactory factory, ICurrentUserProvider currentUserProvider)
     : IRequestHandler<UpdatePersonCommand, ErrorOr<Success>>
 {
-    public async ValueTask<ErrorOr<Success>> Handle(UpdatePersonCommand request, CancellationToken cancellationToken)
+    public async ValueTask<ErrorOr<Success>> Handle(UpdatePersonCommand request, CancellationToken ct)
     {
-        var person = await dbContext.Persons
-            .Include(p => p.Tags)
-            .FirstOrDefaultAsync(p => p.Id == request.Id, cancellationToken);
-
-        if (person is null) return Error.NotFound("Person.NotFound", "Person not found.");
-
-        person.Update(request.Name);
+        var userId = currentUserProvider.GetUserId();
+        var affected = await factory.ExecuteAsync(
+            @"UPDATE ""Persons"" SET ""Name"" = @Name WHERE ""Id"" = @Id AND ""UserId"" = @UserId",
+            new { request.Id, request.Name, UserId = userId }, ct);
+        if (affected == 0) return Error.NotFound("Person.NotFound", "Person not found.");
 
         if (request.TagNames is not null)
         {
-            person.Tags.Clear();
-
-            if (request.TagNames.Count > 0)
+            await factory.ExecuteAsync(@"DELETE FROM ""PersonTags"" WHERE ""PersonId"" = @Id", new { request.Id }, ct);
+            foreach (var tagName in request.TagNames)
             {
-                var userId = currentUserProvider.GetUserId();
-                var existingTags = await dbContext.Tags
-                    .Where(t => t.UserId == userId && request.TagNames.Contains(t.Name))
-                    .ToListAsync(cancellationToken);
-
-                foreach (var tagName in request.TagNames)
-                {
-                    var tag = existingTags.FirstOrDefault(t => t.Name == tagName);
-                    if (tag is null)
-                    {
-                        tag = Tag.Create(userId, tagName);
-                        dbContext.Tags.Add(tag);
-                    }
-
-                    person.Tags.Add(tag);
-                }
+                var tag = await factory.QuerySingleOrDefaultAsync<(Guid Id, string, string?)>(
+                    @"SELECT ""Id"",""Name"",""Color"" FROM ""Tags"" WHERE ""UserId"" = @UserId AND ""Name"" = @Name",
+                    new { UserId = userId, Name = tagName }, ct);
+                if (tag.Id != default)
+                    await factory.ExecuteAsync(
+                        @"INSERT INTO ""PersonTags"" (""PersonId"",""TagId"") VALUES (@PId,@TId)",
+                        new { PId = request.Id, TId = tag.Id }, ct);
             }
         }
-
-        await dbContext.SaveChangesAsync(cancellationToken);
-
-        LogMessages.PersonUpdated(logger, request.Id);
-
         return Result.Success;
     }
 }

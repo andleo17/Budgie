@@ -1,46 +1,26 @@
-using Budgie.Modules.Finances.Infrastructure.Database;
+using Budgie.Modules.Finances.Application;
+using Budgie.Modules.Finances.Application.Accounts;
 using ErrorOr;
 using Mediator;
-using Microsoft.EntityFrameworkCore;
 
 namespace Budgie.Modules.Finances.Application.Accounts.GetAccountById;
 
-internal sealed class GetAccountByIdQueryHandler(FinancesDbContext dbContext)
+public record GetAccountByIdQuery(Guid Id) : IRequest<ErrorOr<AccountResponse>>;
+
+internal sealed class GetAccountByIdQueryHandler(IAccountRepository accountRepository)
     : IRequestHandler<GetAccountByIdQuery, ErrorOr<AccountResponse>>
 {
-    public async ValueTask<ErrorOr<AccountResponse>> Handle(GetAccountByIdQuery request, CancellationToken cancellationToken)
+    public async ValueTask<ErrorOr<AccountResponse>> Handle(GetAccountByIdQuery request, CancellationToken ct)
     {
-        var account = await dbContext.Accounts
-            .AsNoTracking()
-            .Where(a => a.Id == request.Id)
-            .Select(a => new
-            {
-                a.Id,
-                Name = a.Name,
-                Currency = a.Balance.Currency,
-                Balance = a.Balance.Amount,
-                a.Type,
-                a.CreditCardSettings,
-                a.CreatedAt
-            })
-            .FirstOrDefaultAsync(cancellationToken);
-
-        if (account is null)
-            return Error.NotFound("Account.NotFound", "Account not found.");
-
-        return new AccountResponse(
-            account.Id,
-            account.Name,
-            account.Currency,
-            account.Balance,
-            account.Type,
-            account.CreditCardSettings?.CreditLimit?.Amount,
-            account.CreditCardSettings?.CreditConsumptionMode,
-            account.CreatedAt,
-            account.CreditCardSettings?.BillingCycleDay,
-            account.CreditCardSettings?.PaymentDueDay,
-            account.CreditCardSettings?.AnnualInterestRate != null ? (decimal?)account.CreditCardSettings.AnnualInterestRate.Value : null,
-            account.CreditCardSettings?.BillingCycleDayInclusive ?? true,
-            account.CreditCardSettings?.InterestCalculationMethod);
+        var account = await accountRepository.GetByIdRawAsync(request.Id, ct);
+        return account is not null
+            ? new AccountResponse(account.Id, account.Name, account.Balance.Amount, account.Balance.Currency.Code,
+                (int)account.Type, account.CreditCardSettings?.CreditLimit.Amount,
+                account.CreditCardSettings?.CreditLimit.Currency.Code,
+                (int)(account.CreditCardSettings?.CreditConsumptionMode ?? 0),
+                account.CreditCardSettings?.AnnualInterestRate.Value,
+                account.CreditCardSettings?.BillingCycleDayInclusive ?? true,
+                account.CreatedAt)
+            : Error.NotFound("Account.NotFound", "Account not found.");
     }
 }

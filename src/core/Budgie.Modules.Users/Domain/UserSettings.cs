@@ -6,17 +6,17 @@ namespace Budgie.Modules.Users.Domain;
 
 public class UserSettings : Entity
 {
-    public Guid UserId { get; private set; }
-    public CurrencyCode MainCurrency { get; private set; } = CurrencyCode.From("USD");
-    public CreditConsumptionMode DefaultCreditConsumptionMode { get; private set; } = CreditConsumptionMode.Total;
-    public string Language { get; private set; } = "en";
-    public bool IsConfigured { get; private set; }
-    public List<string> SupportedCurrencies { get; private set; } = [];
-    public int TransactionPageSize { get; private set; } = 100;
-    public RecurringApplicability DefaultRecurringApplicability { get; private set; } = RecurringApplicability.Automatic;
-    public bool AutoApplyOnLoad { get; private set; } = true;
+    public Guid UserId { get; internal set; }
+    public CurrencyCode MainCurrency { get; internal set; } = CurrencyCode.From("USD");
+    public CreditConsumptionMode DefaultCreditConsumptionMode { get; internal set; } = CreditConsumptionMode.Total;
+    public string Language { get; internal set; } = "en";
+    public bool IsConfigured { get; internal set; }
+    public List<string> SupportedCurrencies { get; internal set; } = [];
+    public int TransactionPageSize { get; internal set; } = 100;
+    public RecurringApplicability DefaultRecurringApplicability { get; internal set; } = RecurringApplicability.Automatic;
+    public bool AutoApplyOnLoad { get; internal set; } = true;
 
-    private UserSettings() { }
+    public UserSettings() { }
 
     public static UserSettings Create(Guid userId)
     {

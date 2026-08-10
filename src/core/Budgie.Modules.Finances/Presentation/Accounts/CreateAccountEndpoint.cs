@@ -1,5 +1,5 @@
 using Budgie.Modules.Finances.Application.Accounts.CreateAccount;
-using Budgie.Shared.Dtos;
+using ErrorOr;
 using Mediator;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -9,18 +9,17 @@ namespace Budgie.Modules.Finances.Presentation.Accounts;
 
 public static class CreateAccountEndpoint
 {
-    public static void MapEndpoint(IEndpointRouteBuilder app)
+    public static void MapEndpoint(RouteGroupBuilder group)
     {
-        app.MapPost("accounts", async (CreateAccountCommand command, IMediator mediator) =>
+        group.MapPost("/accounts", async (CreateAccountRequest req, IMediator mediator) =>
         {
-            var result = await mediator.Send(command);
-
-            return result.Match<IResult>(
-                accountId => TypedResults.Created($"/api/finances/accounts/{accountId}", new { Id = accountId }),
-                errors => TypedResults.BadRequest(errors.ToDictionary(e => e.Code, e => new[] { e.Description }))
-            );
-        })
-        .Produces<CreatedResponse>(StatusCodes.Status201Created)
-        .WithTags("Accounts");
+            var cmd = new CreateAccountCommand(req.Name, req.Currency, req.InitialBalance, req.Type ?? 1, req.CreditLimit);
+            var result = await mediator.Send(cmd);
+            return result.Match(
+                id => Results.Created($"/api/finances/accounts/{id}", new { id }),
+                errors => Results.BadRequest(errors.ToDictionary(e => e.Code, e => new[] { e.Description })));
+        });
     }
 }
+
+public record CreateAccountRequest(string Name, string Currency, decimal InitialBalance, int? Type, decimal? CreditLimit);

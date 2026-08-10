@@ -1,0 +1,27 @@
+using Budgie.Modules.Finances.Domain.Transactions;
+
+namespace Budgie.Modules.Finances.Application;
+
+public interface ITransactionRepository
+{
+    Task<TransactionInfo?> GetByIdForDeleteAsync(Guid id, CancellationToken ct);
+    Task AddAsync(Transaction tx, CancellationToken ct);
+    Task AddParticipantAsync(TransactionParticipant p, CancellationToken ct);
+    Task ReduceParticipantRemainingAsync(Guid participantId, decimal amount, CancellationToken ct);
+    Task ReduceParentParticipantRemainingAsync(Guid childParticipantId, decimal amount, CancellationToken ct);
+    Task RestoreParticipantRemainingAsync(Guid participantId, decimal amount, CancellationToken ct);
+    Task RestoreParentParticipantRemainingAsync(Guid childParticipantId, decimal amount, CancellationToken ct);
+    Task AddRepaymentDetailAsync(Guid repaymentTxId, Guid participantId, decimal amount, CancellationToken ct);
+    Task<List<RepaymentDetailInfo>> GetRepaymentDetailsAsync(Guid repaymentTxId, CancellationToken ct);
+    Task DeleteRepaymentDetailsAsync(Guid repaymentTxId, CancellationToken ct);
+    Task DeleteTransactionAsync(Guid id, CancellationToken ct);
+    Task DeleteParticipantAsync(Guid txId, CancellationToken ct);
+    Task DeleteChildParticipantsAsync(Guid parentTxId, CancellationToken ct);
+    Task DeleteChildTransactionsAsync(Guid parentTxId, CancellationToken ct);
+    Task<int> GetTransactionCountAsync(Application.Transactions.GetTransactions.GetTransactionsQuery request, CancellationToken ct);
+    Task<List<Application.Transactions.TransactionResponse>> GetTransactionsAsync(Application.Transactions.GetTransactions.GetTransactionsQuery request, CancellationToken ct);
+    Task AddTrackingParticipant(Guid txId, Guid personId, string currency, CancellationToken ct);
+}
+
+public record RepaymentDetailInfo(Guid RepaidParticipantId, decimal Amount);
+public record TransactionInfo(Guid Id, Shared.Enums.TransactionType Type, bool IsInitialBalance, decimal Amount, Guid AccountId);

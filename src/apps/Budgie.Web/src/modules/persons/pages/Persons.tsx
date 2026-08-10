@@ -69,7 +69,7 @@ function TagBadge({ tag }: { tag: TagResponse }) {
   return (
     <Badge
       variant="secondary"
-      className={`text-[11px] px-1.5 py-0 ${classes}`}
+      className={`text-xs px-1.5 py-0 ${classes}`}
       style={
         tag.color?.startsWith("#")
           ? { backgroundColor: tag.color + "20", color: tag.color }
@@ -94,7 +94,7 @@ function PersonCard({
   const { data: summary } = usePersonSummary(person.id);
 
   return (
-    <div className="group relative rounded-lg border bg-card p-3 transition-all hover:shadow-sm hover:border-accent-foreground/20 min-h-[120px]">
+    <div className="group relative rounded-lg border bg-card p-3 transition-all hover:shadow-sm hover:border-accent-foreground/20 min-h-30">
       <div className="flex items-start gap-3">
         <Avatar className="size-12 shrink-0">
           <AvatarImage src={person.photoUrl ?? undefined} alt={person.name} />
@@ -127,13 +127,13 @@ function PersonCard({
             </DropdownMenu>
           </div>
 
-          <div className="flex min-h-[20px] flex-wrap items-center gap-1">
+          <div className="flex min-h-5 flex-wrap items-center gap-1">
             {person.tags && person.tags.length > 0 ? (
               person.tags.map((tag) => (
                 <TagBadge key={tag.id} tag={tag} />
               ))
             ) : (
-              <span className="text-[11px] text-muted-foreground italic">{t("persons.noTags")}</span>
+              <span className="text-xs text-muted-foreground italic">{t("persons.noTags")}</span>
             )}
           </div>
         </div>
@@ -231,7 +231,7 @@ function Persons() {
           />
         </div>
         <Select value={tagFilter} onValueChange={(v) => setTagFilter(v ?? "")}>
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-45">
             <SelectValue placeholder={t("persons.filterByTag")}>
               {tagFilter ? (tags ?? []).find((t) => t.id === tagFilter)?.name : t("persons.allTags")}
             </SelectValue>

@@ -136,7 +136,7 @@ export function CurrencySettingsForm({ settingsData }: CurrencySettingsFormProps
                         <span className="font-mono font-medium">{code}</span>
                         <span className="text-sm text-muted-foreground">{info?.name ?? code}</span>
                         {isMain && (
-                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                          <Badge variant="secondary" className="text-xs px-1.5 py-0">
                             ★ Main
                           </Badge>
                         )}

@@ -7,13 +7,13 @@ public class Tag
 {
     private const int MaxNameLength = 50;
 
-    public Guid Id { get; private set; }
-    public Guid UserId { get; private set; }
-    public Name Name { get; private set; } = null!;
-    public HexColor? Color { get; private set; }
-    public ICollection<Person> Persons { get; private set; } = new List<Person>();
+    public Guid Id { get; internal set; }
+    public Guid UserId { get; internal set; }
+    public Name Name { get; internal set; } = null!;
+    public HexColor? Color { get; internal set; }
+    public ICollection<Person> Persons { get; internal set; } = new List<Person>();
 
-    private Tag() { }
+    public Tag() { }
 
     public static Tag Create(Guid userId, string name, string? color = null)
     {

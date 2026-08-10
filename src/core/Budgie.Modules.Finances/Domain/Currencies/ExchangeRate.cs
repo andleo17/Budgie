@@ -4,13 +4,13 @@ namespace Budgie.Modules.Finances.Domain.Currencies;
 
 public class ExchangeRate
 {
-    public Guid Id { get; private set; }
-    public CurrencyCode FromCurrency { get; private set; } = null!;
-    public CurrencyCode ToCurrency { get; private set; } = null!;
-    public decimal Rate { get; private set; }
-    public DateTime Date { get; private set; }
+    public Guid Id { get; internal set; }
+    public CurrencyCode FromCurrency { get; internal set; } = null!;
+    public CurrencyCode ToCurrency { get; internal set; } = null!;
+    public decimal Rate { get; internal set; }
+    public DateTime Date { get; internal set; }
 
-    private ExchangeRate() { }
+    public ExchangeRate() { }
 
     public static ExchangeRate Create(string from, string to, decimal rate, DateTime date)
     {

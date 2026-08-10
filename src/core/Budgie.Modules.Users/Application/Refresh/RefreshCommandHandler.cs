@@ -1,56 +1,45 @@
+using Budgie.Modules.Users.Application;
 using Budgie.Modules.Users.Application.Login;
 using Budgie.Modules.Users.Domain;
 using Budgie.Modules.Users.Infrastructure.Authentication;
-using Budgie.Modules.Users.Infrastructure.Database;
 using ErrorOr;
 using Mediator;
-using Microsoft.EntityFrameworkCore;
 
 namespace Budgie.Modules.Users.Application.Refresh;
 
 internal sealed class RefreshCommandHandler(
-    UsersDbContext dbContext,
+    IUserRepository userRepository,
+    IRefreshTokenRepository refreshTokenRepository,
     IJwtProvider jwtProvider,
     IRefreshTokenService refreshTokenService)
     : IRequestHandler<RefreshCommand, ErrorOr<LoginResponse>>
 {
-    public async ValueTask<ErrorOr<LoginResponse>> Handle(RefreshCommand request, CancellationToken cancellationToken)
+    public async ValueTask<ErrorOr<LoginResponse>> Handle(RefreshCommand request, CancellationToken ct)
     {
         var tokenHash = refreshTokenService.HashToken(request.RefreshToken);
-        var storedToken = await dbContext.RefreshTokens
-            .FirstOrDefaultAsync(rt => rt.TokenHash == tokenHash, cancellationToken);
+        var storedToken = await refreshTokenRepository.GetByHashAsync(tokenHash, ct);
 
         if (storedToken is null || storedToken.IsRevoked || storedToken.IsExpired)
         {
             if (storedToken is not null)
-            {
-                storedToken.Revoke();
-                await dbContext.SaveChangesAsync(cancellationToken);
-            }
+                await refreshTokenRepository.RevokeAsync(storedToken.Id, ct);
             return Error.Unauthorized("Auth.InvalidRefreshToken", "Invalid or expired refresh token.");
         }
 
-        var user = await dbContext.Users.FirstOrDefaultAsync(u => u.Id == storedToken.UserId, cancellationToken);
+        var user = await userRepository.GetByIdAsync(storedToken.UserId, ct);
         if (user is null)
         {
-            storedToken.Revoke();
-            await dbContext.SaveChangesAsync(cancellationToken);
+            await refreshTokenRepository.RevokeAsync(storedToken.Id, ct);
             return Error.Unauthorized("Auth.UserNotFound", "User not found.");
         }
 
-        // Rotate: revoke old, create new
-        storedToken.Revoke();
+        await refreshTokenRepository.RevokeAsync(storedToken.Id, ct);
 
         var newToken = jwtProvider.Generate(user);
-        var (newRefreshToken, newTokenHash) = refreshTokenService.CreateRefreshToken();
-        var newRefreshTokenEntity = RefreshToken.Create(
-            user.Id,
-            newTokenHash,
-            DateTime.UtcNow.AddDays(30));
+        var (newRefreshTokenValue, newTokenHash) = refreshTokenService.CreateRefreshToken();
+        var newRefreshTokenEntity = RefreshToken.Create(user.Id, newTokenHash, DateTime.UtcNow.AddDays(30));
+        await refreshTokenRepository.AddAsync(newRefreshTokenEntity, ct);
 
-        dbContext.RefreshTokens.Add(newRefreshTokenEntity);
-        await dbContext.SaveChangesAsync(cancellationToken);
-
-        return new LoginResponse(newToken, newRefreshToken);
+        return new LoginResponse(newToken, newRefreshTokenValue);
     }
 }

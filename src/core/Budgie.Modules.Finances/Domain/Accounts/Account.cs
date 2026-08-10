@@ -9,15 +9,15 @@ public class Account : Entity
 {
     private const int MaxNameLength = 100;
 
-    public Guid Id { get; private set; }
-    public Guid UserId { get; private set; }
-    public Name Name { get; private set; } = null!;
-    public Money Balance { get; private set; } = null!;
-    public AccountType Type { get; private set; }
-    public DateTime CreatedAt { get; private set; }
-    public CreditCardSettings? CreditCardSettings { get; private set; }
+    public Guid Id { get; internal set; }
+    public Guid UserId { get; internal set; }
+    public Name Name { get; internal set; } = null!;
+    public Money Balance { get; internal set; } = null!;
+    public AccountType Type { get; internal set; }
+    public DateTime CreatedAt { get; internal set; }
+    public CreditCardSettings? CreditCardSettings { get; internal set; }
 
-    private Account() { }
+    public Account() { }
 
     public static Account Create(
         Guid userId,

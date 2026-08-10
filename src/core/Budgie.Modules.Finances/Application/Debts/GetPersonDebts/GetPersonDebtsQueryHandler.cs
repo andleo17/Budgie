@@ -1,30 +1,26 @@
-using Budgie.Modules.Finances.Infrastructure.Database;
-using Budgie.Shared.Domain.ValueObjects;
 using Budgie.Shared.Enums;
+using Budgie.Shared.Infrastructure;
 using ErrorOr;
 using Mediator;
-using Microsoft.EntityFrameworkCore;
 
 namespace Budgie.Modules.Finances.Application.Debts.GetPersonDebts;
 
-internal sealed class GetPersonDebtsQueryHandler(FinancesDbContext dbContext)
+public record GetPersonDebtsQuery(Guid PersonId) : IRequest<ErrorOr<List<DebtResponse>>>;
+
+public record DebtResponse(Guid ParticipantId, Guid TransactionId, Guid PersonId,
+    decimal ContributedAmount, decimal RemainingAmount, DateTime Date, string? Notes, string Currency);
+
+internal sealed class GetPersonDebtsQueryHandler(IDbConnectionFactory factory)
     : IRequestHandler<GetPersonDebtsQuery, ErrorOr<List<DebtResponse>>>
 {
-    public async ValueTask<ErrorOr<List<DebtResponse>>> Handle(GetPersonDebtsQuery request, CancellationToken cancellationToken)
+    public async ValueTask<ErrorOr<List<DebtResponse>>> Handle(GetPersonDebtsQuery request, CancellationToken ct)
     {
-        var debts = await dbContext.TransactionParticipants
-            .Where(tp => tp.PersonId == request.PersonId && tp.RemainingAmount.Amount > 0 && !tp.IsTrackingOnly && tp.Transaction.Type == TransactionType.Loan)
-            .Include(tp => tp.Transaction)
-            .ToListAsync(cancellationToken);
-
-        return debts.Select(tp => new DebtResponse(
-            tp.Id,
-            tp.TransactionId,
-            tp.PersonId,
-            tp.ContributedAmount.Amount,
-            tp.RemainingAmount.Amount,
-            tp.Transaction.Date,
-            tp.Transaction.Notes,
-            tp.Transaction.Amount.Currency)).ToList();
+        const string sql = @"SELECT tp.""Id"" AS ParticipantId, tp.""TransactionId"", tp.""PersonId"",
+            tp.""ContributedAmount"", tp.""RemainingAmount"", t.""Date"", t.""Notes"", tp.""RemainingCurrency"" AS Currency
+            FROM ""TransactionParticipants"" tp JOIN ""Transactions"" t ON t.""Id"" = tp.""TransactionId""
+            WHERE tp.""PersonId"" = @PersonId AND tp.""RemainingAmount"" > 0 AND NOT tp.""IsTrackingOnly""
+              AND t.""Type"" = @LoanType";
+        return (await factory.QueryListAsync<DebtResponse>(sql,
+            new { request.PersonId, LoanType = (int)TransactionType.Loan }, ct)).ToList();
     }
 }

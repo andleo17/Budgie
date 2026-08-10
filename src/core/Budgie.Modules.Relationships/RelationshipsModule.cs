@@ -1,5 +1,4 @@
-using Budgie.Modules.Relationships.Presentation.Persons;
-using Budgie.Modules.Relationships.Presentation.Tags;
+using Budgie.Modules.Relationships.Presentation;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
@@ -18,7 +17,6 @@ public static class RelationshipsModule
         var group = app.MapGroup("/api/relationships").RequireAuthorization();
         CreatePersonEndpoint.MapEndpoint(group);
         PersonsEndpoints.MapEndpoints(group);
-        PersonPhotoEndpoints.MapEndpoints(group);
         CreateTagEndpoint.MapEndpoint(group);
         TagsEndpoints.MapEndpoints(group);
         return app;

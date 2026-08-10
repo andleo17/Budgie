@@ -6,15 +6,15 @@ namespace Budgie.Modules.Finances.Domain.Accounts;
 
 public class CreditCardSettings
 {
-    public Money CreditLimit { get; private set; } = null!;
-    public CreditConsumptionMode CreditConsumptionMode { get; private set; }
-    public int? BillingCycleDay { get; private set; }
-    public int? PaymentDueDay { get; private set; }
-    public Percentage AnnualInterestRate { get; private set; } = Percentage.From(0);
-    public bool BillingCycleDayInclusive { get; private set; }
-    public InterestCalculationMethod InterestCalculationMethod { get; private set; }
+    public Money CreditLimit { get; internal set; } = null!;
+    public CreditConsumptionMode CreditConsumptionMode { get; internal set; }
+    public int? BillingCycleDay { get; internal set; }
+    public int? PaymentDueDay { get; internal set; }
+    public Percentage AnnualInterestRate { get; internal set; } = Percentage.From(0);
+    public bool BillingCycleDayInclusive { get; internal set; }
+    public InterestCalculationMethod InterestCalculationMethod { get; internal set; }
 
-    private CreditCardSettings() { }
+    public CreditCardSettings() { }
 
     public CreditCardSettings(
         decimal creditLimit,

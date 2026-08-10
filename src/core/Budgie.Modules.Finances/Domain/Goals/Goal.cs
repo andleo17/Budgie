@@ -5,14 +5,14 @@ namespace Budgie.Modules.Finances.Domain.Goals;
 
 public class Goal : Entity
 {
-    public Guid Id { get; private set; }
-    public Guid UserId { get; private set; }
-    public Guid AccountId { get; private set; }
-    public Money TargetAmount { get; private set; } = null!;
-    public DateTime? TargetDate { get; private set; }
-    public DateTime CreatedAt { get; private set; }
+    public Guid Id { get; internal set; }
+    public Guid UserId { get; internal set; }
+    public Guid AccountId { get; internal set; }
+    public Money TargetAmount { get; internal set; } = null!;
+    public DateTime? TargetDate { get; internal set; }
+    public DateTime CreatedAt { get; internal set; }
 
-    private Goal() { }
+    public Goal() { }
 
     public static Goal Create(Guid userId, Guid accountId, decimal targetAmount, string currency, DateTime? targetDate)
     {
