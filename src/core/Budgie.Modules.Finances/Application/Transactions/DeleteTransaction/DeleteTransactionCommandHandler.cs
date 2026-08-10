@@ -28,9 +28,11 @@ internal sealed class DeleteTransactionCommandHandler(
             return Error.Validation("Transaction.CannotDeleteInitialBalance", "Initial balance transaction cannot be deleted.");
 
         // Restore participants when deleting a REPAYMENT that was created by BulkRepay
-        if (transaction.Type == TransactionType.Repayment && transaction.Notes is not null)
+        if (transaction.Type == TransactionType.Repayment)
         {
-            await RestoreRepaidParticipants(transaction.Notes, cancellationToken);
+            var metaSource = transaction.RepaidParticipants ?? transaction.Notes;
+            if (metaSource is not null)
+                await RestoreRepaidParticipants(metaSource, cancellationToken);
         }
 
         // When deleting a child transaction, handle account impact and remove parent participant
@@ -127,7 +129,7 @@ internal sealed class DeleteTransactionCommandHandler(
             var participant = await dbContext.TransactionParticipants.FindAsync([Guid.Parse(pid)], cancellationToken);
             if (participant is null) continue;
 
-            participant.ReduceRemaining(-amount);
+            participant.RestoreRemaining(amount);
 
             // Also restore parent expense participant (same person)
             var childTx = await dbContext.Transactions
@@ -141,7 +143,7 @@ internal sealed class DeleteTransactionCommandHandler(
                         tp.TransactionId == childTx.ParentTransactionId.Value &&
                         tp.PersonId == participant.PersonId, cancellationToken);
 
-                parentParticipant?.ReduceRemaining(-amount);
+                parentParticipant?.RestoreRemaining(amount);
             }
         }
     }

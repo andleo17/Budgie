@@ -137,4 +137,40 @@ public class DeleteTransactionCommandHandlerTests
         var updatedAccount = await _dbContext.Accounts.FindAsync(account.Id);
         updatedAccount!.Balance.Amount.Should().Be(1000m);
     }
+
+    [Fact]
+    public async Task Handle_ShouldRestoreRepaidParticipants_WhenDeletingBulkRepayment()
+    {
+        var account = Account.Create(_userId, "Bank", "USD", 1000m);
+        _dbContext.Accounts.Add(account);
+
+        var personId = Guid.NewGuid();
+        var expense = Transaction.Create(_userId, account.Id, null, 50m, "USD", 1m, DateTime.UtcNow, "Gasto", TransactionType.Expense);
+        var parentParticipant = expense.CreateParticipant(personId, 30m, remainingAmount: 30m);
+        account.ApplyTransaction(Money.FromPositive(50m, CurrencyCode.From("USD")), 1m, 1, TransactionType.Expense);
+        _dbContext.Transactions.Add(expense);
+
+        var childLoan = Transaction.Create(_userId, account.Id, null, 30m, "USD", 1m, DateTime.UtcNow, "Gasto", TransactionType.Loan, parentTransactionId: expense.Id);
+        var childParticipant = childLoan.CreateParticipant(personId, 30m, remainingAmount: 30m);
+        _dbContext.Transactions.Add(childLoan);
+        await _dbContext.SaveChangesAsync();
+
+        var repayment = Transaction.Create(_userId, account.Id, null, 30m, "USD", 1m, DateTime.UtcNow, "Pago", TransactionType.Repayment);
+        repayment.RecordRepaidParticipants(System.Text.Json.JsonSerializer.Serialize(
+            new { repaid = new[] { new { p = childParticipant.Id.ToString(), a = 30m } } }));
+        _dbContext.Transactions.Add(repayment);
+        parentParticipant.ReduceRemaining(30m);
+        childParticipant.ReduceRemaining(30m);
+        await _dbContext.SaveChangesAsync();
+
+        var result = await _handler.Handle(new DeleteTransactionCommand(repayment.Id), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+
+        var reloadedParent = await _dbContext.TransactionParticipants.FindAsync(parentParticipant.Id);
+        reloadedParent!.RemainingAmount.Amount.Should().Be(30m);
+
+        var reloadedChild = await _dbContext.TransactionParticipants.FindAsync(childParticipant.Id);
+        reloadedChild!.RemainingAmount.Amount.Should().Be(30m);
+    }
 }

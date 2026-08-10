@@ -17,7 +17,7 @@ namespace Budgie.Api.Migrations.Finances
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.9")
+                .HasAnnotation("ProductVersion", "10.0.10")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -296,6 +296,10 @@ namespace Budgie.Api.Migrations.Finances
 
                     b.Property<Guid?>("ParentTransactionId")
                         .HasColumnType("uuid");
+
+                    b.Property<string>("RepaidParticipants")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
 
                     b.Property<int>("TotalInstallments")
                         .HasColumnType("integer");

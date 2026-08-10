@@ -112,6 +112,44 @@ public class RepayLoanCommandHandlerTests : IDisposable
         result.FirstError.Code.Should().Be("Account.NotFound");
     }
 
+    [Fact]
+    public async Task Handle_ShouldReduceChildLoanParticipant_WhenExpenseOnCredit()
+    {
+        // Arrange: expense with a person on credit creates a parent participant and a child LOAN participant
+        var account = Account.Create(_userId, "Wallet", "USD", 1000m);
+        _dbContext.Accounts.Add(account);
+
+        var personId = Guid.NewGuid();
+        var expense = Transaction.Create(_userId, account.Id, null, 50m, "USD", 1m, DateTime.UtcNow, "Gasto de 50", TransactionType.Expense);
+        expense.CreateParticipant(personId, 30m, remainingAmount: 30m);
+        _dbContext.Transactions.Add(expense);
+
+        var childLoan = Transaction.Create(_userId, account.Id, null, 30m, "USD", 1m, DateTime.UtcNow, "Gasto de 50", TransactionType.Loan, parentTransactionId: expense.Id);
+        childLoan.CreateParticipant(personId, 30m, remainingAmount: 30m);
+        _dbContext.Transactions.Add(childLoan);
+
+        account.ApplyTransaction(Money.FromPositive(50m, CurrencyCode.From("USD")), 1.0m, 1, TransactionType.Expense);
+        await _dbContext.SaveChangesAsync();
+
+        var command = new RepayLoanCommand(expense.Id, 30m, "USD", 1.0m, DateTime.UtcNow, "Pago");
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsError.Should().BeFalse();
+
+        var updatedExpense = await _dbContext.Transactions
+            .Include(t => t.Participants)
+            .FirstAsync(t => t.Id == expense.Id);
+        updatedExpense.Participants.First().RemainingAmount.Amount.Should().Be(0);
+
+        var updatedChild = await _dbContext.Transactions
+            .Include(t => t.Participants)
+            .FirstAsync(t => t.Id == childLoan.Id);
+        updatedChild.Participants.First().RemainingAmount.Amount.Should().Be(0);
+    }
+
     public void Dispose()
     {
         _dbContext.Dispose();

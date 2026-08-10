@@ -25,6 +25,7 @@ public class Transaction : Entity
     public int InstallmentNumber { get; private set; } = 1;
     public int TotalInstallments { get; private set; } = 1;
     public Percentage InterestRate { get; private set; } = Percentage.From(0);
+    public string? RepaidParticipants { get; private set; }
 
     private readonly List<TransactionParticipant> _participants = new();
     public IReadOnlyCollection<TransactionParticipant> Participants => _participants.AsReadOnly();
@@ -123,6 +124,11 @@ public class Transaction : Entity
         participant.TransactionId = Id;
         _participants.Add(participant);
         return participant;
+    }
+
+    public void RecordRepaidParticipants(string json)
+    {
+        RepaidParticipants = json;
     }
 
     public List<TransactionParticipant> ClearParticipants()

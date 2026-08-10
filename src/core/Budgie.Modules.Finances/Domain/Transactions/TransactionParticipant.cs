@@ -40,4 +40,12 @@ public class TransactionParticipant
 
         RemainingAmount = Money.FromNonNegative(RemainingAmount.Amount - amount, RemainingAmount.Currency);
     }
+
+    public void RestoreRemaining(decimal amount)
+    {
+        if (amount < 0)
+            throw new ArgumentException("Amount cannot be negative.", nameof(amount));
+
+        RemainingAmount = Money.FromNonNegative(RemainingAmount.Amount + amount, RemainingAmount.Currency);
+    }
 }

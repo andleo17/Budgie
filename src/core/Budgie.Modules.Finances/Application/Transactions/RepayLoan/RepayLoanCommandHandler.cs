@@ -55,11 +55,22 @@ internal sealed class RepayLoanCommandHandler(
         // Update account balance
         account.ApplyTransaction(Money.FromPositive(request.Amount, CurrencyCode.From(request.Currency)), request.ExchangeRate, 1, TransactionType.Repayment);
 
-        // Update participant remaining amount
+        // Update participant remaining amounts: the original transaction's participant
+        // and the child loan participant(s) that represent the person's debt
         var participant = originalTransaction.Participants.FirstOrDefault();
         if (participant != null)
         {
             participant.ReduceRemaining(request.Amount);
+
+            var childParticipants = await dbContext.TransactionParticipants
+                .Where(tp =>
+                    tp.Transaction.ParentTransactionId == originalTransaction.Id &&
+                    tp.PersonId == participant.PersonId &&
+                    tp.RemainingAmount.Amount > 0)
+                .ToListAsync(cancellationToken);
+
+            foreach (var childParticipant in childParticipants)
+                childParticipant.ReduceRemaining(request.Amount);
         }
 
         dbContext.Transactions.Add(repayment);

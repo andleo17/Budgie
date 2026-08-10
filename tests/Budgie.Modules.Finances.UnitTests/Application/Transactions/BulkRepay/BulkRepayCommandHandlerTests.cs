@@ -158,6 +158,35 @@ public class BulkRepayCommandHandlerTests : IDisposable
         reloaded!.RemainingAmount.Amount.Should().Be(40m);
     }
 
+    [Fact]
+    public async Task Handle_ShouldKeepUserNotesClean_AndStoreRepaidMetadataSeparately()
+    {
+        var account = Account.Create(_userId, "Wallet", "USD", 1000m);
+        _dbContext.Accounts.Add(account);
+
+        var personId = Guid.NewGuid();
+        var loan = Transaction.Create(_userId, account.Id, null, 100m, "USD", 1m, DateTime.UtcNow, "Loan", TransactionType.Loan);
+        var participant = loan.CreateParticipant(personId, 100m, remainingAmount: 100m);
+        account.ApplyTransaction(Money.FromPositive(100m, CurrencyCode.From("USD")), 1m, 1, TransactionType.Loan);
+        _dbContext.Transactions.Add(loan);
+        await _dbContext.SaveChangesAsync();
+
+        var command = new BulkRepayCommand(
+            account.Id, 40m, "USD", 1m, DateTime.UtcNow, "Pago recibido",
+            [new DebtRepayment(participant.Id, 40m, loan.Id)]);
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+
+        var repayment = await _dbContext.Transactions
+            .FirstAsync(t => t.Type == TransactionType.Repayment);
+
+        repayment.Notes.Should().Be("Pago recibido");
+        repayment.RepaidParticipants.Should().NotBeNullOrEmpty();
+        repayment.RepaidParticipants.Should().Contain(participant.Id.ToString());
+    }
+
     public void Dispose()
     {
         _dbContext.Dispose();

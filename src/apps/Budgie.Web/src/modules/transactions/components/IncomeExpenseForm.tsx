@@ -184,6 +184,7 @@ export function IncomeExpenseForm({ transaction, template, defaultAccountId, onS
       queryClient.invalidateQueries({ queryKey: ["transactionSummary"] });
       queryClient.invalidateQueries({ queryKey: ["dashboardSummary"] });
       queryClient.invalidateQueries({ queryKey: ["accounts"] });
+      queryClient.invalidateQueries({ queryKey: ["personSummary"] });
       onSuccess();
     },
     onError: (err) => setFormError(getApiError(err)),
@@ -202,6 +203,7 @@ export function IncomeExpenseForm({ transaction, template, defaultAccountId, onS
       queryClient.invalidateQueries({ queryKey: ["transactionSummary"] });
       queryClient.invalidateQueries({ queryKey: ["dashboardSummary"] });
       queryClient.invalidateQueries({ queryKey: ["accounts"] });
+      queryClient.invalidateQueries({ queryKey: ["personSummary"] });
       onSuccess();
     },
     onError: (err) => setFormError(getApiError(err)),

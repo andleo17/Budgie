@@ -53,13 +53,10 @@ internal sealed class BulkRepayCommandHandler(
             }
         }
 
-        // Store repaid participant IDs in notes for later restoration on delete
-        var notes = request.Notes;
-        if (repaidEntries.Count > 0)
-        {
-            var meta = JsonSerializer.Serialize(new { repaid = repaidEntries });
-            notes = notes is not null ? $"{notes}\n{meta}" : meta;
-        }
+        // Store repaid participant IDs for later restoration on delete
+        var repaidMeta = repaidEntries.Count > 0
+            ? JsonSerializer.Serialize(new { repaid = repaidEntries })
+            : null;
 
         var repaymentWithMeta = Transaction.Create(
             currentUserProvider.GetUserId(),
@@ -69,8 +66,11 @@ internal sealed class BulkRepayCommandHandler(
             request.Currency,
             request.ExchangeRate,
             normalizedDate,
-            notes,
+            request.Notes,
             TransactionType.Repayment);
+
+        if (repaidMeta is not null)
+            repaymentWithMeta.RecordRepaidParticipants(repaidMeta);
 
         account.ApplyTransaction(Money.FromPositive(request.Amount, CurrencyCode.From(request.Currency)), request.ExchangeRate, 1, TransactionType.Repayment);
 

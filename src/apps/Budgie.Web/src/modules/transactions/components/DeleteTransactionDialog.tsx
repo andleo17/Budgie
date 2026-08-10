@@ -38,6 +38,8 @@ export function DeleteTransactionDialog({ open, onOpenChange, transactionId }: D
       queryClient.invalidateQueries({ queryKey: ["transactionSummary"] });
       queryClient.invalidateQueries({ queryKey: ["dashboardSummary"] });
       queryClient.invalidateQueries({ queryKey: ["accounts"] });
+      queryClient.invalidateQueries({ queryKey: ["personDebts"] });
+      queryClient.invalidateQueries({ queryKey: ["personSummary"] });
       onOpenChange(false);
     },
     onError: (err) => setErrorMsg(getApiError(err)),

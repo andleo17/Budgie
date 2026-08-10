@@ -152,6 +152,7 @@ export function CollectionPaymentForm({ defaultAccountId, onSuccess, onCancel }:
       queryClient.invalidateQueries({ queryKey: ["transactionSummary"] });
       queryClient.invalidateQueries({ queryKey: ["dashboardSummary"] });
       queryClient.invalidateQueries({ queryKey: ["personDebts"] });
+      queryClient.invalidateQueries({ queryKey: ["personSummary"] });
       onSuccess();
     },
   });

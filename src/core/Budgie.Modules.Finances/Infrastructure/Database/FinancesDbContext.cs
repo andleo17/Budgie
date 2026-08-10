@@ -116,6 +116,7 @@ public class FinancesDbContext(
             builder.Property(t => t.ExchangeRate).HasColumnType("decimal(18,4)").IsRequired();
             builder.Property(t => t.Date).IsRequired();
             builder.Property(t => t.Notes).HasMaxLength(500);
+            builder.Property(t => t.RepaidParticipants).HasMaxLength(4000);
             builder.Property(t => t.Installments).HasDefaultValue(1);
             builder.Property(t => t.LinkedTransactionId);
             builder.Property(t => t.ParentTransactionId);

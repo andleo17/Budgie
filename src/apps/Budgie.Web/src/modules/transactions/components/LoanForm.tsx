@@ -126,6 +126,7 @@ export function LoanForm({ transaction, defaultAccountId, onSuccess, onCancel, o
       queryClient.invalidateQueries({ queryKey: ["dashboardSummary"] });
       queryClient.invalidateQueries({ queryKey: ["accounts"] });
       queryClient.invalidateQueries({ queryKey: ["personDebts"] });
+      queryClient.invalidateQueries({ queryKey: ["personSummary"] });
       onSuccess();
     },
     onError: (err) => setFormError(getApiError(err)),
