@@ -37,8 +37,13 @@ internal sealed class UpdatePersonCommandHandler(
 
                 foreach (var tagName in request.TagNames)
                 {
-                    var tag = existingTags.FirstOrDefault(t => t.Name == tagName)
-                        ?? Tag.Create(userId, tagName);
+                    var tag = existingTags.FirstOrDefault(t => t.Name == tagName);
+                    if (tag is null)
+                    {
+                        tag = Tag.Create(userId, tagName);
+                        dbContext.Tags.Add(tag);
+                    }
+
                     person.Tags.Add(tag);
                 }
             }

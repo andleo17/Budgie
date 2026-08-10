@@ -1,5 +1,6 @@
 using Budgie.Modules.Relationships.Application.Persons.UpdatePerson;
 using Budgie.Modules.Relationships.Domain.Persons;
+using Budgie.Modules.Relationships.Domain.Tags;
 using Budgie.Modules.Relationships.Infrastructure.Database;
 using Budgie.Shared.Abstractions;
 using FluentAssertions;
@@ -51,6 +52,42 @@ public class UpdatePersonCommandHandlerTests
 
         result.IsError.Should().BeTrue();
         result.FirstError.Code.Should().Be("Person.NotFound");
+    }
+
+    [Fact]
+    public async Task Handle_WithNewTagName_CreatesTagAndAssociatesIt()
+    {
+        var person = Person.Create(_userId, "Someone");
+        _dbContext.Persons.Add(person);
+        await _dbContext.SaveChangesAsync();
+
+        var result = await _handler.Handle(
+            new UpdatePersonCommand(person.Id, "Someone", ["New Tag"]),
+            CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        var updated = await _dbContext.Persons.Include(p => p.Tags).FirstAsync(p => p.Id == person.Id);
+        updated.Tags.Should().ContainSingle(t => t.Name.Value == "New Tag");
+        var tag = await _dbContext.Tags.SingleAsync(t => t.Name.Value == "New Tag");
+        tag.UserId.Should().Be(_userId);
+    }
+
+    [Fact]
+    public async Task Handle_WithExistingTagName_ReusesExistingTag()
+    {
+        var person = Person.Create(_userId, "Someone");
+        var tag = Tag.Create(_userId, "Family");
+        person.Tags.Add(tag);
+        _dbContext.Persons.Add(person);
+        await _dbContext.SaveChangesAsync();
+
+        var result = await _handler.Handle(
+            new UpdatePersonCommand(person.Id, "Someone", ["Family"]),
+            CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        var tagCount = await _dbContext.Tags.CountAsync(t => t.Name.Value == "Family");
+        tagCount.Should().Be(1);
     }
 
     [Fact]
