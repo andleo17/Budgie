@@ -226,7 +226,7 @@ function Persons() {
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder={t("persons.namePlaceholder")}
+            placeholder={t("persons.searchPlaceholder")}
             className="pl-9"
           />
         </div>
@@ -254,7 +254,9 @@ function Persons() {
       ) : !filtered || filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <Users className="mb-4 size-12 text-muted-foreground/60" />
-          <p className="text-lg font-medium">{t("persons.noPersons")}</p>
+          <p className="text-lg font-medium">
+            {(persons ?? []).length === 0 ? t("persons.noPersons") : t("persons.noPersonsFound")}
+          </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">

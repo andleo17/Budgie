@@ -7,9 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Camera, Trash2, Loader2 } from "lucide-react";
 
 interface AvatarUploadProps {
-  personId: string;
+  /** Present in edit mode: uploads/removes the photo via the API. */
+  personId?: string | null;
   name: string;
   photoUrl: string | null | undefined;
+  /** Present in create mode: reports the picked file to the parent without uploading. */
+  onFileSelected?: (file: File | null) => void;
 }
 
 function getInitials(name: string): string {
@@ -21,11 +24,13 @@ function getInitials(name: string): string {
     .slice(0, 2);
 }
 
-export function AvatarUpload({ personId, name, photoUrl }: AvatarUploadProps) {
+export function AvatarUpload({ personId, name, photoUrl, onFileSelected }: AvatarUploadProps) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  const isEditMode = !!personId;
 
   useEffect(() => {
     return () => {
@@ -77,10 +82,27 @@ export function AvatarUpload({ personId, name, photoUrl }: AvatarUploadProps) {
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    setPreviewUrl(URL.createObjectURL(file));
-    uploadMutation.mutate(file);
+    const objectUrl = URL.createObjectURL(file);
+    setPreviewUrl(objectUrl);
+    if (isEditMode) {
+      uploadMutation.mutate(file);
+    } else {
+      onFileSelected?.(file);
+    }
     e.target.value = "";
   }
+
+  function handleRemove() {
+    if (isEditMode) {
+      deleteMutation.mutate();
+    } else {
+      setPreviewUrl(null);
+      onFileSelected?.(null);
+    }
+  }
+
+  const hasPhoto = !!displayUrl;
+  const isBusy = isEditMode && uploadMutation.isPending;
 
   return (
     <div className="flex items-center gap-3">
@@ -89,12 +111,12 @@ export function AvatarUpload({ personId, name, photoUrl }: AvatarUploadProps) {
           <AvatarImage src={displayUrl} alt={name} />
           <AvatarFallback className="text-lg">{getInitials(name)}</AvatarFallback>
         </Avatar>
-        {uploadMutation.isPending && (
+        {isBusy && (
           <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40">
             <Loader2 className="size-5 animate-spin text-white" />
           </div>
         )}
-        {!uploadMutation.isPending && (
+        {!isBusy && (
           <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity">
             <Button
               type="button"
@@ -121,23 +143,23 @@ export function AvatarUpload({ personId, name, photoUrl }: AvatarUploadProps) {
           variant="outline"
           size="xs"
           onClick={() => fileRef.current?.click()}
-          disabled={uploadMutation.isPending}
+          disabled={isBusy}
         >
-          {uploadMutation.isPending ? (
+          {isBusy ? (
             <Loader2 className="mr-1 size-3 animate-spin" />
           ) : (
             <Camera className="mr-1 size-3" />
           )}
-          {photoUrl ? t("persons.changePhoto") : t("persons.uploadPhoto")}
+          {hasPhoto ? t("persons.changePhoto") : t("persons.uploadPhoto")}
         </Button>
-        {photoUrl && (
+        {hasPhoto && (
           <Button
             type="button"
             variant="ghost"
             size="xs"
             className="text-destructive"
-            onClick={() => deleteMutation.mutate()}
-            disabled={uploadMutation.isPending}
+            onClick={handleRemove}
+            disabled={isBusy}
           >
             <Trash2 className="mr-1 size-3" />
             {t("persons.removePhoto")}

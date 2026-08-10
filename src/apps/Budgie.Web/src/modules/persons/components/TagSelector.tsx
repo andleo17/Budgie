@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import client from "@/lib/api-client";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { X } from "lucide-react";
+import { X, Plus } from "lucide-react";
 import type { components } from "@/lib/api-types";
 
 type TagResponse = components["schemas"]["TagResponse"];
@@ -70,6 +70,18 @@ export function TagSelector({ value, onChange }: TagSelectorProps) {
     [value, onChange],
   );
 
+  const createTag = useCallback(
+    (name: string) => {
+      const trimmed = name.trim();
+      if (!trimmed) return;
+      if (value.some((v) => v.name.toLowerCase() === trimmed.toLowerCase())) return;
+      onChange([...value, { id: crypto.randomUUID(), name: trimmed, color: "gray" }]);
+      setInput("");
+      setOpen(false);
+    },
+    [value, onChange],
+  );
+
   const removeTag = useCallback(
     (tag: TagResponse) => {
       onChange(value.filter((v) => v.id !== tag.id));
@@ -77,14 +89,21 @@ export function TagSelector({ value, onChange }: TagSelectorProps) {
     [value, onChange],
   );
 
+  const trimmedInput = input.trim();
+  const canCreateNew =
+    trimmedInput.length > 0 &&
+    !(allTags ?? []).some((t) => t.name.toLowerCase() === trimmedInput.toLowerCase());
+
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === "Enter" && input.trim()) {
+    if (e.key === "Enter" && trimmedInput) {
       e.preventDefault();
       const existing = (allTags ?? []).find(
-        (t) => t.name.toLowerCase() === input.trim().toLowerCase(),
+        (t) => t.name.toLowerCase() === trimmedInput.toLowerCase(),
       );
       if (existing) {
         selectTag(existing);
+      } else {
+        createTag(trimmedInput);
       }
       setInput("");
     }
@@ -133,7 +152,7 @@ export function TagSelector({ value, onChange }: TagSelectorProps) {
         />
       </div>
 
-      {open && filtered.length > 0 && (
+      {open && (filtered.length > 0 || canCreateNew) && (
         <div
           className="absolute z-50 mt-1 w-full rounded-md border bg-popover p-1 shadow-md"
           role="listbox"
@@ -160,6 +179,19 @@ export function TagSelector({ value, onChange }: TagSelectorProps) {
               {tag.name}
             </button>
           ))}
+          {canCreateNew && (
+            <button
+              type="button"
+              role="option"
+              tabIndex={0}
+              onClick={() => createTag(trimmedInput)}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); createTag(trimmedInput); } }}
+              className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            >
+              <Plus className="size-3.5 text-muted-foreground" />
+              {t("persons.createTag", { name: trimmedInput })}
+            </button>
+          )}
         </div>
       )}
     </div>

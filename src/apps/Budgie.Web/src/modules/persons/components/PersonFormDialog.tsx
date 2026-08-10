@@ -40,22 +40,49 @@ interface PersonFormDialogProps {
 }
 
 export function PersonFormDialog({ open, onOpenChange, person }: PersonFormDialogProps) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent key={person?.id ?? "create"}>
+        <PersonFormBody person={person} onClose={() => onOpenChange(false)} />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function PersonFormBody({
+  person,
+  onClose,
+}: {
+  person?: PersonResponse | null;
+  onClose: () => void;
+}) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
 
   const [selectedTags, setSelectedTags] = useState<TagResponse[]>(() => person?.tags ?? []);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
 
   const createMutation = useMutation({
-    mutationFn: async (body: { name: string; tagNames?: string[] }) => {
+    mutationFn: async (body: { name: string; tagNames?: string[]; photo?: File | null }) => {
       const { data, error } = await client.POST("/api/relationships/persons", {
         body: { name: body.name, tagNames: body.tagNames?.length ? body.tagNames : null as unknown as undefined },
       });
       if (error) throw error;
+      if (data && body.photo) {
+        const formData = new FormData();
+        formData.append("file", body.photo);
+        const response = await fetch(`/api/relationships/persons/${data.id}/photo`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+          body: formData,
+        });
+        if (!response.ok) toast.error("Photo upload failed");
+      }
       return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["persons"] });
-      close();
+      onClose();
     },
     onError: (err) => {
       toast.error("Something went wrong", {
@@ -74,7 +101,7 @@ export function PersonFormDialog({ open, onOpenChange, person }: PersonFormDialo
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["persons"] });
-      close();
+      onClose();
     },
     onError: (err) => {
       toast.error("Something went wrong", {
@@ -97,66 +124,58 @@ export function PersonFormDialog({ open, onOpenChange, person }: PersonFormDialo
       if (isEditing && person) {
         updateMutation.mutate({ id: person.id, name: values.name, tagNames });
       } else {
-        createMutation.mutate({ name: values.name, tagNames });
+        createMutation.mutate({ name: values.name, tagNames, photo: photoFile });
       }
     },
-    [isEditing, person, selectedTags, createMutation, updateMutation],
+    [isEditing, person, selectedTags, photoFile, createMutation, updateMutation],
   );
-
-  const close = () => onOpenChange(false);
 
   const isPending = createMutation.isPending || updateMutation.isPending;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent key={person?.id ?? "create"}>
-        {/* eslint-disable-next-line react-hooks/incompatible-library */}
-        <form onSubmit={handleSubmit(onSubmit)}>
-          <DialogHeader>
-            <DialogTitle>{isEditing ? t("persons.editPerson") : t("persons.newPerson")}</DialogTitle>
-            <DialogDescription>{isEditing ? t("persons.editDesc") : t("persons.addDesc")}</DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            {isEditing && person && (
-              <AvatarUpload
-                personId={person.id}
-                name={person.name}
-                photoUrl={person.photoUrl}
+    <form onSubmit={handleSubmit(onSubmit)}>
+      <DialogHeader>
+        <DialogTitle>{isEditing ? t("persons.editPerson") : t("persons.newPerson")}</DialogTitle>
+        <DialogDescription>{isEditing ? t("persons.editDesc") : t("persons.addDesc")}</DialogDescription>
+      </DialogHeader>
+      <div className="grid gap-4 py-4">
+        <AvatarUpload
+          personId={person?.id ?? null}
+          name={person?.name ?? ""}
+          photoUrl={person?.photoUrl}
+          onFileSelected={setPhotoFile}
+        />
+        <Controller
+          name="name"
+          control={control}
+          render={({ field, fieldState }) => (
+            <Field data-invalid={fieldState.invalid}>
+              <FieldLabel htmlFor="person-name">{t("persons.name")}</FieldLabel>
+              <Input
+                {...field}
+                id="person-name"
+                placeholder={t("persons.namePlaceholder")}
+                maxLength={PERSON_NAME_MAX_LENGTH}
+                aria-invalid={fieldState.invalid}
               />
-            )}
-            <Controller
-              name="name"
-              control={control}
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="person-name">{t("persons.name")}</FieldLabel>
-                  <Input
-                    {...field}
-                    id="person-name"
-                    placeholder={t("persons.namePlaceholder")}
-                    maxLength={PERSON_NAME_MAX_LENGTH}
-                    aria-invalid={fieldState.invalid}
-                  />
-                  {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
-                </Field>
-              )}
-            />
-            <Field>
-              <FieldLabel>{t("persons.tags")}</FieldLabel>
-              <TagSelector value={selectedTags} onChange={setSelectedTags} />
+              {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
             </Field>
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={close}>
-              {t("persons.cancel")}
-            </Button>
-            <Button type="submit" disabled={isPending}>
-              {isPending && <Loader2 className="mr-1 size-4 animate-spin" />}
-              {t("persons.save")}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+          )}
+        />
+        <Field>
+          <FieldLabel>{t("persons.tags")}</FieldLabel>
+          <TagSelector value={selectedTags} onChange={setSelectedTags} />
+        </Field>
+      </div>
+      <DialogFooter>
+        <Button type="button" variant="outline" onClick={onClose}>
+          {t("persons.cancel")}
+        </Button>
+        <Button type="submit" disabled={isPending}>
+          {isPending && <Loader2 className="mr-1 size-4 animate-spin" />}
+          {t("persons.save")}
+        </Button>
+      </DialogFooter>
+    </form>
   );
 }

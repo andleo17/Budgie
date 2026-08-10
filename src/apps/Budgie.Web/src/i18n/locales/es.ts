@@ -439,6 +439,10 @@ const es = {
     save: "Guardar",
     noPersons:
       "Aún no hay personas. ¡Agrega a alguien con quien compartes gastos!",
+    noPersonsFound: "Nadie coincide con tu búsqueda.",
+    noTags: "Sin etiquetas",
+    searchPlaceholder: "Buscar personas...",
+    createTag: 'Crear "{{name}}"',
     contributed: "Aportado",
     repaid: "Pagado",
     pending: "Pendiente",
