@@ -11,14 +11,16 @@ COPY src/ .
 RUN dotnet restore "apps/Budgie.Api/Budgie.Api.csproj"
 RUN dotnet publish "apps/Budgie.Api/Budgie.Api.csproj" -c Release -o /app/publish
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+FROM mcr.microsoft.com/dotnet/runtime-deps:10.0
 WORKDIR /app
 EXPOSE 80
 
 ENV ASPNETCORE_URLS=http://0.0.0.0:80
 ENV ASPNETCORE_ENVIRONMENT=Production
+ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1
 
-RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
 
 COPY --from=api-build /app/publish .
 COPY --from=frontend-build /src/dist wwwroot
