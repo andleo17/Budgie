@@ -1,4 +1,4 @@
 #!/bin/bash
 set -e
 
-exec ./Budgie.Api
+exec dotnet Budgie.Api.dll

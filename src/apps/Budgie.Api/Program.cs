@@ -19,11 +19,6 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.ConfigureHttpJsonOptions(options =>
-{
-    options.SerializerOptions.TypeInfoResolverChain.Insert(0, BudgieJsonContext.Default);
-});
-
 builder.Services.AddOpenApi();
 builder.Services.AddProblemDetails();
 

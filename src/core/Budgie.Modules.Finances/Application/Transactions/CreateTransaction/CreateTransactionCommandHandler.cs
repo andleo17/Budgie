@@ -13,8 +13,8 @@ public record TransactionParticipantDto(Guid PersonId, decimal ContributedAmount
 public record CreateTransactionCommand(
     Guid AccountId, Guid? CategoryId, decimal Amount, string Currency,
     decimal ExchangeRate, DateTime Date, string? Notes, TransactionType Type,
-    List<TransactionParticipantDto>? Participants, int Installments,
-    Guid? ParentTransactionId, bool IsInitialBalance) : IRequest<ErrorOr<Guid>>;
+    List<TransactionParticipantDto>? Participants, int Installments = 1,
+    Guid? ParentTransactionId = null, bool IsInitialBalance = false) : IRequest<ErrorOr<Guid>>;
 
 internal sealed class CreateTransactionCommandHandler(
     IAccountRepository accountRepository,
