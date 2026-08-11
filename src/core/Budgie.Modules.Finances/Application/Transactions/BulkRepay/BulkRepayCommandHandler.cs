@@ -30,14 +30,14 @@ internal sealed class BulkRepayCommandHandler(
             request.Amount, request.Currency, request.ExchangeRate, request.Date,
             request.Notes, TransactionType.Repayment);
 
+        await txRepository.AddAsync(repayment, ct);
+
         foreach (var debt in request.Debts)
         {
             await txRepository.ReduceParticipantRemainingAsync(debt.ParticipantId, debt.Amount, ct);
             await txRepository.ReduceParentParticipantRemainingAsync(debt.ParticipantId, debt.Amount, ct);
             await txRepository.AddRepaymentDetailAsync(repayment.Id, debt.ParticipantId, debt.Amount, ct);
         }
-
-        await txRepository.AddAsync(repayment, ct);
 
         var newBalance = account.Balance.Amount + request.Amount;
         await accountRepository.UpdateBalanceAsync(account.Id, newBalance, ct);
