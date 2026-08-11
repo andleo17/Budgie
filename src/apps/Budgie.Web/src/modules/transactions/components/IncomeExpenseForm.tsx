@@ -60,6 +60,7 @@ export function IncomeExpenseForm({ transaction, template, defaultAccountId, onS
 
   useEffect(() => {
     if (transaction) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- form initialization from edit data
       setParticipants(
         (transaction.participants ?? []).map((p) => ({
           personId: p.personId,
@@ -146,6 +147,7 @@ export function IncomeExpenseForm({ transaction, template, defaultAccountId, onS
         installments: String(template.installments ?? 1),
         isInterestFree: template.isInterestFree ?? true,
       });
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- form initialization from template
       setParticipants(
         (template.participants ?? []).map((p) => ({
           personId: p.personId,
@@ -496,8 +498,8 @@ const sorted = accounts ?? [];
           onChange={setParticipants}
           accounts={accounts ?? []}
           currency={watchedCurrency || mainCurrency}
-          defaultAccountId={form.watch("accountId")}
-          transactionType={form.watch("type")}
+          defaultAccountId={useWatch({ control: form.control, name: "accountId" })}
+          transactionType={useWatch({ control: form.control, name: "type" })}
         />
 
         <div className="flex items-center justify-between pt-2">

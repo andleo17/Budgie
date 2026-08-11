@@ -84,6 +84,7 @@ export function TransferForm({ defaultAccountId, onSuccess, onCancel }: Transfer
   const isPending = createMutation.isPending;
   const sourceAccountId = useWatch({ control: form.control, name: "sourceAccountId" });
   const destinationAccountId = useWatch({ control: form.control, name: "destinationAccountId" });
+  const watchedCurrency = useWatch({ control: form.control, name: "currency" });
   const sourceAccount = accounts?.find((a) => a.id === sourceAccountId);
   const destinationAccount = accounts?.find((a) => a.id === destinationAccountId);
   const showExchangeRate = sourceAccount && destinationAccount && sourceAccount.currency !== destinationAccount.currency;
@@ -189,7 +190,7 @@ export function TransferForm({ defaultAccountId, onSuccess, onCancel }: Transfer
         <Field>
           <FieldLabel>{t("transactions.currency")}</FieldLabel>
           <div className="flex h-10 items-center rounded-lg border bg-muted/30 px-3 text-sm font-medium text-muted-foreground">
-            {sourceAccount?.currency || form.watch("currency") || "USD"}
+            {sourceAccount?.currency || watchedCurrency || "USD"}
           </div>
         </Field>
       </div>

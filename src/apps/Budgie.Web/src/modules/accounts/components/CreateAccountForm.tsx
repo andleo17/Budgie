@@ -1,7 +1,7 @@
 import { useCallback, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useForm, Controller } from "react-hook-form";
+import { useForm, Controller, useWatch } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
@@ -98,7 +98,7 @@ export function CreateAccountForm({ onSuccess, onCancel }: CreateAccountFormProp
     },
   });
 
-  const { control, handleSubmit, watch, setValue } = useForm<FormValues>({
+  const { control, handleSubmit, setValue } = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
@@ -122,7 +122,7 @@ export function CreateAccountForm({ onSuccess, onCancel }: CreateAccountFormProp
     }
   }, [settings, setValue]);
 
-  const selectedType = watch("type");
+  const selectedType = useWatch({ control, name: "type" });
   const isCredit = selectedType === "2";
 
   const onSubmit = useCallback(

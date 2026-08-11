@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { useForm, Controller } from "react-hook-form";
+import { useForm, Controller, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -211,9 +211,9 @@ export function TemplateForm({ open, onClose, template }: TemplateFormProps) {
   });
 
   const isPending = createMutation.isPending || updateMutation.isPending;
-  const isRecurring = form.watch("isRecurring");
-  const selectedFrequency = form.watch("frequency");
-  const selectedEndType = form.watch("endType");
+  const isRecurring = useWatch({ control: form.control, name: "isRecurring" });
+  const selectedFrequency = useWatch({ control: form.control, name: "frequency" });
+  const selectedEndType = useWatch({ control: form.control, name: "endType" });
 
   const typeItems = [
     { label: t("transactions.income"), value: "0" },
