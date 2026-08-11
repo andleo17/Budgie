@@ -91,8 +91,13 @@ internal sealed class TransactionRepository(IDbConnectionFactory factory) : ITra
         var pageSize = request.PageSize ?? 100;
         var offset = ((request.Page ?? 1) - 1) * pageSize;
         p.Add("PageSize", pageSize); p.Add("Offset", offset);
-        return (await factory.QueryListAsync<TransactionResponse>(
-            $@"SELECT t.""Id"",t.""AccountId"",a.""Name"" AS AccountName,t.""CategoryId"",c.""Name"" AS CategoryName,t.""Amount"",t.""Currency"",t.""ExchangeRate"",t.""Date"",t.""Notes"",t.""Type"",t.""Installments"",t.""IsInitialBalance"",t.""LinkedTransactionId"",t.""ParentTransactionId"" FROM ""Transactions"" t JOIN ""Accounts"" a ON a.""Id""=t.""AccountId"" LEFT JOIN ""Categories"" c ON c.""Id""=t.""CategoryId"" WHERE {where} ORDER BY t.""Date"" DESC LIMIT @PageSize OFFSET @Offset", p, ct)).ToList();
+        var rows = await factory.QueryListAsync<TxQueryRow>(
+            $@"SELECT t.""Id"",t.""AccountId"",a.""Name"" AS AccountName,t.""CategoryId"",c.""Name"" AS CategoryName,t.""Amount"",t.""Currency"",t.""ExchangeRate"",t.""Date"",t.""Notes"",t.""Type"",t.""Installments"",t.""IsInitialBalance"",t.""LinkedTransactionId"",t.""ParentTransactionId"" FROM ""Transactions"" t JOIN ""Accounts"" a ON a.""Id""=t.""AccountId"" LEFT JOIN ""Categories"" c ON c.""Id""=t.""CategoryId"" WHERE {where} ORDER BY t.""Date"" DESC LIMIT @PageSize OFFSET @Offset", p, ct);
+        return rows.Select(r => new TransactionResponse(
+            r.Id, r.AccountId, r.AccountName, r.CategoryId, r.CategoryName,
+            r.Amount, r.Currency, r.ExchangeRate, r.Date, r.Notes,
+            (TransactionType)r.Type, r.Installments, r.IsInitialBalance,
+            null, r.LinkedTransactionId, r.ParentTransactionId)).ToList();
     }
 
     public Task AddTrackingParticipant(Guid txId, Guid personId, string currency, CancellationToken ct)
@@ -112,4 +117,9 @@ internal sealed class TransactionRepository(IDbConnectionFactory factory) : ITra
     }
 
     private record TxRow(Guid Id, int Type, bool IsInitialBalance, decimal Amount, Guid AccountId);
+
+    private record TxQueryRow(Guid Id, Guid AccountId, string AccountName, Guid? CategoryId,
+        string? CategoryName, decimal Amount, string Currency, decimal ExchangeRate,
+        DateTime Date, string? Notes, int Type, int Installments, bool IsInitialBalance,
+        Guid? LinkedTransactionId, Guid? ParentTransactionId);
 }
