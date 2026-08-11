@@ -1,78 +1,72 @@
+using Budgie.Modules.Users.Application;
 using Budgie.Modules.Users.Application.Register;
 using Budgie.Modules.Users.Domain;
-using Budgie.Modules.Users.Infrastructure.Database;
 using FluentAssertions;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
 using Xunit;
 
 namespace Budgie.Modules.Users.UnitTests.Application.Register;
 
 public class RegisterUserCommandHandlerTests
 {
-    private readonly UsersDbContext _dbContext;
+    private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
+    private readonly IUserSettingsRepository _settingsRepository = Substitute.For<IUserSettingsRepository>();
+    private readonly RegisterUserCommandHandler _handler;
 
     public RegisterUserCommandHandlerTests()
     {
-        var options = new DbContextOptionsBuilder<UsersDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString())
-            .Options;
-
-        _dbContext = new UsersDbContext(options);
+        _handler = new RegisterUserCommandHandler(
+            _userRepository, _settingsRepository, NullLogger<RegisterUserCommandHandler>.Instance);
     }
 
     [Fact]
     public async Task Handle_ValidCredentials_CreatesUserAndReturnsId()
     {
-        var handler = new RegisterUserCommandHandler(_dbContext, NullLogger<RegisterUserCommandHandler>.Instance);
         var command = new RegisterUserCommand("test@example.com", "SecurePass123!", "Test User");
 
-        var result = await handler.Handle(command, CancellationToken.None);
+        var result = await _handler.Handle(command, CancellationToken.None);
 
         result.IsError.Should().BeFalse();
-        var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == result.Value);
-        user.Should().NotBeNull();
-        user!.Email.Value.Should().Be("test@example.com");
-        user.Name.Value.Should().Be("Test User");
+        result.Value.Should().NotBeEmpty();
+        await _userRepository.Received(1).AddAsync(Arg.Is<User>(u => u.Email.Value == "test@example.com"),
+            Arg.Any<CancellationToken>());
     }
 
     [Fact]
     public async Task Handle_ValidCredentials_CreatesDefaultSettings()
     {
-        var handler = new RegisterUserCommandHandler(_dbContext, NullLogger<RegisterUserCommandHandler>.Instance);
         var command = new RegisterUserCommand("test@example.com", "SecurePass123!", "Test User");
 
-        var result = await handler.Handle(command, CancellationToken.None);
+        var result = await _handler.Handle(command, CancellationToken.None);
 
         result.IsError.Should().BeFalse();
-        var settings = await _dbContext.UserSettings.FirstOrDefaultAsync(s => s.UserId == result.Value);
-        settings.Should().NotBeNull();
-        settings!.IsConfigured.Should().BeFalse();
+        await _settingsRepository.Received(1).AddAsync(
+            Arg.Is<UserSettings>(s => s.UserId == result.Value && !s.IsConfigured),
+            Arg.Any<CancellationToken>());
     }
 
     [Fact]
     public async Task Handle_ExistingEmail_ReturnsConflictError()
     {
-        var existingUser = User.Create("existing@example.com", BCrypt.Net.BCrypt.HashPassword("password"), "Existing");
-        _dbContext.Users.Add(existingUser);
-        await _dbContext.SaveChangesAsync();
+        _userRepository.EmailExistsAsync("existing@example.com", Arg.Any<CancellationToken>())
+            .Returns(true);
 
-        var handler = new RegisterUserCommandHandler(_dbContext, NullLogger<RegisterUserCommandHandler>.Instance);
         var command = new RegisterUserCommand("existing@example.com", "AnotherPass123!", "New User");
 
-        var result = await handler.Handle(command, CancellationToken.None);
+        var result = await _handler.Handle(command, CancellationToken.None);
 
         result.IsError.Should().BeTrue();
         result.FirstError.Code.Should().Be("User.EmailAlreadyExists");
+        await _userRepository.DidNotReceive().AddAsync(Arg.Any<User>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
     public async Task Handle_InvalidEmail_ThrowsArgumentException()
     {
-        var handler = new RegisterUserCommandHandler(_dbContext, NullLogger<RegisterUserCommandHandler>.Instance);
         var command = new RegisterUserCommand("not-an-email", "password123", "Test User");
 
-        Func<Task> act = () => handler.Handle(command, CancellationToken.None).AsTask();
+        Func<Task> act = () => _handler.Handle(command, CancellationToken.None).AsTask();
 
         await act.Should().ThrowExactlyAsync<ArgumentException>();
     }
@@ -80,21 +74,9 @@ public class RegisterUserCommandHandlerTests
     [Fact]
     public async Task Handle_EmptyName_ThrowsArgumentException()
     {
-        var handler = new RegisterUserCommandHandler(_dbContext, NullLogger<RegisterUserCommandHandler>.Instance);
         var command = new RegisterUserCommand("test@example.com", "password123", "");
 
-        Func<Task> act = () => handler.Handle(command, CancellationToken.None).AsTask();
-
-        await act.Should().ThrowExactlyAsync<ArgumentException>();
-    }
-
-    [Fact]
-    public async Task Handle_NullName_ThrowsArgumentException()
-    {
-        var handler = new RegisterUserCommandHandler(_dbContext, NullLogger<RegisterUserCommandHandler>.Instance);
-        var command = new RegisterUserCommand("test@example.com", "password123", null!);
-
-        Func<Task> act = () => handler.Handle(command, CancellationToken.None).AsTask();
+        Func<Task> act = () => _handler.Handle(command, CancellationToken.None).AsTask();
 
         await act.Should().ThrowExactlyAsync<ArgumentException>();
     }

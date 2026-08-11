@@ -33,15 +33,14 @@ public class FinancesModuleTests
     }
 
     [Fact]
-    public void AddFinancesModule_ShouldRegisterLanguageProvider()
+    public void AddFinancesModule_ShouldRegisterRepositories()
     {
         var services = new ServiceCollection();
         services.AddFinancesModule();
 
-        var descriptor = services.FirstOrDefault(s => s.ServiceType == typeof(ILanguageProvider));
-        descriptor.Should().NotBeNull();
-        descriptor!.ImplementationType.Should().Be(typeof(LanguageProvider));
-        descriptor.Lifetime.Should().Be(ServiceLifetime.Scoped);
+        services.FirstOrDefault(s => s.ServiceType == typeof(ICurrencyUsageChecker)).Should().NotBeNull();
+        services.FirstOrDefault(s => s.ServiceType == typeof(Budgie.Modules.Finances.Application.IAccountRepository)).Should().NotBeNull();
+        services.FirstOrDefault(s => s.ServiceType == typeof(Budgie.Modules.Finances.Application.ITransactionRepository)).Should().NotBeNull();
     }
 
     [Fact]
