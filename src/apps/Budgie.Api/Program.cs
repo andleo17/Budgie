@@ -22,8 +22,14 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddOpenApi();
 builder.Services.AddProblemDetails();
 
+// Prevent .NET SDK default HTTP_PORTS=8080 from conflicting with ASPNETCORE_URLS
 builder.WebHost.UseSetting("HTTP_PORTS", string.Empty);
 builder.WebHost.UseSetting("HTTPS_PORTS", string.Empty);
+
+// TLS handled by reverse proxy; suppress infrastructure warnings
+builder.Logging.AddFilter("Microsoft.AspNetCore.DataProtection", LogLevel.Error);
+builder.Logging.AddFilter("Microsoft.AspNetCore.Server.Kestrel", LogLevel.Error);
+builder.Logging.AddFilter("Microsoft.AspNetCore.Hosting.Diagnostics", LogLevel.Error);
 
 // Npgsql Data Source (AOT-compatible, pooled connections)
 var connectionString = builder.Configuration.GetConnectionString("BudgieDb")!;
