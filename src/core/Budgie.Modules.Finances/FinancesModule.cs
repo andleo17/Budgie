@@ -4,6 +4,7 @@ using Budgie.Modules.Finances.Infrastructure.Database;
 using Budgie.Modules.Finances.Presentation.Accounts;
 using Budgie.Modules.Finances.Presentation.Categories;
 using Budgie.Modules.Finances.Presentation.Persons;
+using Budgie.Modules.Finances.Presentation.Reports;
 using Budgie.Modules.Finances.Presentation.Transactions;
 using Budgie.Shared.Abstractions;
 using Microsoft.AspNetCore.Builder;
@@ -33,6 +34,7 @@ public static class FinancesModule
         PersonSummaryEndpoint.MapEndpoint(group);
         DebtsEndpoint.MapEndpoint(group);
         CategoriesEndpoints.MapEndpoints(group);
+        ReportsEndpoints.MapEndpoints(group);
         return app;
     }
 }
