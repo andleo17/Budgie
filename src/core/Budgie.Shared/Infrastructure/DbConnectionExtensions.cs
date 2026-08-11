@@ -52,11 +52,10 @@ public static class DbConnectionExtensions
         string sql,
         object? parameters = null,
         CancellationToken ct = default)
+        where T : struct
     {
         using var connection = factory.CreateConnection();
-#pragma warning disable CS8603
         return await connection.ExecuteScalarAsync<T>(new CommandDefinition(sql, parameters, cancellationToken: ct));
-#pragma warning restore CS8603
     }
 
     /// <summary>
