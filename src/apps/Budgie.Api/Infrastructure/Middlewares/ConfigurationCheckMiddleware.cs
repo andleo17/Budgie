@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using Budgie.Shared.Abstractions;
 using Microsoft.AspNetCore.Http;
@@ -10,6 +11,11 @@ public class ConfigurationCheckMiddleware(RequestDelegate next)
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
+
+    [UnconditionalSuppressMessage("AOT", "IL3050")]
+    [UnconditionalSuppressMessage("Trimming", "IL2026")]
+    private static string SerializeError(string error, string message)
+        => JsonSerializer.Serialize(new { Error = error, Message = message }, s_jsonOptions);
 
     public async Task InvokeAsync(HttpContext context, IUserSettingsProvider settingsProvider)
     {
@@ -32,12 +38,8 @@ public class ConfigurationCheckMiddleware(RequestDelegate next)
             {
                 context.Response.StatusCode = StatusCodes.Status403Forbidden;
                 context.Response.ContentType = "application/json";
-                var json = JsonSerializer.Serialize(new 
-                { 
-                    Error = "ConfigurationRequired", 
-                    Message = "You must configure your account before using the application." 
-                }, s_jsonOptions);
-                await context.Response.WriteAsync(json);
+                await context.Response.WriteAsync(SerializeError("ConfigurationRequired",
+                    "You must configure your account before using the application."));
                 return;
             }
         }

@@ -7,6 +7,11 @@ RUN bun run build
 
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS api-build
 WORKDIR /src
+
+# Native AOT requires clang + zlib
+RUN apt-get update && apt-get install -y --no-install-recommends clang zlib1g-dev && \
+    rm -rf /var/lib/apt/lists/*
+
 COPY src/ .
 RUN dotnet restore "apps/Budgie.Api/Budgie.Api.csproj"
 RUN dotnet publish "apps/Budgie.Api/Budgie.Api.csproj" -c Release -o /app/publish
