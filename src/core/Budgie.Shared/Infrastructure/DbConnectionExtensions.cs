@@ -54,7 +54,9 @@ public static class DbConnectionExtensions
         CancellationToken ct = default)
     {
         using var connection = factory.CreateConnection();
+#pragma warning disable CS8603
         return await connection.ExecuteScalarAsync<T>(new CommandDefinition(sql, parameters, cancellationToken: ct));
+#pragma warning restore CS8603
     }
 
     /// <summary>
