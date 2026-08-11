@@ -61,7 +61,7 @@ internal sealed class AccountRepository(IDbConnectionFactory factory) : IAccount
                 CreditConsumptionMode = (int)(account.CreditCardSettings?.CreditConsumptionMode ?? 0),
                 AnnualInterestRate = account.CreditCardSettings is not null
                     ? (decimal?)account.CreditCardSettings.AnnualInterestRate.Value : null,
-                BillingCycleDayInclusive = account.CreditCardSettings?.BillingCycleDayInclusive,
+                BillingCycleDayInclusive = account.CreditCardSettings?.BillingCycleDayInclusive ?? true,
                 account.CreatedAt
             }, ct);
     }

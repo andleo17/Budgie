@@ -19,14 +19,15 @@ CREATE TABLE IF NOT EXISTS "Users" (
 CREATE UNIQUE INDEX IF NOT EXISTS "IX_Users_Email" ON "Users"("Email");
 
 CREATE TABLE IF NOT EXISTS "UserSettings" (
-    "Id" UUID PRIMARY KEY,
-    "UserId" UUID NOT NULL REFERENCES "Users"("Id") ON DELETE CASCADE,
+    "UserId" UUID PRIMARY KEY REFERENCES "Users"("Id") ON DELETE CASCADE,
     "MainCurrency" VARCHAR(3) NOT NULL,
     "DefaultCreditConsumptionMode" INT NOT NULL DEFAULT 0,
-    "Theme" INT NOT NULL DEFAULT 0,
     "Language" VARCHAR(10) NOT NULL DEFAULT 'en',
+    "IsConfigured" BOOLEAN NOT NULL DEFAULT FALSE,
+    "SupportedCurrencies" JSONB NOT NULL DEFAULT '[]',
     "TransactionPageSize" INT NOT NULL DEFAULT 100,
-    "SupportedCurrencies" JSONB NOT NULL DEFAULT '[]'
+    "DefaultRecurringApplicability" INT NOT NULL DEFAULT 0,
+    "AutoApplyOnLoad" BOOLEAN NOT NULL DEFAULT TRUE
 );
 CREATE UNIQUE INDEX IF NOT EXISTS "IX_UserSettings_UserId" ON "UserSettings"("UserId");
 
@@ -35,7 +36,8 @@ CREATE TABLE IF NOT EXISTS "RefreshTokens" (
     "UserId" UUID NOT NULL REFERENCES "Users"("Id") ON DELETE CASCADE,
     "TokenHash" VARCHAR(88) NOT NULL,
     "ExpiresAt" TIMESTAMP WITHOUT TIME ZONE NOT NULL,
-    "CreatedAt" TIMESTAMP WITHOUT TIME ZONE NOT NULL
+    "CreatedAt" TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+    "IsRevoked" BOOLEAN NOT NULL DEFAULT FALSE
 );
 CREATE INDEX IF NOT EXISTS "IX_RefreshTokens_TokenHash" ON "RefreshTokens"("TokenHash");
 

@@ -2,6 +2,7 @@ using Budgie.Api;
 using Budgie.Api.Infrastructure;
 using Budgie.Api.Infrastructure.Middlewares;
 using Budgie.Modules.Finances;
+using Budgie.Modules.Finances.Infrastructure.Database;
 using Budgie.Modules.Relationships;
 using Budgie.Modules.Users;
 using Budgie.Shared.Abstractions;
@@ -144,43 +145,9 @@ if (!app.Configuration.GetValue<bool>("UseInMemoryDatabase"))
     }
 
     // Seed system categories
-    await SeedSystemCategoriesAsync(factory);
+    await SystemCategorySeeder.SeedAsync(factory);
 }
 
 app.Run();
-
-static async Task SeedSystemCategoriesAsync(IDbConnectionFactory factory)
-{
-    var exists = await factory.QuerySingleAsync<bool>(
-        @"SELECT EXISTS(SELECT 1 FROM ""Categories"" WHERE ""IsSystem"" = TRUE)");
-
-    if (exists) return;
-
-    var systemCategories = new[]
-    {
-        (Id: Guid.Parse("a0000000-0000-0000-0000-000000000001"), Name: "Salary", Type: 0),
-        (Id: Guid.Parse("a0000000-0000-0000-0000-000000000002"), Name: "Freelance", Type: 0),
-        (Id: Guid.Parse("a0000000-0000-0000-0000-000000000003"), Name: "Investment", Type: 0),
-        (Id: Guid.Parse("a0000000-0000-0000-0000-000000000004"), Name: "Loan Repayment", Type: 0),
-        (Id: Guid.Parse("b0000000-0000-0000-0000-000000000001"), Name: "Food", Type: 1),
-        (Id: Guid.Parse("b0000000-0000-0000-0000-000000000002"), Name: "Transport", Type: 1),
-        (Id: Guid.Parse("b0000000-0000-0000-0000-000000000003"), Name: "Housing", Type: 1),
-        (Id: Guid.Parse("b0000000-0000-0000-0000-000000000004"), Name: "Health", Type: 1),
-        (Id: Guid.Parse("b0000000-0000-0000-0000-000000000005"), Name: "Entertainment", Type: 1),
-        (Id: Guid.Parse("b0000000-0000-0000-0000-000000000006"), Name: "Education", Type: 1),
-        (Id: Guid.Parse("b0000000-0000-0000-0000-000000000007"), Name: "Bills", Type: 1),
-        (Id: Guid.Parse("b0000000-0000-0000-0000-000000000008"), Name: "Transfer", Type: 2),
-        (Id: Guid.Parse("b0000000-0000-0000-0000-000000000009"), Name: "Initial Balance", Type: 3),
-    };
-
-    foreach (var cat in systemCategories)
-    {
-        await factory.ExecuteAsync(
-            @"INSERT INTO ""Categories"" (""Id"", ""Name"", ""Type"", ""IsSystem"")
-              VALUES (@Id, @Name, @Type, TRUE)
-              ON CONFLICT DO NOTHING",
-            new { cat.Id, cat.Name, cat.Type });
-    }
-}
 
 public partial class Program { }
