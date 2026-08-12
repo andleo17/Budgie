@@ -82,6 +82,26 @@ public class CreditDebtFlowTests : IClassFixture<BudgieWebApplicationFactory>
     }
 
     [Fact]
+    public async Task ExpenseWithCashParticipant_ShouldShowChildIncome_AndAssociatePerson()
+    {
+        var destAccountId = AuthHelper.CreateAccountAsync(_client, "DestAcc", "USD", 500m).GetAwaiter().GetResult();
+        await AuthHelper.CreateExpenseWithCashParticipantAsync(_client, _accountId, _personId, 50m, 30m, destAccountId);
+
+        var transactions = await _client.GetFromJsonAsync<PagedTransactions>($"/api/finances/transactions?accountIds={_accountId}");
+        transactions!.Items.Should().NotBeEmpty();
+
+        var parent = transactions.Items.Single(t => t.type == 1 && t.parentTransactionId == null);
+        parent.participants.Should().ContainSingle(p => p.personId == _personId);
+
+        var childIncome = transactions.Items.SingleOrDefault(t => t.type == 0 && t.parentTransactionId != null);
+        childIncome.Should().NotBeNull("la contribución al contado debe listarse como transacción hija Income");
+        childIncome!.participants.Should().ContainSingle(p => p.personId == _personId);
+
+        var account = await _client.GetFromJsonAsync<AccountDto>($"/api/finances/accounts/{_accountId}");
+        account!.Balance.Should().Be(1000m - 50m + 30m);
+    }
+
+    [Fact]
     public async Task PartialPayment_ShouldReduceDebtRemaining()
     {
         await AuthHelper.CreateExpenseWithDebtAsync(_client, _accountId, _personId, 50m, 30m, 30m);
@@ -140,4 +160,5 @@ public class CreditDebtFlowTests : IClassFixture<BudgieWebApplicationFactory>
     private record PagedTransactions(List<TransactionDto> Items, int TotalCount);
     private record TransactionDto(Guid Id, int type, Guid? parentTransactionId, List<ParticipantDto> participants);
     private record ParticipantDto(Guid personId, decimal remainingAmount);
+    private record AccountDto(decimal Balance);
 }

@@ -61,6 +61,27 @@ public static class AuthHelper
         return result!.Id;
     }
 
+    public static async Task<Guid> CreateExpenseWithCashParticipantAsync(HttpClient client, Guid accountId, Guid personId,
+        decimal amount, decimal contributed, Guid destinationAccountId, string currency = "USD")
+    {
+        var response = await client.PostAsJsonAsync("/api/finances/transactions", new
+        {
+            AccountId = accountId,
+            Amount = amount,
+            Currency = currency,
+            ExchangeRate = 1m,
+            Date = DateTime.UtcNow,
+            Type = 1,
+            Notes = "Gasto contado",
+            Participants = new[]
+            {
+                new { PersonId = personId, ContributedAmount = contributed, RemainingAmount = 0m, IsTrackingOnly = false, DestinationAccountId = destinationAccountId }
+            }
+        });
+        var result = await response.Content.ReadFromJsonAsync<IdResult>();
+        return result!.Id;
+    }
+
     private record LoginResult(string Token, string RefreshToken);
     private record IdResult(Guid Id);
 }

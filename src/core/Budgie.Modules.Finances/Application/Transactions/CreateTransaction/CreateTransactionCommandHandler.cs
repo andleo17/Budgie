@@ -35,25 +35,33 @@ internal sealed class CreateTransactionCommandHandler(
 
         await txRepository.AddAsync(tx, ct);
 
+        if (request.Participants is { Count: > 1 } &&
+            request.Participants.Count(p => p.RemainingAmount == 0 && !p.IsTrackingOnly && p.DestinationAccountId.HasValue) > 1)
+            return Error.Validation("Transaction.TooManyRepaid", "Only one participant can be repaid per transaction.");
+
+        var participantDelta = 0m;
         if (request.Participants is { Count: > 0 })
-            await InsertParticipants(tx, request, userId, ct);
+            participantDelta = await InsertParticipants(tx, request, userId, ct);
 
         var delta = request.Type is TransactionType.Income or TransactionType.Repayment
             ? request.Amount : -request.Amount;
-        await accountRepository.UpdateBalanceAsync(request.AccountId, account.Balance.Amount + delta, ct);
+        await accountRepository.UpdateBalanceAsync(request.AccountId, account.Balance.Amount + delta + participantDelta, ct);
 
         return tx.Id;
     }
 
-    private async Task InsertParticipants(Transaction tx, CreateTransactionCommand request, Guid userId, CancellationToken ct)
+    private async Task<decimal> InsertParticipants(Transaction tx, CreateTransactionCommand request, Guid userId, CancellationToken ct)
     {
+        var delta = 0m;
         foreach (var p in request.Participants!)
         {
             var participant = tx.CreateParticipant(p.PersonId, p.ContributedAmount,
                 p.RemainingAmount, p.IsTrackingOnly, p.DestinationAccountId);
             await txRepository.AddParticipantAsync(participant, ct);
 
-            if (!p.IsTrackingOnly && p.RemainingAmount > 0 && request.Type != TransactionType.Loan)
+            if (p.IsTrackingOnly) continue;
+
+            if (p.RemainingAmount > 0 && request.Type != TransactionType.Loan)
             {
                 var childTx = Transaction.Create(userId, request.AccountId, null,
                     p.RemainingAmount, request.Currency, request.ExchangeRate, request.Date,
@@ -63,6 +71,19 @@ internal sealed class CreateTransactionCommandHandler(
                 var childP = childTx.CreateParticipant(p.PersonId, p.RemainingAmount, p.RemainingAmount);
                 await txRepository.AddParticipantAsync(childP, ct);
             }
+            else if (p.RemainingAmount == 0 && p.DestinationAccountId.HasValue)
+            {
+                var childTx = Transaction.Create(userId, request.AccountId, null,
+                    p.ContributedAmount, request.Currency, request.ExchangeRate, request.Date,
+                    request.Notes, TransactionType.Income, 1, parentTransactionId: tx.Id);
+                await txRepository.AddAsync(childTx, ct);
+
+                var childP = childTx.CreateParticipant(p.PersonId, p.ContributedAmount, 0, false, p.DestinationAccountId);
+                await txRepository.AddParticipantAsync(childP, ct);
+
+                delta += p.ContributedAmount;
+            }
         }
+        return delta;
     }
 }
