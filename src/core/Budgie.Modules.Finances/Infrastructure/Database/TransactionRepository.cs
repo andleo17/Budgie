@@ -11,13 +11,31 @@ namespace Budgie.Modules.Finances.Infrastructure.Database;
 
 internal sealed class TransactionRepository(IDbConnectionFactory factory) : ITransactionRepository
 {
-    public async Task<TransactionInfo?> GetByIdForDeleteAsync(Guid id, CancellationToken ct)
+    public async Task<TransactionInfo?> GetByIdForDeleteAsync(Guid id, Guid userId, CancellationToken ct)
     {
         var row = await factory.QuerySingleOrDefaultAsync<TxRow>(
-            @"SELECT ""Id"",""Type"",""IsInitialBalance"",""Amount"",""AccountId"" FROM ""Transactions"" WHERE ""Id"" = @Id",
-            new { Id = id }, ct);
-        return row is null ? null : new TransactionInfo(row.Id, (TransactionType)row.Type, row.IsInitialBalance, row.Amount, row.AccountId);
+            @"SELECT ""Id"",""Type"",""IsInitialBalance"",""Amount"",""Currency"",""ExchangeRate"",""Installments"",""AccountId"",""ParentTransactionId"",""Date"" FROM ""Transactions"" WHERE ""Id"" = @Id AND ""UserId"" = @UserId",
+            new { Id = id, UserId = userId }, ct);
+        return row is null ? null : new TransactionInfo(row.Id, (TransactionType)row.Type, row.IsInitialBalance,
+            row.Amount, row.Currency, row.ExchangeRate, row.Installments, row.AccountId, row.ParentTransactionId);
     }
+
+    public async Task<List<TransactionInfo>> GetChildTransactionsForDeleteAsync(Guid parentId, CancellationToken ct)
+        => (await factory.QueryListAsync<TxRow>(
+            @"SELECT ""Id"",""Type"",""IsInitialBalance"",""Amount"",""Currency"",""ExchangeRate"",""Installments"",""AccountId"",""ParentTransactionId"",""Date"" FROM ""Transactions"" WHERE ""ParentTransactionId"" = @Id",
+            new { Id = parentId }, ct))
+            .Select(r => new TransactionInfo(r.Id, (TransactionType)r.Type, r.IsInitialBalance,
+                r.Amount, r.Currency, r.ExchangeRate, r.Installments, r.AccountId, r.ParentTransactionId))
+            .ToList();
+
+    public async Task<Guid?> GetFirstParticipantPersonIdAsync(Guid txId, CancellationToken ct)
+        => await factory.QuerySingleOrDefaultAsync<Guid?>(
+            @"SELECT ""PersonId"" FROM ""TransactionParticipants"" WHERE ""TransactionId"" = @Id LIMIT 1",
+            new { Id = txId }, ct);
+
+    public Task DeleteParentParticipantAsync(Guid parentTxId, Guid personId, CancellationToken ct)
+        => factory.ExecuteAsync(@"DELETE FROM ""TransactionParticipants"" WHERE ""TransactionId"" = @TxId AND ""PersonId"" = @PersonId",
+            new { TxId = parentTxId, PersonId = personId }, ct);
 
     public Task AddAsync(Transaction tx, CancellationToken ct)
         => factory.ExecuteAsync(
@@ -25,11 +43,40 @@ internal sealed class TransactionRepository(IDbConnectionFactory factory) : ITra
               VALUES (@Id,@UserId,@AccountId,@CategoryId,@Amount,@Currency,@ExchangeRate,@Date,@Notes,@Type,@Installments,@ParentTransactionId,@IsInitialBalance)",
             new { tx.Id, tx.UserId, tx.AccountId, tx.CategoryId, Amount = tx.Amount.Amount, Currency = tx.Amount.Currency.Code, tx.ExchangeRate, tx.Date, tx.Notes, Type = (int)tx.Type, tx.Installments, tx.ParentTransactionId, tx.IsInitialBalance }, ct);
 
+    public Task UpdateAsync(Transaction tx, CancellationToken ct)
+        => factory.ExecuteAsync(
+            @"UPDATE ""Transactions"" SET ""CategoryId"" = @CategoryId, ""Amount"" = @Amount, ""Currency"" = @Currency,
+              ""ExchangeRate"" = @ExchangeRate, ""Date"" = @Date, ""Notes"" = @Notes, ""Type"" = @Type,
+              ""Installments"" = @Installments, ""ParentTransactionId"" = @ParentTransactionId
+              WHERE ""Id"" = @Id",
+            new
+            {
+                tx.CategoryId, Amount = tx.Amount.Amount, Currency = tx.Amount.Currency.Code,
+                tx.ExchangeRate, tx.Date, tx.Notes, Type = (int)tx.Type, tx.Installments,
+                tx.ParentTransactionId, tx.Id
+            }, ct);
+
+    public async Task<TransactionForUpdate?> GetByIdForUpdateAsync(Guid id, Guid userId, CancellationToken ct)
+    {
+        var row = await factory.QuerySingleOrDefaultAsync<TxRow>(
+            @"SELECT ""Id"",""Type"",""IsInitialBalance"",""Amount"",""Currency"",""ExchangeRate"",""Installments"",""AccountId"",""ParentTransactionId"",""Date"" FROM ""Transactions"" WHERE ""Id"" = @Id AND ""UserId"" = @UserId",
+            new { Id = id, UserId = userId }, ct);
+        return row is null ? null : new TransactionForUpdate(row.Id, (TransactionType)row.Type, row.IsInitialBalance,
+            row.Amount, row.Currency, row.ExchangeRate, row.Installments, row.AccountId, row.ParentTransactionId, row.Date);
+    }
+
     public Task AddParticipantAsync(TransactionParticipant p, CancellationToken ct)
         => factory.ExecuteAsync(
             @"INSERT INTO ""TransactionParticipants"" (""Id"",""TransactionId"",""PersonId"",""ContributedAmount"",""ContributedCurrency"",""RemainingAmount"",""RemainingCurrency"",""IsTrackingOnly"",""DestinationAccountId"")
               VALUES (@Id,@TransactionId,@PersonId,@ContributedAmount,@ContributedCurrency,@RemainingAmount,@RemainingCurrency,@IsTrackingOnly,@DestinationAccountId)",
             new { p.Id, p.TransactionId, p.PersonId, ContributedAmount = p.ContributedAmount.Amount, ContributedCurrency = p.ContributedAmount.Currency.Code, RemainingAmount = p.RemainingAmount.Amount, RemainingCurrency = p.RemainingAmount.Currency.Code, p.IsTrackingOnly, p.DestinationAccountId }, ct);
+
+    public async Task<decimal?> GetParticipantRemainingAsync(Guid participantId, Guid userId, CancellationToken ct)
+        => await factory.QuerySingleOrDefaultAsync<decimal?>(
+            @"SELECT tp.""RemainingAmount"" FROM ""TransactionParticipants"" tp
+              JOIN ""Transactions"" t ON t.""Id"" = tp.""TransactionId""
+              WHERE tp.""Id"" = @Id AND t.""UserId"" = @UserId",
+            new { Id = participantId, UserId = userId }, ct);
 
     public Task ReduceParticipantRemainingAsync(Guid participantId, decimal amount, CancellationToken ct)
         => factory.ExecuteAsync(@"UPDATE ""TransactionParticipants"" SET ""RemainingAmount"" = GREATEST(0, ""RemainingAmount"" - @Amount) WHERE ""Id"" = @Id", new { Amount = amount, Id = participantId }, ct);
@@ -220,7 +267,8 @@ internal sealed class TransactionRepository(IDbConnectionFactory factory) : ITra
         return (c.Count > 0 ? string.Join(" AND ", c) : "TRUE", p);
     }
 
-    private record TxRow(Guid Id, int Type, bool IsInitialBalance, decimal Amount, Guid AccountId);
+    private record TxRow(Guid Id, int Type, bool IsInitialBalance, decimal Amount,
+        string Currency, decimal ExchangeRate, int Installments, Guid AccountId, Guid? ParentTransactionId, DateTime Date);
 
     private record TxQueryRow(Guid Id, Guid AccountId, string AccountName, Guid? CategoryId,
         string? CategoryName, decimal Amount, string Currency, decimal ExchangeRate,

@@ -3,7 +3,9 @@ using Budgie.Modules.Finances.Infrastructure;
 using Budgie.Modules.Finances.Infrastructure.Database;
 using Budgie.Modules.Finances.Presentation.Accounts;
 using Budgie.Modules.Finances.Presentation.Categories;
+using Budgie.Modules.Finances.Presentation.Goals;
 using Budgie.Modules.Finances.Presentation.Persons;
+using Budgie.Modules.Finances.Presentation.RecurringTransactions;
 using Budgie.Modules.Finances.Presentation.Reports;
 using Budgie.Modules.Finances.Presentation.Transactions;
 using Budgie.Shared.Abstractions;
@@ -20,6 +22,8 @@ public static class FinancesModule
         services.AddScoped<ICurrencyUsageChecker, CurrencyUsageChecker>();
         services.AddScoped<IAccountRepository, AccountRepository>();
         services.AddScoped<ITransactionRepository, TransactionRepository>();
+        services.AddScoped<ICategoryRepository, CategoryRepository>();
+        services.AddScoped<IRecurringTransactionRepository, RecurringTransactionRepository>();
         return services;
     }
 
@@ -34,7 +38,9 @@ public static class FinancesModule
         PersonSummaryEndpoint.MapEndpoint(group);
         DebtsEndpoint.MapEndpoint(group);
         CategoriesEndpoints.MapEndpoints(group);
+        GoalsEndpoints.MapEndpoints(group);
         ReportsEndpoints.MapEndpoints(group);
+        RecurringTransactionEndpoints.MapEndpoints(group);
         return app;
     }
 }

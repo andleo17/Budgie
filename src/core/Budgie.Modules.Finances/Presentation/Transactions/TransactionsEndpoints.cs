@@ -1,5 +1,8 @@
+using Budgie.Modules.Finances.Application.Transactions.CreateTransaction;
 using Budgie.Modules.Finances.Application.Transactions.DeleteTransaction;
 using Budgie.Modules.Finances.Application.Transactions.GetTransactions;
+using Budgie.Modules.Finances.Application.Transactions.Transfer;
+using Budgie.Modules.Finances.Application.Transactions.UpdateTransaction;
 using Budgie.Shared.Enums;
 using Mediator;
 using Microsoft.AspNetCore.Builder;
@@ -57,5 +60,26 @@ internal static class TransactionsEndpoints
             var result = await mediator.Send(new DeleteTransactionCommand(id));
             return result.Match(_ => Results.NoContent(), err => Results.BadRequest(err));
         });
+        group.MapPut("/transactions/{id:guid}", async (Guid id, UpdateTransactionRequest req, IMediator mediator) =>
+        {
+            var cmd = new UpdateTransactionCommand(
+                id, req.CategoryId, req.Amount, req.Currency, req.ExchangeRate,
+                req.Date, req.Notes, req.Type, req.Installments,
+                req.Participants, req.ParentTransactionId);
+            var result = await mediator.Send(cmd);
+            return result.Match(_ => Results.NoContent(), err => Results.BadRequest(err));
+        });
+        group.MapPost("/transactions/transfer", async (TransferCommand cmd, IMediator mediator) =>
+        {
+            var result = await mediator.Send(cmd);
+            return result.Match(
+                id => Results.Created($"/api/finances/transactions/{id}", new { id }),
+                err => Results.BadRequest(err));
+        });
     }
 }
+
+public record UpdateTransactionRequest(
+    Guid? CategoryId, decimal Amount, string Currency, decimal ExchangeRate,
+    DateTime Date, string? Notes, TransactionType Type, int Installments,
+    List<TransactionParticipantDto>? Participants = null, Guid? ParentTransactionId = null);

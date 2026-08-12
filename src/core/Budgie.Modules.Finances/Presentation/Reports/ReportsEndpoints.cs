@@ -1,3 +1,4 @@
+using Budgie.Modules.Finances.Application.Reports.GetCategorySpending;
 using Budgie.Modules.Finances.Application.Reports.GetDashboardSummary;
 using Budgie.Modules.Finances.Application.Reports.GetTransactionsSummary;
 using Mediator;
@@ -20,7 +21,21 @@ internal static class ReportsEndpoints
         group.MapGet("/transactions/summary", async (DateTime? startDate, DateTime? endDate,
             string? accountIds, IMediator mediator) =>
         {
-            var result = await mediator.Send(new GetTransactionsSummaryQuery(startDate, endDate, accountIds));
+            var accountIdList = accountIds?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(Guid.Parse).ToList();
+            var result = await mediator.Send(new GetTransactionsSummaryQuery(startDate, endDate,
+                accountIdList as IReadOnlyList<Guid>));
+            return result.Match(Results.Ok, err => Results.BadRequest(err));
+        });
+
+        group.MapGet("/reports/spending-by-category", async (DateTime? start, DateTime? end,
+            IMediator mediator) =>
+        {
+            var now = DateTime.UtcNow;
+            var startDate = start ?? new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Unspecified);
+            var endDate = end ?? now;
+
+            var result = await mediator.Send(new GetCategorySpendingQuery(startDate, endDate));
             return result.Match(Results.Ok, err => Results.BadRequest(err));
         });
     }

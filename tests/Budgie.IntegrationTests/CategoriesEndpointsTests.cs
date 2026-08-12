@@ -17,9 +17,19 @@ public class CategoriesEndpointsTests : IClassFixture<BudgieWebApplicationFactor
     }
 
     [Fact]
-    public async Task GetCategories_ShouldReturnSystemCategories()
+    public async Task GetCategories_ShouldReturnOnlyUserCategoriesByDefault()
     {
         var response = await _client.GetAsync("/api/finances/categories");
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var categories = await response.Content.ReadFromJsonAsync<List<CategoryDto>>();
+        categories.Should().NotBeNull();
+        categories!.Should().NotContain(c => c.IsSystem, "sin includeSystem no deben venir categorías del sistema");
+    }
+
+    [Fact]
+    public async Task GetCategories_WithIncludeSystem_ShouldReturnSystemCategories()
+    {
+        var response = await _client.GetAsync("/api/finances/categories?includeSystem=true");
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var categories = await response.Content.ReadFromJsonAsync<List<CategoryDto>>();
         categories!.Should().NotBeEmpty();

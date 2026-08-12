@@ -9,5 +9,7 @@ public interface IAccountRepository
     Task<Account?> GetByIdRawAsync(Guid id, CancellationToken ct);
     Task<List<AccountResponse>> GetByUserIdAsync(Guid userId, CancellationToken ct);
     Task AddAsync(Account account, CancellationToken ct);
+    Task UpdateAsync(Account account, CancellationToken ct);
+    Task DeleteAsync(Guid id, Guid userId, CancellationToken ct);
     Task UpdateBalanceAsync(Guid id, decimal newBalance, CancellationToken ct);
 }

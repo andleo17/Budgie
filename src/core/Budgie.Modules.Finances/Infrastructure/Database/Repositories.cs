@@ -66,6 +66,28 @@ internal sealed class AccountRepository(IDbConnectionFactory factory) : IAccount
             }, ct);
     }
 
+    public Task UpdateAsync(Account account, CancellationToken ct)
+        => factory.ExecuteAsync(
+            @"UPDATE ""Accounts"" SET ""Name"" = @Name, ""CreditLimit"" = @CreditLimit,
+              ""CreditLimitCurrency"" = @CreditLimitCurrency, ""CreditConsumptionMode"" = @CreditConsumptionMode,
+              ""AnnualInterestRate"" = @AnnualInterestRate, ""BillingCycleDayInclusive"" = @BillingCycleDayInclusive
+              WHERE ""Id"" = @Id",
+            new
+            {
+                Name = account.Name.Value,
+                CreditLimit = (decimal?)account.CreditCardSettings?.CreditLimit.Amount,
+                CreditLimitCurrency = account.CreditCardSettings?.CreditLimit.Currency?.Code,
+                CreditConsumptionMode = (int)(account.CreditCardSettings?.CreditConsumptionMode ?? 0),
+                AnnualInterestRate = account.CreditCardSettings is not null
+                    ? (decimal?)account.CreditCardSettings.AnnualInterestRate.Value : null,
+                BillingCycleDayInclusive = account.CreditCardSettings?.BillingCycleDayInclusive ?? true,
+                account.Id
+            }, ct);
+
+    public Task DeleteAsync(Guid id, Guid userId, CancellationToken ct)
+        => factory.ExecuteAsync(@"DELETE FROM ""Accounts"" WHERE ""Id"" = @Id AND ""UserId"" = @UserId",
+            new { Id = id, UserId = userId }, ct);
+
     public Task UpdateBalanceAsync(Guid id, decimal newBalance, CancellationToken ct)
         => factory.ExecuteAsync(
             @"UPDATE ""Accounts"" SET ""Balance"" = @Balance WHERE ""Id"" = @Id",

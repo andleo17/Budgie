@@ -3,6 +3,8 @@ using Budgie.Modules.Relationships.Application.Persons.DeletePerson;
 using Budgie.Modules.Relationships.Application.Persons.GetPersons;
 using Budgie.Modules.Relationships.Application.Persons.UpdatePerson;
 using Budgie.Modules.Relationships.Application.Tags;
+using Budgie.Modules.Relationships.Application.Tags.DeleteTag;
+using Budgie.Modules.Relationships.Application.Tags.UpdateTag;
 using Mediator;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -71,5 +73,19 @@ internal static class TagsEndpoints
             var result = await mediator.Send(new GetTagsQuery());
             return result.Match(Results.Ok, errors => Results.BadRequest(errors));
         });
+
+        group.MapPut("/tags/{id:guid}", async (Guid id, UpdateTagRequest req, IMediator mediator) =>
+        {
+            var result = await mediator.Send(new UpdateTagCommand(id, req.Name, req.Color));
+            return result.Match(_ => Results.NoContent(), errors => Results.BadRequest(errors));
+        });
+
+        group.MapDelete("/tags/{id:guid}", async (Guid id, IMediator mediator) =>
+        {
+            var result = await mediator.Send(new DeleteTagCommand(id));
+            return result.Match(_ => Results.NoContent(), errors => Results.BadRequest(errors));
+        });
     }
 }
+
+public record UpdateTagRequest(string Name, string? Color = null);
