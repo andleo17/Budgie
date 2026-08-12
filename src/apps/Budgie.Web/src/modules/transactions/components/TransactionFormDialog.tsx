@@ -18,6 +18,7 @@ import { formatCurrency } from "@/lib/format";
 import { parseDbDate, getDateLocale } from "@/lib/date-locale";
 import client from "@/lib/api-client";
 import { useQuery } from "@tanstack/react-query";
+import { Trash2 } from "lucide-react";
 
 type TransactionResponse = components["schemas"]["TransactionResponse"];
 type RecurringTransactionResponse = components["schemas"]["RecurringTransactionResponse"];
@@ -146,7 +147,13 @@ export function TransactionFormDialog({ open, onOpenChange, transaction, templat
                   ))}
                 </div>
               )}
-              <div className="flex justify-end pt-2">
+              <div className="flex items-center justify-between pt-2">
+                {onDelete && (
+                  <Button type="button" variant="outline" size="sm" className="text-red-400 border-red-400/30 hover:bg-red-400/10 hover:text-red-300" onClick={() => { onDelete(transaction); handleCancel(); }}>
+                    <Trash2 className="size-3.5 mr-1.5" />
+                    {t("transactions.deletePayment")}
+                  </Button>
+                )}
                 <Button type="button" variant="outline" size="sm" onClick={handleCancel}>{t("transactions.cancel")}</Button>
               </div>
             </div>
