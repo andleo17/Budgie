@@ -430,7 +430,6 @@ export default function Transactions() {
                         transaction={tx}
                         showRunningBalance={hasSingleAccount}
                         onEdit={handleEdit}
-                        onDelete={handleDelete}
                         mainCurrency={mainCurrency}
                       />
                     ))}
