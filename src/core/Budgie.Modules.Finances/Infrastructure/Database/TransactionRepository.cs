@@ -97,7 +97,7 @@ internal sealed class TransactionRepository(IDbConnectionFactory factory) : ITra
         var offset = ((request.Page ?? 1) - 1) * pageSize;
         p.Add("PageSize", pageSize); p.Add("Offset", offset);
         var rows = await factory.QueryListAsync<TxQueryRow>(
-            $@"SELECT t.""Id"",t.""AccountId"",a.""Name"" AS AccountName,t.""CategoryId"",c.""Name"" AS CategoryName,t.""Amount"",t.""Currency"",t.""ExchangeRate"",t.""Date"",t.""Notes"",t.""Type"",t.""Installments"",t.""IsInitialBalance"",t.""LinkedTransactionId"",t.""ParentTransactionId"" FROM ""Transactions"" t JOIN ""Accounts"" a ON a.""Id""=t.""AccountId"" LEFT JOIN ""Categories"" c ON c.""Id""=t.""CategoryId"" WHERE {where} ORDER BY t.""Date"" DESC, (t.""ParentTransactionId"" IS NOT NULL), (COALESCE(t.""ParentTransactionId"", t.""Id"")), (CASE WHEN t.""Type"" = 3 AND t.""ParentTransactionId"" IS NOT NULL THEN 0 ELSE 1 END), t.""Id"" LIMIT @PageSize OFFSET @Offset", p, ct);
+            $@"SELECT t.""Id"",t.""AccountId"",a.""Name"" AS AccountName,t.""CategoryId"",c.""Name"" AS CategoryName,t.""Amount"",t.""Currency"",t.""ExchangeRate"",t.""Date"",t.""Notes"",t.""Type"",t.""Installments"",t.""IsInitialBalance"",t.""LinkedTransactionId"",t.""ParentTransactionId"" FROM ""Transactions"" t JOIN ""Accounts"" a ON a.""Id""=t.""AccountId"" LEFT JOIN ""Categories"" c ON c.""Id""=t.""CategoryId"" WHERE {where} ORDER BY t.""Date"" DESC, (t.""ParentTransactionId"" IS NULL), (COALESCE(t.""ParentTransactionId"", t.""Id"")), (CASE WHEN t.""Type"" = 3 AND t.""ParentTransactionId"" IS NOT NULL THEN 0 ELSE 1 END), t.""Id"" LIMIT @PageSize OFFSET @Offset", p, ct);
 
         var baseItems = rows.Select(r => BaseResponse(r)).ToList();
         return await BuildResponsesAsync(baseItems, ct);

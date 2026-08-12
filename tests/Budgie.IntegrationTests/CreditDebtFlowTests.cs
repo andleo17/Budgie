@@ -76,6 +76,9 @@ public class CreditDebtFlowTests : IClassFixture<BudgieWebApplicationFactory>
         var virtualDebt = transactions.Items.SingleOrDefault(t => t.type == 3 && t.parentTransactionId != null);
         virtualDebt.Should().NotBeNull("la deuda virtual (transacción hija Loan) debe listarse");
         virtualDebt!.participants.Should().ContainSingle(p => p.personId == _personId);
+
+        transactions.Items.IndexOf(virtualDebt).Should().BeLessThan(
+            transactions.Items.IndexOf(parent), "la deuda virtual debe aparecer por encima de la transacción original");
     }
 
     [Fact]
