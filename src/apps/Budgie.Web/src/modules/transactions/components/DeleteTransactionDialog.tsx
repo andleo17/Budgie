@@ -19,9 +19,10 @@ interface DeleteTransactionDialogProps {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   transactionId: string;
+  isPayment?: boolean;
 }
 
-export function DeleteTransactionDialog({ open, onOpenChange, transactionId }: DeleteTransactionDialogProps) {
+export function DeleteTransactionDialog({ open, onOpenChange, transactionId, isPayment }: DeleteTransactionDialogProps) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -51,7 +52,7 @@ export function DeleteTransactionDialog({ open, onOpenChange, transactionId }: D
         <AlertDialogHeader>
           <AlertDialogTitle>{t("transactions.deleteTransaction")}</AlertDialogTitle>
           <AlertDialogDescription>
-            {t("transactions.deleteConfirm")}
+            {isPayment ? t("transactions.deletePaymentConfirm") : t("transactions.deleteConfirm")}
           </AlertDialogDescription>
         </AlertDialogHeader>
         {errorMsg && (

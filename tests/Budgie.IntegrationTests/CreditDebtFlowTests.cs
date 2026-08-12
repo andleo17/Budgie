@@ -155,6 +155,42 @@ public class CreditDebtFlowTests : IClassFixture<BudgieWebApplicationFactory>
         transactions!.Items.Should().NotBeEmpty();
     }
 
+    [Fact]
+    public async Task DeletePayment_ShouldReturnDebtToPending()
+    {
+        await AuthHelper.CreateExpenseWithDebtAsync(_client, _accountId, _personId, 50m, 30m, 30m);
+
+        var debts = await _client.GetFromJsonAsync<List<DebtDto>>($"/api/finances/persons/{_personId}/debts");
+        debts!.Should().ContainSingle();
+
+        var repay = await _client.PostAsJsonAsync("/api/finances/transactions/bulk-repay", new
+        {
+            AccountId = _accountId,
+            Amount = 30m,
+            Currency = "USD",
+            ExchangeRate = 1m,
+            Date = DateTime.UtcNow,
+            Notes = "Pago a eliminar",
+            Debts = new[]
+            {
+                new { ParticipantId = debts[0].participantId, Amount = 30m, TransactionId = debts[0].transactionId }
+            }
+        });
+        repay.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var debtsCleared = await _client.GetFromJsonAsync<List<DebtDto>>($"/api/finances/persons/{_personId}/debts");
+        debtsCleared!.Should().BeEmpty();
+
+        var repayId = await repay.Content.ReadFromJsonAsync<IdDto>();
+        var del = await _client.DeleteAsync($"/api/finances/transactions/{repayId!.Id}");
+        del.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        var debtsRestored = await _client.GetFromJsonAsync<List<DebtDto>>($"/api/finances/persons/{_personId}/debts");
+        debtsRestored!.Should().ContainSingle();
+        debtsRestored[0].remainingAmount.Should().Be(30m);
+    }
+
+    private record IdDto(Guid Id);
     private record DebtDto(Guid participantId, Guid transactionId, decimal remainingAmount);
     private record SummaryDto(decimal TotalContributed, decimal TotalRepaid, decimal TotalPending);
     private record PagedTransactions(List<TransactionDto> Items, int TotalCount);

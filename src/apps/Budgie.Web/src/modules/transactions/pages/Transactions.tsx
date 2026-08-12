@@ -430,6 +430,7 @@ export default function Transactions() {
                         transaction={tx}
                         showRunningBalance={hasSingleAccount}
                         onEdit={handleEdit}
+                        onDelete={handleDelete}
                         mainCurrency={mainCurrency}
                       />
                     ))}
@@ -484,6 +485,7 @@ export default function Transactions() {
           if (!v) setDeletingTx(null);
         }}
         transactionId={deletingTx?.id ?? ""}
+        isPayment={deletingTx?.type === TransactionType.Collection}
       />
 
       <ApplyFromTemplateDialog

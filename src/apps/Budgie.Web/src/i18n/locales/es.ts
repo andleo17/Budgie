@@ -233,6 +233,9 @@ const es = {
     deleteTransaction: "Eliminar transacción",
     deleteConfirm:
       "¿Estás seguro de eliminar esta transacción? Esta acción no se puede deshacer.",
+    deletePayment: "Eliminar pago y devolver la deuda a pendiente",
+    deletePaymentConfirm:
+      "Se eliminará el pago y la deuda volverá a estar pendiente. Esta acción no se puede deshacer.",
     addDesc: "Registra un nuevo movimiento financiero.",
     editDesc: "Actualiza los detalles de la transacción.",
     type: "Tipo",

@@ -3,7 +3,8 @@ import { format } from "date-fns";
 import { getDateLocale, parseDbDate } from "@/lib/date-locale";
 import { getTypeInfo } from "@/modules/transactions/components/TransactionTypeIcon";
 import { formatCurrency } from "@/lib/format";
-import { Wallet, Link, Users } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Wallet, Link, Users, Trash2 } from "lucide-react";
 import type { components } from "@/lib/api-types";
 
 type TransactionResponse = components["schemas"]["TransactionResponse"];
@@ -12,10 +13,11 @@ interface TransactionRowProps {
   transaction: TransactionResponse;
   showRunningBalance: boolean;
   onEdit: (tx: TransactionResponse) => void;
+  onDelete?: (tx: TransactionResponse) => void;
   mainCurrency: string;
 }
 
-export function TransactionRow({ transaction, showRunningBalance, onEdit, mainCurrency }: TransactionRowProps) {
+export function TransactionRow({ transaction, showRunningBalance, onEdit, onDelete, mainCurrency }: TransactionRowProps) {
   const { t, i18n } = useTranslation();
   const dateLocale = getDateLocale(i18n.language);
   const typeInfo = getTypeInfo(transaction.type);
@@ -28,6 +30,7 @@ export function TransactionRow({ transaction, showRunningBalance, onEdit, mainCu
   const isForeignCurrency = transaction.currency !== mainCurrency;
   const isTransfer = transaction.type === 2;
   const isVirtualChild = transaction.parentTransactionId != null && transaction.type === 3;
+  const isRepayment = transaction.type === 4;
   const pendingDebts = transaction.participants?.filter(
     (p) => Number(p.remainingAmount) > 0 && !p.isTrackingOnly
   ) ?? [];
@@ -119,6 +122,21 @@ export function TransactionRow({ transaction, showRunningBalance, onEdit, mainCu
             </p>
           )}
         </div>
+        {isRepayment && onDelete && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="size-7 shrink-0 text-muted-foreground hover:text-red-400 hover:bg-red-400/10"
+            title={t("transactions.deletePayment")}
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete(transaction);
+            }}
+          >
+            <Trash2 className="size-3.5" />
+          </Button>
+        )}
       </div>
     </div>
   );

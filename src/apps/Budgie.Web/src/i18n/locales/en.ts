@@ -231,6 +231,9 @@ const en = {
     deleteTransaction: "Delete Transaction",
     deleteConfirm:
       "Are you sure you want to delete this transaction? This action cannot be undone.",
+    deletePayment: "Delete payment and return debt to pending",
+    deletePaymentConfirm:
+      "This will delete the payment and return the debt to pending. This action cannot be undone.",
     addDesc: "Record a new financial movement.",
     editDesc: "Update the transaction details.",
     type: "Type",
