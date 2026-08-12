@@ -63,6 +63,22 @@ public class CreditDebtFlowTests : IClassFixture<BudgieWebApplicationFactory>
     }
 
     [Fact]
+    public async Task ExpenseOnCredit_ShouldCreateVirtualDebtChild_AndAssociateParticipant()
+    {
+        await AuthHelper.CreateExpenseWithDebtAsync(_client, _accountId, _personId, 50m, 30m, 30m);
+
+        var transactions = await _client.GetFromJsonAsync<PagedTransactions>($"/api/finances/transactions?accountIds={_accountId}");
+        transactions!.Items.Should().NotBeEmpty();
+
+        var parent = transactions.Items.Single(t => t.type == 1 && t.parentTransactionId == null);
+        parent.participants.Should().ContainSingle(p => p.personId == _personId && p.remainingAmount == 30m);
+
+        var virtualDebt = transactions.Items.SingleOrDefault(t => t.type == 3 && t.parentTransactionId != null);
+        virtualDebt.Should().NotBeNull("la deuda virtual (transacción hija Loan) debe listarse");
+        virtualDebt!.participants.Should().ContainSingle(p => p.personId == _personId);
+    }
+
+    [Fact]
     public async Task PartialPayment_ShouldReduceDebtRemaining()
     {
         await AuthHelper.CreateExpenseWithDebtAsync(_client, _accountId, _personId, 50m, 30m, 30m);
@@ -119,5 +135,6 @@ public class CreditDebtFlowTests : IClassFixture<BudgieWebApplicationFactory>
     private record DebtDto(Guid participantId, Guid transactionId, decimal remainingAmount);
     private record SummaryDto(decimal TotalContributed, decimal TotalRepaid, decimal TotalPending);
     private record PagedTransactions(List<TransactionDto> Items, int TotalCount);
-    private record TransactionDto(Guid Id);
+    private record TransactionDto(Guid Id, int type, Guid? parentTransactionId, List<ParticipantDto> participants);
+    private record ParticipantDto(Guid personId, decimal remainingAmount);
 }
