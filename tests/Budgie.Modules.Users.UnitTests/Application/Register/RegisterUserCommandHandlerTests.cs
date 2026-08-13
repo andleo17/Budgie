@@ -12,12 +12,15 @@ public class RegisterUserCommandHandlerTests
 {
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
     private readonly IUserSettingsRepository _settingsRepository = Substitute.For<IUserSettingsRepository>();
+    private readonly IRegistrationPolicy _registrationPolicy = Substitute.For<IRegistrationPolicy>();
     private readonly RegisterUserCommandHandler _handler;
 
     public RegisterUserCommandHandlerTests()
     {
+        _registrationPolicy.CanRegisterAsync(Arg.Any<CancellationToken>()).Returns(true);
+
         _handler = new RegisterUserCommandHandler(
-            _userRepository, _settingsRepository, NullLogger<RegisterUserCommandHandler>.Instance);
+            _userRepository, _settingsRepository, _registrationPolicy, NullLogger<RegisterUserCommandHandler>.Instance);
     }
 
     [Fact]
@@ -58,6 +61,20 @@ public class RegisterUserCommandHandlerTests
 
         result.IsError.Should().BeTrue();
         result.FirstError.Code.Should().Be("User.EmailAlreadyExists");
+        await _userRepository.DidNotReceive().AddAsync(Arg.Any<User>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Handle_RegistrationClosed_ReturnsForbiddenError()
+    {
+        _registrationPolicy.CanRegisterAsync(Arg.Any<CancellationToken>()).Returns(false);
+
+        var command = new RegisterUserCommand("new@example.com", "SecurePass123!", "New User");
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("User.RegistrationClosed");
         await _userRepository.DidNotReceive().AddAsync(Arg.Any<User>(), Arg.Any<CancellationToken>());
     }
 

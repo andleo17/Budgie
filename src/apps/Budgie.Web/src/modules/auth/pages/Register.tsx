@@ -5,8 +5,9 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useNavigate, Link } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import client from "@/lib/api-client";
+import { useRegistrationStatus } from "@/modules/auth/useRegistrationStatus";
 import { registerSchema, type RegisterFormValues } from "@/modules/auth/schemas";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field, FieldLabel, FieldError } from "@/components/ui/field";
 import { Loader2, CheckCircle2 } from "lucide-react";
@@ -15,6 +16,7 @@ import { AuthErrorBanner } from "../components/AuthErrorBanner";
 
 export default function Register() {
   const { t } = useTranslation();
+  const { data: registrationStatus, isPending: isRegistrationStatusPending } = useRegistrationStatus();
   const [done, setDone] = useState(false);
   const form = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
@@ -53,6 +55,35 @@ export default function Register() {
     !form.formState.errors.password
       ? mutation.error?.message || t("auth.registrationFailed")
       : "";
+
+  if (isRegistrationStatusPending) {
+    return (
+      <AuthLayout tagline={t("auth.taglineRegister")}>
+        <div className="flex justify-center py-10">
+          <Loader2 className="h-6 w-6 animate-spin" />
+        </div>
+      </AuthLayout>
+    );
+  }
+
+  if (registrationStatus?.enabled === false) {
+    return (
+      <AuthLayout tagline={t("auth.taglineRegister")}>
+        <div className="flex flex-col items-center gap-3 py-6 text-center">
+          <p className="font-semibold">{t("auth.registrationClosed")}</p>
+          <p className="text-sm text-muted-foreground">
+            {t("auth.registrationClosedDesc")}
+          </p>
+          <Link
+            to="/login"
+            className={buttonVariants({ className: "mt-2 w-full" })}
+          >
+            {t("auth.backToLogin")}
+          </Link>
+        </div>
+      </AuthLayout>
+    );
+  }
 
   return (
     <AuthLayout tagline={t("auth.taglineRegister")}>

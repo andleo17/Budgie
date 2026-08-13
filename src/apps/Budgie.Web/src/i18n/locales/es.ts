@@ -144,6 +144,10 @@ const es = {
     redirecting: "Redirigiendo a iniciar sesión\u2026",
     invalidCredentials: "Correo o contraseña inválidos.",
     registrationFailed: "Error al crear la cuenta.",
+    registrationClosed: "Registro cerrado",
+    registrationClosedDesc:
+      "El registro solo está disponible para el primer usuario de esta instancia.",
+    backToLogin: "Ir a iniciar sesión",
     tagline: "Tu asistente de finanzas personales",
     taglineRegister: "Comienza a gestionar tus finanzas",
   },

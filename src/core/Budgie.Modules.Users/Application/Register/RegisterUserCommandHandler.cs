@@ -10,11 +10,15 @@ namespace Budgie.Modules.Users.Application.Register;
 internal sealed class RegisterUserCommandHandler(
     IUserRepository userRepository,
     IUserSettingsRepository settingsRepository,
+    IRegistrationPolicy registrationPolicy,
     ILogger<RegisterUserCommandHandler> logger)
     : IRequestHandler<RegisterUserCommand, ErrorOr<Guid>>
 {
     public async ValueTask<ErrorOr<Guid>> Handle(RegisterUserCommand request, CancellationToken ct)
     {
+        if (!await registrationPolicy.CanRegisterAsync(ct))
+            return Error.Forbidden("User.RegistrationClosed", "Registration is closed. Only the first user can register.");
+
         if (await userRepository.EmailExistsAsync(request.Email, ct))
             return Error.Conflict("User.EmailAlreadyExists", "Email is already in use.");
 

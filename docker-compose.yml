@@ -12,6 +12,7 @@ services:
       - Jwt__Secret=${JWT_SECRET:?error}
       - Jwt__Issuer=${JWT_ISSUER:-Budgie}
       - Jwt__Audience=${JWT_AUDIENCE:-Budgie}
+      - Registration__Mode=${REGISTRATION_MODE:-Auto}
     depends_on:
       db:
         condition: service_healthy

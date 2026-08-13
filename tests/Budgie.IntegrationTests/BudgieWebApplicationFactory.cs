@@ -29,6 +29,7 @@ public class BudgieWebApplicationFactory : WebApplicationFactory<Program>, IAsyn
         builder.UseEnvironment("Testing");
         builder.UseSetting("UseInMemoryDatabase", "false");
         builder.UseSetting("ConnectionStrings:BudgieDb", _container.GetConnectionString());
+        builder.UseSetting("Registration:Mode", "Open");
     }
 
     public Task InitializeAsync()

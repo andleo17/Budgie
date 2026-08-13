@@ -143,6 +143,10 @@ const en = {
     redirecting: "Redirecting to sign in\u2026",
     invalidCredentials: "Invalid email or password.",
     registrationFailed: "Failed to create account.",
+    registrationClosed: "Registration closed",
+    registrationClosedDesc:
+      "Registration is only available to the first user of this instance.",
+    backToLogin: "Go to sign in",
     tagline: "Your personal finance companion",
     taglineRegister: "Start managing your finances",
   },

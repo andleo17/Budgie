@@ -5,6 +5,7 @@ namespace Budgie.Modules.Users.Application;
 
 public interface IUserRepository
 {
+    Task<bool> AnyAsync(CancellationToken ct);
     Task<bool> EmailExistsAsync(string email, CancellationToken ct);
     Task<User?> GetByEmailAsync(string email, CancellationToken ct);
     Task<User?> GetByIdAsync(Guid id, CancellationToken ct);

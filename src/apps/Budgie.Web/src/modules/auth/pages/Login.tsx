@@ -2,9 +2,10 @@ import { useTranslation } from "react-i18next";
 import { useMutation } from "@tanstack/react-query";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, Navigate } from "react-router-dom";
 import client from "@/lib/api-client";
 import { useAuth } from "@/modules/auth/useAuth";
+import { useRegistrationStatus } from "@/modules/auth/useRegistrationStatus";
 import { loginSchema, type LoginFormValues } from "@/modules/auth/schemas";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,6 +21,7 @@ export default function Login() {
   });
   const { setToken } = useAuth();
   const navigate = useNavigate();
+  const { data: registrationStatus } = useRegistrationStatus();
   const mutation = useMutation({
     mutationFn: async (body: { email: string; password: string }) => {
       const { data, error } = await client.POST("/api/users/login", { body });
@@ -43,6 +45,12 @@ export default function Login() {
     !form.formState.errors.password
       ? mutation.error?.message || t("auth.invalidCredentials")
       : "";
+
+  if (registrationStatus?.enabled && !registrationStatus.hasUsers) {
+    return <Navigate to="/register" replace />;
+  }
+
+  const registrationClosed = registrationStatus?.enabled === false;
 
   return (
     <AuthLayout tagline={t("auth.tagline")}>
@@ -107,15 +115,21 @@ export default function Login() {
         </Button>
       </form>
 
-      <p className="mt-5 text-center text-sm text-muted-foreground">
-        {t("auth.noAccount")}{" "}
-        <Link
-          to="/register"
-          className="text-primary hover:underline underline-offset-4 font-medium"
-        >
-          {t("auth.createOne")}
-        </Link>
-      </p>
+      {registrationClosed ? (
+        <p className="mt-5 text-center text-sm text-muted-foreground">
+          {t("auth.registrationClosed")}
+        </p>
+      ) : (
+        <p className="mt-5 text-center text-sm text-muted-foreground">
+          {t("auth.noAccount")}{" "}
+          <Link
+            to="/register"
+            className="text-primary hover:underline underline-offset-4 font-medium"
+          >
+            {t("auth.createOne")}
+          </Link>
+        </p>
+      )}
     </AuthLayout>
   );
 }

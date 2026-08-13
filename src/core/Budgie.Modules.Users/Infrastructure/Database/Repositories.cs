@@ -88,6 +88,11 @@ internal sealed class UserSettingsRepository(IDbConnectionFactory factory) : App
 
 internal sealed class UserRepository(IDbConnectionFactory factory) : Application.IUserRepository
 {
+    public Task<bool> AnyAsync(CancellationToken ct)
+        => factory.QuerySingleAsync<bool>(
+            @"SELECT EXISTS(SELECT 1 FROM ""Users"")",
+            null, ct);
+
     public Task<bool> EmailExistsAsync(string email, CancellationToken ct)
         => factory.QuerySingleAsync<bool>(
             @"SELECT EXISTS(SELECT 1 FROM ""Users"" WHERE ""Email"" = @Email)",

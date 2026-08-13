@@ -31,6 +31,7 @@ namespace Budgie.Api;
 
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
 [JsonSerializable(typeof(RegisterUserCommand))]
+[JsonSerializable(typeof(Budgie.Modules.Users.Application.Register.RegistrationStatusResponse))]
 [JsonSerializable(typeof(LoginCommand))]
 [JsonSerializable(typeof(LoginResponse))]
 [JsonSerializable(typeof(RefreshCommand))]

@@ -1,3 +1,4 @@
+using Budgie.Modules.Users.Application.Register;
 using Budgie.Modules.Users.Infrastructure;
 using Budgie.Modules.Users.Infrastructure.Authentication;
 using Budgie.Modules.Users.Infrastructure.Database;
@@ -16,6 +17,7 @@ public static class UsersModule
         services.AddScoped<IJwtProvider, JwtProvider>();
         services.AddScoped<IUserSettingsProvider, UserSettingsProvider>();
         services.AddScoped<IRefreshTokenService, RefreshTokenService>();
+        services.AddScoped<Application.IRegistrationPolicy, RegistrationPolicy>();
         services.AddScoped<Application.IUserRepository, UserRepository>();
         services.AddScoped<Application.IUserSettingsRepository, UserSettingsRepository>();
         services.AddScoped<Application.IRefreshTokenRepository, RefreshTokenRepository>();
@@ -26,12 +28,21 @@ public static class UsersModule
     {
         var group = app.MapGroup("/api/users").WithTags("Users");
 
+        group.MapGet("/registration-status", async (Application.IRegistrationPolicy policy, CancellationToken ct) =>
+        {
+            var status = await policy.GetStatusAsync(ct);
+            return Results.Ok(status);
+        })
+        .Produces<RegistrationStatusResponse>(200);
+
         group.MapPost("/register", async (Application.Register.RegisterUserCommand command, Mediator.IMediator mediator) =>
         {
             var result = await mediator.Send(command);
             return result.Match(
                 userId => Results.Created($"/api/users/{userId}", new { Id = userId }),
-                errors => Results.BadRequest(errors));
+                errors => result.FirstError.Type == ErrorOr.ErrorType.Forbidden
+                    ? Results.Json(errors, statusCode: StatusCodes.Status403Forbidden)
+                    : Results.BadRequest(errors));
         })
         .Produces<Budgie.Shared.Dtos.CreatedResponse>(StatusCodes.Status201Created);
 
