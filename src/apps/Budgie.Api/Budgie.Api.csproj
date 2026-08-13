@@ -1,6 +1,10 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <ItemGroup>
+    <None Include="sql\**\*.sql" CopyToPublishDirectory="PreserveNewest" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\core\Budgie.Modules.Finances\Budgie.Modules.Finances.csproj" />
     <ProjectReference Include="..\..\core\Budgie.Shared\Budgie.Shared.csproj" />
     <ProjectReference Include="..\..\core\Budgie.Modules.Relationships\Budgie.Modules.Relationships.csproj" />
