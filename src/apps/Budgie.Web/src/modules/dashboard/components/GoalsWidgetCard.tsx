@@ -41,9 +41,9 @@ export function GoalsWidgetCard({
           <div className="space-y-8">
             {goals.map((goal) => (
               <div key={goal.accountId} className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="font-medium">{goal.accountName}</span>
-                  <span className="text-muted-foreground">
+                <div className="flex flex-wrap items-center justify-between gap-x-2 text-sm">
+                  <span className="font-medium min-w-0 truncate">{goal.accountName}</span>
+                  <span className="text-muted-foreground shrink-0">
                     {formatCurrency(Number(goal.currentBalance), currency)} /{" "}
                     {formatCurrency(Number(goal.targetAmount), currency)}
                   </span>

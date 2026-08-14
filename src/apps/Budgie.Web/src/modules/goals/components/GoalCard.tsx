@@ -77,7 +77,7 @@ export default function GoalCard({
           </div>
         </div>
 
-        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150 shrink-0">
+        <div className="flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-150 shrink-0">
           <button
             onClick={() => onEdit(goal)}
             aria-label={`${t("goals.editAria")} ${goal.name}`}
@@ -103,10 +103,10 @@ export default function GoalCard({
       </div>
 
       <div className="mb-4">
-        <div className="flex items-baseline gap-1.5">
+        <div className="flex flex-wrap items-baseline gap-1.5">
           <span
             className={cn(
-              "text-3xl font-bold tabular-nums",
+              "text-3xl font-bold tabular-nums min-w-0 truncate",
               isComplete ? "text-emerald-400" : "text-foreground",
             )}
           >

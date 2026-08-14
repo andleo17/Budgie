@@ -30,7 +30,7 @@ export function TransactionSummaryBar({
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 gap-3">
         {[1, 2, 3].map((i) => (
           <div key={i} className="h-24 animate-pulse rounded-xl bg-muted" />
         ))}
@@ -85,7 +85,7 @@ export function TransactionSummaryBar({
   }
 
   return (
-    <div className={`grid gap-3 ${cards.length === 4 ? "grid-cols-4" : "grid-cols-3"}`}>
+    <div className={`grid gap-3 sm:grid-cols-2 ${cards.length === 4 ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}>
       {cards.map((card) => {
         const nonZeroItems = card.items.filter((i) => i.value !== 0);
         const hasBreakdown = multiCurrency && nonZeroItems.length > 0;

@@ -74,10 +74,10 @@ export function RecurringSettingsCard() {
         <CardDescription>{t("settings.recurring.description")}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <Label className="text-sm font-medium">{t("settings.recurring.defaultApplicability")}</Label>
           <Select items={applicabilityItems} value={applicability} onValueChange={handleApplicabilityChange}>
-            <SelectTrigger className="w-40">
+            <SelectTrigger className="w-full sm:w-40">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -87,8 +87,8 @@ export function RecurringSettingsCard() {
             </SelectContent>
           </Select>
         </div>
-        <div className="flex items-center justify-between">
-          <div className="space-y-0.5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="space-y-0.5 min-w-0">
             <Label className="text-sm font-medium">{t("settings.recurring.autoApply")}</Label>
             <p className="text-xs text-muted-foreground">{t("settings.recurring.autoApplyDesc")}</p>
           </div>

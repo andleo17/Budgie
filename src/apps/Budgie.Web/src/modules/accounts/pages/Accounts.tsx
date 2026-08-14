@@ -73,8 +73,8 @@ export default function Accounts() {
 
   return (
     <>
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold tracking-tight md:text-3xl">
             {t("accounts.title")}
           </h1>
@@ -82,7 +82,7 @@ export default function Accounts() {
         </div>
         <button
           onClick={() => setIsCreateOpen(true)}
-          className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-transparent bg-primary px-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/80 active:translate-y-px disabled:pointer-events-none disabled:opacity-50 select-none whitespace-nowrap outline-none"
+          className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-transparent bg-primary px-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/80 active:translate-y-px disabled:pointer-events-none disabled:opacity-50 select-none whitespace-nowrap outline-none"
         >
           <PlusCircle className="mr-1 h-4 w-4" />
           {t("accounts.addAccount")}

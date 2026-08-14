@@ -220,7 +220,7 @@ function Persons() {
         </div>
       </div>
 
-      <div className="mb-6 flex items-center gap-3">
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -231,7 +231,7 @@ function Persons() {
           />
         </div>
         <Select value={tagFilter} onValueChange={(v) => setTagFilter(v ?? "")}>
-          <SelectTrigger className="w-45">
+          <SelectTrigger className="w-full sm:w-45">
             <SelectValue placeholder={t("persons.filterByTag")}>
               {tagFilter ? (tags ?? []).find((t) => t.id === tagFilter)?.name : t("persons.allTags")}
             </SelectValue>

@@ -8,10 +8,10 @@ export function ThemeToggleCard() {
   const { t } = useTranslation()
   const { theme, toggleTheme } = useTheme()
   return (
-    <div className="flex items-center justify-between">
-      <div className="flex items-center gap-3">
-        {theme === 'dark' ? <Moon className="size-4 text-muted-foreground" /> : <Sun className="size-4 text-muted-foreground" />}
-        <div>
+    <div className="flex items-start justify-between gap-3">
+      <div className="flex items-center gap-3 min-w-0">
+        {theme === 'dark' ? <Moon className="size-4 text-muted-foreground shrink-0" /> : <Sun className="size-4 text-muted-foreground shrink-0" />}
+        <div className="min-w-0">
           <Label htmlFor="dark-mode" className="font-medium">{t('settings.appearance.darkMode')}</Label>
           <p className="text-xs text-muted-foreground">{t('settings.appearance.darkModeDesc')}</p>
         </div>

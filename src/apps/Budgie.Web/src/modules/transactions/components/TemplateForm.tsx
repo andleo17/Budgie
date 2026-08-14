@@ -296,7 +296,7 @@ export function TemplateForm({ open, onClose, template }: TemplateFormProps) {
             )}
           />
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Controller
               name="type"
               control={form.control}
@@ -357,7 +357,7 @@ export function TemplateForm({ open, onClose, template }: TemplateFormProps) {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Controller
               name="amount"
               control={form.control}
@@ -432,7 +432,7 @@ export function TemplateForm({ open, onClose, template }: TemplateFormProps) {
 
           {isRecurring && (
             <div className="grid gap-4 rounded-lg border bg-muted/30 p-4">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <Controller
                   name="applicability"
                   control={form.control}

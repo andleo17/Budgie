@@ -92,8 +92,8 @@ export function SetupPreferencesStep({
         name="autoApplyOnLoad"
         render={({ field }) => (
           <Field>
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
+            <div className="flex items-start justify-between gap-3">
+              <div className="space-y-0.5 min-w-0">
                 <FieldLabel>{t("setup.preferences.autoApply")}</FieldLabel>
                 <p className="text-xs text-muted-foreground">
                   {t("setup.preferences.autoApplyDesc")}

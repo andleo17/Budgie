@@ -20,7 +20,7 @@ export function GoalsStatsBar({ goals }: GoalsStatsBarProps) {
   ]
 
   return (
-    <div className="grid grid-cols-3 gap-3">
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
       {stats.map(s => (
         <div key={s.label} className="rounded-xl border bg-card px-4 py-3 flex items-center gap-3">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted">
@@ -28,8 +28,8 @@ export function GoalsStatsBar({ goals }: GoalsStatsBarProps) {
           </div>
           <div className="min-w-0">
             <p className="text-xs text-muted-foreground truncate">{s.label}</p>
-            <p className="text-lg font-bold tabular-nums leading-tight">{s.value}</p>
-            <p className="text-xs text-muted-foreground/70">{s.sub}</p>
+            <p className="text-lg font-bold tabular-nums leading-tight truncate">{s.value}</p>
+            <p className="text-xs text-muted-foreground/70 truncate">{s.sub}</p>
           </div>
         </div>
       ))}

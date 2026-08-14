@@ -371,8 +371,8 @@ export function TransactionFilters() {
 
   return (
     <div className="space-y-2">
-      <div className="flex items-center gap-2">
-        <div className="relative min-w-48">
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative min-w-48 flex-1 basis-full sm:basis-auto">
           <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
           <Input
             placeholder={t("transactions.searchPlaceholder")}
@@ -717,7 +717,7 @@ export function TransactionFilters() {
       )}
 
       {/* View mode toggle */}
-      <div className="flex items-center gap-1 h-9">
+      <div className="flex flex-wrap items-center gap-1 py-0.5">
         <span className="text-xs text-muted-foreground mr-1">{t("transactions.view")}:</span>
         {VIEW_MODES.map((mode) => (
           <button

@@ -105,7 +105,7 @@ export function AvatarUpload({ personId, name, photoUrl, onFileSelected }: Avata
   const isBusy = isEditMode && uploadMutation.isPending;
 
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex flex-wrap items-center gap-3">
       <div className="relative group">
         <Avatar className="size-16">
           <AvatarImage src={displayUrl} alt={name} />

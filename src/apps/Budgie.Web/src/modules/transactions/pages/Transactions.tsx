@@ -274,8 +274,8 @@ export default function Transactions() {
 
   return (
     <>
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold tracking-tight md:text-3xl">
             {allAccounts ? allAccounts.name : t("transactions.title")}
           </h1>
@@ -285,7 +285,7 @@ export default function Transactions() {
               : t("transactions.description")}
           </p>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
           <Button variant="outline" className="h-10" onClick={() => setTemplateDialogOpen(true)}>
             <FileText className="size-4 mr-1" />
             {t("templates.fromTemplate")}

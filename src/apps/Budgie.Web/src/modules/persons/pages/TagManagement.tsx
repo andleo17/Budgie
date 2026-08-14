@@ -191,7 +191,7 @@ function TagManagement() {
 
   return (
     <div className="w-full">
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">{t("persons.tagsTitle")}</h1>
           <p className="text-muted-foreground mt-1">{t("persons.tagsDescription")}</p>

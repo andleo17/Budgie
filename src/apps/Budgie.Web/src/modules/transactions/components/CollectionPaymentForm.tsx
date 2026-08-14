@@ -377,7 +377,7 @@ export function CollectionPaymentForm({ defaultAccountId, onSuccess, onCancel }:
               )}
 
               {showExchangeRate && (
-                <div className="grid grid-cols-2 gap-3 rounded-lg border bg-muted/30 p-3">
+                <div className="grid grid-cols-1 gap-3 rounded-lg border bg-muted/30 p-3 sm:grid-cols-2">
                   <div>
                     <FieldLabel>{t("transactions.exchangeRate")} <small className="text-muted-foreground">({debtCurrency} → {accountCurrency})</small></FieldLabel>
                     <Input
@@ -403,7 +403,7 @@ export function CollectionPaymentForm({ defaultAccountId, onSuccess, onCancel }:
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                     {t("transactions.paymentAmount")} ({accountCurrency})

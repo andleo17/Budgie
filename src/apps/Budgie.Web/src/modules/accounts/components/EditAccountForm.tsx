@@ -170,7 +170,7 @@ export function EditAccountForm({ account, onSuccess }: EditAccountFormProps) {
         {isCredit && (
           <>
             <p className="text-sm font-medium text-muted-foreground -mb-2">{t("accounts.creditFields")}</p>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Controller
                 name="creditLimit"
                 control={control}
@@ -205,7 +205,7 @@ export function EditAccountForm({ account, onSuccess }: EditAccountFormProps) {
                 )}
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Controller
                 name="billingCycleDay"
                 control={control}
@@ -229,7 +229,7 @@ export function EditAccountForm({ account, onSuccess }: EditAccountFormProps) {
                 )}
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Controller
                 name="annualInterestRate"
                 control={control}
@@ -260,7 +260,7 @@ export function EditAccountForm({ account, onSuccess }: EditAccountFormProps) {
                 />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Controller
                 name="interestCalculationMethod"
                 control={control}

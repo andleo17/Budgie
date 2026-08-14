@@ -394,7 +394,7 @@ export function LoanForm({ transaction, defaultAccountId, onSuccess, onCancel, o
           </FieldContent>
         </Field>
 
-        <div className="flex items-center justify-between pt-2">
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
           <div>
             {isEdit && onDelete && transaction && (
               <Button type="button" variant="outline" className="text-red-400 border-red-400/30 hover:bg-red-400/10 hover:text-red-300" onClick={() => { onDelete(transaction); onCancel(); }}>
@@ -403,7 +403,7 @@ export function LoanForm({ transaction, defaultAccountId, onSuccess, onCancel, o
               </Button>
             )}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button type="button" variant="outline" onClick={onCancel}>{t("transactions.cancel")}</Button>
             {!isEdit && (
               <Button type="submit" disabled={isPending}>

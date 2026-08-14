@@ -48,7 +48,7 @@ export default function Categories() {
 
   return (
     <div className="w-full space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">{t("categories.title")}</h1>
           <p className="text-sm text-muted-foreground mt-1">{t("categories.description")}</p>

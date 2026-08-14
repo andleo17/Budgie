@@ -10,7 +10,7 @@ export function GoalsEmptyState({ onCreate }: { onCreate: () => void }) {
       </div>
       <h2 className="text-xl font-semibold mb-2">{t('goals.noGoals')}</h2>
       <p className="text-muted-foreground text-sm max-w-xs mb-6">{t('goals.noGoalsDesc')}</p>
-      <button onClick={onCreate} className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-lg border border-transparent bg-primary px-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/80 active:translate-y-px select-none whitespace-nowrap outline-none">
+      <button onClick={onCreate} className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-lg border border-transparent bg-primary px-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/80 active:translate-y-px select-none max-w-full outline-none">
         <Plus className="h-4 w-4" />
         {t('goals.createFirstGoal')}
       </button>

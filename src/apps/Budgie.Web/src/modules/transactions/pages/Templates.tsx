@@ -62,7 +62,7 @@ export default function Templates() {
 
   return (
     <div className="w-full space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">{t("templates.title")}</h1>
           <p className="text-sm text-muted-foreground mt-1">{t("templates.description")}</p>
@@ -73,14 +73,14 @@ export default function Templates() {
         </Button>
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <Input
           placeholder={t("accounts.searchPlaceholder")}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="max-w-xs"
+          className="w-full sm:max-w-xs"
         />
-        <div className="flex gap-1">
+        <div className="flex flex-wrap gap-1">
           {(["all", "template", "automatic", "manual"] as const).map((key) => (
             <Button
               key={key}
