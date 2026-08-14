@@ -15,6 +15,13 @@ type RecurringTransactionResponse = components["schemas"]["RecurringTransactionR
 
 type FilterType = "all" | "template" | "automatic" | "manual";
 
+const FILTER_LABEL_KEYS: Record<FilterType, string> = {
+  all: "templates.filterAll",
+  template: "templates.filterTemplates",
+  automatic: "templates.filterAutomatic",
+  manual: "templates.filterManual",
+};
+
 export default function Templates() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -88,7 +95,7 @@ export default function Templates() {
               size="sm"
               onClick={() => setFilter(key)}
             >
-              {t(`templates.filter${key.charAt(0).toUpperCase() + key.slice(1)}`)}
+              {t(FILTER_LABEL_KEYS[key])}
             </Button>
           ))}
         </div>
