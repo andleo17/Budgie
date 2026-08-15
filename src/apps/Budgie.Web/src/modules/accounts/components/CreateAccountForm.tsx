@@ -6,6 +6,7 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import client from "@/lib/api-client";
+import type { components } from "@/lib/api-types";
 import { CurrencySelector } from "@/components/currency-selector";
 import { enrichCurrencies } from "@/lib/currencies";
 import { formatLocal } from "@/lib/date-locale";
@@ -44,6 +45,7 @@ const formSchema = z.object({
   billingCycleDayInclusive: z.boolean(),
   interestCalculationMethod: z.string().optional(),
   createdAt: z.string().min(1),
+  controlStartDate: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -71,20 +73,7 @@ export function CreateAccountForm({ onSuccess, onCancel }: CreateAccountFormProp
   });
 
   const mutation = useMutation({
-    mutationFn: async (body: {
-      name: string;
-      currency: string;
-      initialBalance: number;
-      type: number;
-      creditLimit?: number | null;
-      creditConsumptionMode?: number | null;
-      billingCycleDay?: number | null;
-      paymentDueDay?: number | null;
-      annualInterestRate?: number | null;
-      billingCycleDayInclusive: boolean;
-      interestCalculationMethod?: number | null;
-      createdAt?: string | null;
-    }) => {
+    mutationFn: async (body: components["schemas"]["CreateAccountRequest"]) => {
       const { data, error } = await client.POST("/api/finances/accounts", { body });
       if (error) throw error;
       return data;
@@ -113,6 +102,7 @@ export function CreateAccountForm({ onSuccess, onCancel }: CreateAccountFormProp
       billingCycleDayInclusive: true,
       interestCalculationMethod: "0",
       createdAt: formatLocal(new Date()),
+      controlStartDate: formatLocal(new Date()),
     },
   });
 
@@ -124,6 +114,7 @@ export function CreateAccountForm({ onSuccess, onCancel }: CreateAccountFormProp
 
   const selectedType = useWatch({ control, name: "type" });
   const isCredit = selectedType === "2";
+  const isLoan = selectedType === "4";
 
   const onSubmit = useCallback(
     (values: FormValues) => {
@@ -136,19 +127,26 @@ export function CreateAccountForm({ onSuccess, onCancel }: CreateAccountFormProp
         creditConsumptionMode: isCredit ? parseInt(values.creditConsumptionMode ?? "0", 10) : null,
         billingCycleDay: isCredit && values.billingCycleDay ? parseInt(values.billingCycleDay, 10) : null,
         paymentDueDay: isCredit && values.paymentDueDay ? parseInt(values.paymentDueDay, 10) : null,
-        annualInterestRate: isCredit && values.annualInterestRate ? parseFloat(values.annualInterestRate) : null,
+        annualInterestRate: isLoan || isCredit
+          ? values.annualInterestRate
+            ? parseFloat(values.annualInterestRate)
+            : null
+          : null,
         billingCycleDayInclusive: isCredit ? values.billingCycleDayInclusive : true,
         interestCalculationMethod: isCredit && values.annualInterestRate ? (values.interestCalculationMethod ? parseInt(values.interestCalculationMethod, 10) : 0) : null,
         createdAt: values.createdAt,
+        controlStartDate: isCredit ? null : values.controlStartDate,
       });
     },
-    [mutation, isCredit],
+    [mutation, isCredit, isLoan],
   );
 
   const typeItems = [
     { label: t("accounts.checking"), value: "0" },
     { label: t("accounts.savings"), value: "1" },
     { label: t("accounts.credit"), value: "2" },
+    { label: t("accounts.cash"), value: "3" },
+    { label: t("accounts.loan"), value: "4" },
   ];
 
   const consumptionModeItems = [
@@ -227,6 +225,21 @@ export function CreateAccountForm({ onSuccess, onCancel }: CreateAccountFormProp
             </Field>
           )}
         />
+        {!isCredit && (
+          <Controller
+            name="controlStartDate"
+            control={control}
+            render={({ field, fieldState }) => (
+              <Field data-invalid={fieldState.invalid}>
+                <FieldLabel htmlFor="create-control-start">{t("accounts.controlStartDate")}</FieldLabel>
+                <FieldContent>
+                  <DateTimePicker value={field.value ?? formatLocal(new Date())} onChange={field.onChange} />
+                </FieldContent>
+                <p className="text-xs text-muted-foreground">{t("accounts.controlStartDateHint")}</p>
+              </Field>
+            )}
+          />
+        )}
         <Controller
           name="initialBalance"
           control={control}
@@ -238,6 +251,19 @@ export function CreateAccountForm({ onSuccess, onCancel }: CreateAccountFormProp
             </Field>
           )}
         />
+        {isLoan && (
+          <Controller
+            name="annualInterestRate"
+            control={control}
+            render={({ field, fieldState }) => (
+              <Field data-invalid={fieldState.invalid}>
+                <FieldLabel htmlFor="create-loan-rate">{t("accounts.annualInterestRate")}</FieldLabel>
+                <Input {...field} id="create-loan-rate" type="number" step="0.01" min="0" aria-invalid={fieldState.invalid} />
+                {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+              </Field>
+            )}
+          />
+        )}
         {isCredit && (
           <>
             <p className="text-sm font-medium text-muted-foreground -mb-2">{t("accounts.creditFields")}</p>

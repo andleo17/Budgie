@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import client from "@/lib/api-client";
-import { PlusCircle, Loader2, Search, Filter, X } from "lucide-react";
+import { PlusCircle, Search, Filter, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import { AccountFormDialog } from "@/modules/accounts/components/AccountFormDialog";
 import { AccountCard } from "@/modules/accounts/components/AccountCard";
+import { PageSkeleton } from "@/components/page-skeleton";
 import { useAccounts, useSparklineData, useGroupedAccounts } from "@/lib/hooks/useAccounts";
 import { ACCOUNT_TYPE_ORDER, ACCOUNT_TYPE_SECTION_KEY } from "@/lib/constants";
 import type { components } from "@/lib/api-types";
@@ -90,9 +91,7 @@ export default function Accounts() {
       </div>
 
       {accountsLoading ? (
-        <div className="flex h-48 items-center justify-center">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-        </div>
+        <PageSkeleton header={false} cards={6} rows={0} />
       ) : !accountsData?.length ? (
         <div className="flex h-48 items-center justify-center rounded-xl border bg-card text-muted-foreground">
           {t("accounts.noAccounts")}
@@ -143,6 +142,8 @@ export default function Accounts() {
                 { label: t("accounts.checking"), value: "0" },
                 { label: t("accounts.savings"), value: "1" },
                 { label: t("accounts.credit"), value: "2" },
+                { label: t("accounts.cash"), value: "3" },
+                { label: t("accounts.loan"), value: "4" },
               ]}
             >
               <SelectTrigger className="w-full sm:w-44">
@@ -155,6 +156,8 @@ export default function Accounts() {
                   <SelectItem value="0">{t("accounts.checking")}</SelectItem>
                   <SelectItem value="1">{t("accounts.savings")}</SelectItem>
                   <SelectItem value="2">{t("accounts.credit")}</SelectItem>
+                  <SelectItem value="3">{t("accounts.cash")}</SelectItem>
+                  <SelectItem value="4">{t("accounts.loan")}</SelectItem>
                 </SelectGroup>
               </SelectContent>
             </Select>

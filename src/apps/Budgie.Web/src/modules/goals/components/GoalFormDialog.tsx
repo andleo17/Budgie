@@ -5,6 +5,7 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { createGoalSchema, type CreateGoalFormValues } from "../schemas";
 import { Input } from "@/components/ui/input";
+import { DateTimePicker } from "@/components/ui/date-time-picker";
 import {
   Field,
   FieldLabel,
@@ -233,10 +234,9 @@ export default function GoalFormDialog({
                     </span>
                   </FieldLabel>
                   <FieldContent>
-                    <Input
-                      {...field}
-                      type="date"
-                      min={new Date().toISOString().slice(0, 10)}
+                    <DateTimePicker
+                      value={field.value ?? ""}
+                      onChange={(v) => field.onChange(v.slice(0, 10))}
                     />
                   </FieldContent>
                 </Field>

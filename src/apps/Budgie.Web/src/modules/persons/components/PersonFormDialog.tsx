@@ -65,7 +65,7 @@ function PersonFormBody({
   const createMutation = useMutation({
     mutationFn: async (body: { name: string; tagNames?: string[]; photo?: File | null }) => {
       const { data, error } = await client.POST("/api/relationships/persons", {
-        body: { name: body.name, tagNames: body.tagNames?.length ? body.tagNames : null as unknown as undefined },
+        body: { name: body.name, tagNames: body.tagNames?.length ? body.tagNames : null },
       });
       if (error) throw error;
       if (data && body.photo) {
@@ -95,7 +95,7 @@ function PersonFormBody({
     mutationFn: async (body: { id: string; name: string; tagNames?: string[] }) => {
       const { error } = await client.PUT("/api/relationships/persons/{id}", {
         params: { path: { id: body.id } },
-        body: { name: body.name, tagNames: body.tagNames?.length ? body.tagNames : null as unknown as undefined },
+        body: { name: body.name, tagNames: body.tagNames?.length ? body.tagNames : null },
       });
       if (error) throw error;
     },
@@ -142,7 +142,7 @@ function PersonFormBody({
         <AvatarUpload
           personId={person?.id ?? null}
           name={person?.name ?? ""}
-          photoUrl={person?.photoUrl}
+          photoUrl={person?.photoPath}
           onFileSelected={setPhotoFile}
         />
         <Controller

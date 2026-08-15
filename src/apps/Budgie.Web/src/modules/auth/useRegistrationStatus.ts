@@ -1,8 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 
 export interface RegistrationStatus {
-  enabled: boolean;
-  hasUsers: boolean;
+  initialized: boolean;
+  allowRegistration: boolean;
 }
 
 export function useRegistrationStatus() {

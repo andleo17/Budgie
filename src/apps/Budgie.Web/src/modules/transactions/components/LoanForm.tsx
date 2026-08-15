@@ -171,7 +171,6 @@ export function LoanForm({ transaction, defaultAccountId, onSuccess, onCancel, o
         destinationAccountId: null,
       }],
       isInitialBalance: false,
-      isInterestFree: true,
     });
   };
 
@@ -324,7 +323,7 @@ export function LoanForm({ transaction, defaultAccountId, onSuccess, onCancel, o
           </FieldContent>
         </Field>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field>
             <FieldLabel>{t("transactions.amount")} {!isEdit && <span className="text-destructive">*</span>}</FieldLabel>
             <FieldContent>
@@ -346,7 +345,7 @@ export function LoanForm({ transaction, defaultAccountId, onSuccess, onCancel, o
         </div>
 
         {showExchangeRate && !isEdit && (
-          <div className="grid grid-cols-2 gap-3 rounded-lg border bg-muted/30 p-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 rounded-lg border bg-muted/30 p-3">
             <Field>
               <FieldLabel>{t("transactions.exchangeRate")}</FieldLabel>
               <FieldContent>
@@ -366,7 +365,7 @@ export function LoanForm({ transaction, defaultAccountId, onSuccess, onCancel, o
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field>
             <FieldLabel>{t("transactions.date")}</FieldLabel>
             <FieldContent>
@@ -379,7 +378,7 @@ export function LoanForm({ transaction, defaultAccountId, onSuccess, onCancel, o
             <FieldLabel>{t("transactions.dueDate")}</FieldLabel>
             <FieldContent>
               <Controller name="dueDate" control={form.control} render={({ field }) => (
-                <Input type="date" value={field.value ?? ""} onChange={field.onChange} disabled={isEdit} />
+                <DateTimePicker value={field.value ?? ""} onChange={(v) => field.onChange(v.slice(0, 10))} disabled={isEdit} />
               )} />
             </FieldContent>
           </Field>

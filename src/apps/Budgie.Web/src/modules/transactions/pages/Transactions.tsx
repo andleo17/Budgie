@@ -24,7 +24,8 @@ import {
 import { DeleteTransactionDialog } from "@/modules/transactions/components/DeleteTransactionDialog";
 import { TransactionEmptyState } from "@/modules/transactions/components/TransactionEmptyState";
 import { ApplyFromTemplateDialog } from "@/modules/transactions/components/ApplyFromTemplateDialog";
-import { Loader2, ChevronLeft, ChevronRight, Wallet, FileText } from "lucide-react";
+import { PageSkeleton } from "@/components/page-skeleton";
+import { ChevronLeft, ChevronRight, Wallet, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Progress,
@@ -384,9 +385,7 @@ export default function Transactions() {
       <TransactionFilters />
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-16">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-        </div>
+        <PageSkeleton header={false} cards={0} rows={8} />
       ) : !transactions.length ? (
         <TransactionEmptyState />
       ) : (
@@ -403,11 +402,11 @@ export default function Transactions() {
 
               return (
                 <div key={group.label}>
-                  <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border/30 bg-muted/50 px-4 py-1.5 backdrop-blur-sm">
-                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 border-b border-border/30 bg-muted/50 px-4 py-1.5 backdrop-blur-sm">
+                    <span className="min-w-0 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                       {groupLabel}
                     </span>
-                    <span className="flex items-center gap-2 text-xs font-semibold tabular-nums">
+                    <span className="flex min-w-0 flex-wrap items-center gap-2 text-xs font-semibold tabular-nums">
                       {groupBalances.map((cb) => (
                         <span
                           key={cb.currency}

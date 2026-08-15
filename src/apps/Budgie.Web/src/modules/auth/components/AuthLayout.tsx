@@ -14,8 +14,8 @@ export function AuthLayout({
       </div>
       <div className="relative z-10 w-full max-w-sm px-4">
         <div className="mb-8 flex flex-col items-center gap-2">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 ring-1 ring-primary/20">
-            <Activity className="h-6 w-6 text-primary" />
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-lg shadow-primary/25">
+            <Activity className="h-6 w-6" />
           </div>
           <h1 className="text-2xl font-bold tracking-tight [text-shadow:0_0_12px_hsl(var(--primary)/0.6)]">
             Budgie

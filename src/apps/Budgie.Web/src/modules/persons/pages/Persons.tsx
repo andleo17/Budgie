@@ -31,7 +31,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { PersonFormDialog } from "../components/PersonFormDialog";
-import { Loader2, MoreHorizontal, Plus, Pencil, Trash2, Search, Users, Tags } from "lucide-react";
+import { SettleDebtDialog } from "../components/SettleDebtDialog";
+import { PageSkeleton } from "@/components/page-skeleton";
+import { Loader2, MoreHorizontal, Plus, Pencil, Trash2, Search, Users, Tags, HandCoins } from "lucide-react";
 import { Link } from "react-router-dom";
 import { formatCurrency } from "@/lib/format";
 import type { components } from "@/lib/api-types";
@@ -85,19 +87,22 @@ function PersonCard({
   person,
   onEdit,
   onDelete,
+  onSettle,
 }: {
   person: PersonResponse;
   onEdit: () => void;
   onDelete: () => void;
+  onSettle: () => void;
 }) {
   const { t } = useTranslation();
   const { data: summary } = usePersonSummary(person.id);
+  const hasPending = summary && Number(summary.totalPending) > 0;
 
   return (
     <div className="group relative rounded-lg border bg-card p-3 transition-all hover:shadow-sm hover:border-accent-foreground/20 min-h-30">
       <div className="flex items-start gap-3">
         <Avatar className="size-12 shrink-0">
-          <AvatarImage src={person.photoUrl ?? undefined} alt={person.name} />
+          <AvatarImage src={person.photoPath ?? undefined} alt={person.name} />
           <AvatarFallback className="text-sm">{getInitials(person.name)}</AvatarFallback>
         </Avatar>
 
@@ -109,12 +114,18 @@ function PersonCard({
                 render={<Button
                   variant="ghost"
                   size="icon-xs"
-                  className="shrink-0 opacity-0 group-hover:opacity-100 -mr-1 -mt-1"
+                  className="shrink-0 sm:opacity-0 sm:group-hover:opacity-100 -mr-1 -mt-1"
                 />}
               >
                 <MoreHorizontal className="size-4" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                {hasPending && (
+                  <DropdownMenuItem onClick={onSettle}>
+                    <HandCoins className="mr-2 size-4" />
+                    {t("persons.settleDebt")}
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem onClick={onEdit}>
                   <Pencil className="mr-2 size-4" />
                   {t("persons.editPerson")}
@@ -141,25 +152,38 @@ function PersonCard({
 
       {summary && Number(summary.totalTransactions) > 0 && (
         <div className="mt-2.5 grid grid-cols-3 gap-px overflow-hidden rounded-md border bg-border text-center text-xs leading-none">
-          <div className="bg-card py-1.5">
-            <div className="font-semibold text-green-600 dark:text-green-400">
+          <div className="min-w-0 bg-card px-1 py-1.5">
+            <div className="truncate font-semibold text-green-600 dark:text-green-400">
               {formatCurrency(summary.totalContributed, summary.currency)}
             </div>
             <div className="mt-0.5 text-muted-foreground">{t("persons.contributed")}</div>
           </div>
-          <div className="bg-card py-1.5">
-            <div className="font-semibold text-blue-600 dark:text-blue-400">
+          <div className="min-w-0 bg-card px-1 py-1.5">
+            <div className="truncate font-semibold text-blue-600 dark:text-blue-400">
               {formatCurrency(summary.totalRepaid, summary.currency)}
             </div>
             <div className="mt-0.5 text-muted-foreground">{t("persons.repaid")}</div>
           </div>
-          <div className="bg-card py-1.5">
-            <div className="font-semibold text-orange-600 dark:text-orange-400">
+          <div className="min-w-0 bg-card px-1 py-1.5">
+            <div className={`truncate font-semibold ${hasPending ? "text-orange-600 dark:text-orange-400" : "text-muted-foreground"}`}>
               {formatCurrency(summary.totalPending, summary.currency)}
             </div>
             <div className="mt-0.5 text-muted-foreground">{t("persons.pending")}</div>
           </div>
         </div>
+      )}
+
+      {hasPending && (
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          className="mt-2.5 w-full"
+          onClick={onSettle}
+        >
+          <HandCoins className="mr-1.5 size-3.5" />
+          {t("persons.settleDebt")}
+        </Button>
       )}
     </div>
   );
@@ -173,6 +197,7 @@ function Persons() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editPerson, setEditPerson] = useState<PersonResponse | null>(null);
   const [deletePerson, setDeletePerson] = useState<PersonResponse | null>(null);
+  const [settlePerson, setSettlePerson] = useState<PersonResponse | null>(null);
 
   const { data: persons, isLoading } = usePersons();
   const { data: tags } = useTags();
@@ -203,12 +228,12 @@ function Persons() {
 
   return (
     <div className="w-full">
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold tracking-tight">{t("persons.title")}</h1>
-          <p className="text-muted-foreground mt-1">{t("persons.description")}</p>
+          <p className="mt-1 text-muted-foreground">{t("persons.description")}</p>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" size="sm" render={<Link to="/persons/tags" />}>
             <Tags className="mr-1.5 size-3.5" />
             {t("persons.manageTags")}
@@ -248,9 +273,7 @@ function Persons() {
       </div>
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-16">
-          <Loader2 className="size-8 animate-spin text-muted-foreground" />
-        </div>
+        <PageSkeleton header={false} cards={6} rows={0} />
       ) : !filtered || filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <Users className="mb-4 size-12 text-muted-foreground/60" />
@@ -266,6 +289,7 @@ function Persons() {
               person={person}
               onEdit={() => { setEditPerson(person); setDialogOpen(true); }}
               onDelete={() => setDeletePerson(person)}
+              onSettle={() => setSettlePerson(person)}
             />
           ))}
         </div>
@@ -275,6 +299,12 @@ function Persons() {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         person={editPerson}
+      />
+
+      <SettleDebtDialog
+        open={settlePerson !== null}
+        onOpenChange={(v) => { if (!v) setSettlePerson(null); }}
+        person={settlePerson}
       />
 
       <AlertDialog

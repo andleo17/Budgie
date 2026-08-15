@@ -2,6 +2,8 @@ export const AccountType = {
   Checking: 0,
   Savings: 1,
   Credit: 2,
+  Cash: 3,
+  Loan: 4,
 } as const;
 
 export const TransactionType = {
@@ -18,12 +20,20 @@ export const Applicability = {
   Manual: 2,
 } as const;
 
-export const ACCOUNT_TYPE_ORDER = [AccountType.Checking, AccountType.Savings, AccountType.Credit] as const;
+export const ACCOUNT_TYPE_ORDER = [
+  AccountType.Checking,
+  AccountType.Savings,
+  AccountType.Credit,
+  AccountType.Cash,
+  AccountType.Loan,
+] as const;
 
 export const ACCOUNT_TYPE_SECTION_KEY: Record<number, string> = {
   [AccountType.Checking]: "checkingAccounts",
   [AccountType.Savings]: "savingsAccounts",
   [AccountType.Credit]: "creditCards",
+  [AccountType.Cash]: "cashAccounts",
+  [AccountType.Loan]: "loanAccounts",
 };
 
 export const TRANSACTION_TYPE_LABELS = ["income", "expense", "transfer", "loan", "collection"] as const;
@@ -34,6 +44,8 @@ export const ACCOUNT_TYPE_LABELS: Record<number, string> = {
   [AccountType.Checking]: "checking",
   [AccountType.Savings]: "savings",
   [AccountType.Credit]: "credit",
+  [AccountType.Cash]: "cash",
+  [AccountType.Loan]: "loan",
 };
 
 export const VIEW_MODES = ["daily", "weekly", "monthly", "yearly"] as const;

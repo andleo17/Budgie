@@ -254,7 +254,6 @@ export function IncomeExpenseForm({ transaction, template, defaultAccountId, onS
     const amount = parseFloat(values.amount);
     const type = parseInt(values.type, 10) as components["schemas"]["TransactionType"];
     const installments = parseInt(values.installments ?? "1", 10) || 1;
-    const isInterestFree = values.isInterestFree ?? true;
 
     if (isEdit && transaction) {
       updateMutation.mutate({
@@ -284,7 +283,6 @@ export function IncomeExpenseForm({ transaction, template, defaultAccountId, onS
         installments,
         participants: participantsPayload,
         isInitialBalance: false,
-        isInterestFree,
       });
     }
   };
@@ -316,7 +314,7 @@ export function IncomeExpenseForm({ transaction, template, defaultAccountId, onS
         {formError && (
           <p className="text-sm text-red-400 rounded-lg border border-red-400/30 bg-red-400/10 px-3 py-2">{formError}</p>
         )}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field>
             <FieldLabel>{t("transactions.type")}</FieldLabel>
             <FieldContent>
@@ -390,7 +388,7 @@ const sorted = accounts ?? [];
           </FieldContent>
         </Field>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field>
             <FieldLabel>{t("transactions.amount")} <span className="text-destructive">*</span></FieldLabel>
             <FieldContent>
@@ -418,7 +416,7 @@ const sorted = accounts ?? [];
         </div>
 
         {showExchangeRate && (
-          <div className="grid grid-cols-2 gap-3 rounded-lg border bg-muted/30 p-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 rounded-lg border bg-muted/30 p-3">
             <Field>
               <FieldLabel>{t("transactions.exchangeRate")}</FieldLabel>
               <FieldContent>
@@ -465,7 +463,7 @@ const sorted = accounts ?? [];
               </Button>
             </div>
             {showInstallments && (
-              <div className="grid grid-cols-2 gap-3 rounded-lg border bg-muted/30 p-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 rounded-lg border bg-muted/30 p-3">
                 <Field>
                   <FieldLabel>{t("transactions.installments")}</FieldLabel>
                   <FieldContent>
@@ -500,6 +498,7 @@ const sorted = accounts ?? [];
           currency={watchedCurrency || mainCurrency}
           defaultAccountId={useWatch({ control: form.control, name: "accountId" })}
           transactionType={useWatch({ control: form.control, name: "type" })}
+          totalAmount={parseFloat(form.watch("amount") || "0")}
         />
 
         <div className="flex flex-wrap items-center justify-between gap-2 pt-2">

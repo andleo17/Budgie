@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react';
+import { Suspense, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -8,22 +8,11 @@ import { ProtectedRoute } from '@/modules/auth/ProtectedRoute';
 import { Layout } from '@/modules/layout/Layout';
 import { ThemeProvider } from '@/modules/settings/ThemeProvider';
 import { LanguageProvider } from '@/i18n/LanguageProvider';
+import { preloadRoutes } from '@/modules/routes';
 import '@/i18n/config';
 
 import { Toaster } from '@/components/ui/sonner';
-const Login = lazy(() => import('@/modules/auth/pages/Login'));
-const Register = lazy(() => import('@/modules/auth/pages/Register'));
-const Setup = lazy(() => import('@/modules/auth/pages/Setup'));
-const Dashboard = lazy(() => import('@/modules/dashboard/pages/Dashboard'));
-const Accounts = lazy(() => import('@/modules/accounts/pages/Accounts'));
-const Transactions = lazy(() => import('@/modules/transactions/pages/Transactions'));
-const Goals = lazy(() => import('@/modules/goals/pages/Goals'));
-const Categories = lazy(() => import('@/modules/categories/pages/Categories'));
-const Persons = lazy(() => import('@/modules/persons/pages/Persons'));
-const TagManagement = lazy(() => import('@/modules/persons/pages/TagManagement'));
-const Settings = lazy(() => import('@/modules/settings/pages/Settings'));
-const Templates = lazy(() => import('@/modules/transactions/pages/Templates'));
-const Profile = lazy(() => import('@/modules/profile/pages/Profile'));
+import { Login, Register, Setup, Dashboard, Accounts, Transactions, Goals, Categories, Persons, TagManagement, Settings, Templates, Profile } from '@/modules/routes';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -35,6 +24,10 @@ const queryClient = new QueryClient({
 });
 
 function App() {
+  useEffect(() => {
+    preloadRoutes();
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>

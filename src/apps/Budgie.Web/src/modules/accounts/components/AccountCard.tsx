@@ -45,6 +45,10 @@ function badgeClass(typeCode: number) {
       return "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-transparent";
     case AccountType.Credit:
       return "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-transparent";
+    case AccountType.Cash:
+      return "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-transparent";
+    case AccountType.Loan:
+      return "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400 border-transparent";
     default:
       return "";
   }
@@ -115,9 +119,9 @@ export function AccountCard({
             <span className="font-semibold truncate">{account.name}</span>
             <Badge
               variant="outline"
-              className={cn("shrink-0", badgeClass(account.type))}
+              className={cn("shrink-0", badgeClass(Number(account.type)))}
             >
-              {t(`accounts.${ACCOUNT_TYPE_LABELS[account.type] ?? "unknown"}`)}
+              {t(`accounts.${ACCOUNT_TYPE_LABELS[Number(account.type)] ?? "unknown"}`)}
             </Badge>
           </div>
           <DropdownMenu>

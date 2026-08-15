@@ -66,7 +66,7 @@ export default function Register() {
     );
   }
 
-  if (registrationStatus?.enabled === false) {
+  if (registrationStatus?.allowRegistration === false) {
     return (
       <AuthLayout tagline={t("auth.taglineRegister")}>
         <div className="flex flex-col items-center gap-3 py-6 text-center">

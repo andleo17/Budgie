@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Loader2, PencilIcon, Trash2, Plus, ChevronRight } from "lucide-react";
 import { CategoryFormDialog } from "@/modules/categories/components/CategoryFormDialog";
+import { BudgetsWidget, BudgetAlertBanner } from "@/modules/categories/components/BudgetsWidget";
 import { useCategories, useCategoryTree } from "@/lib/hooks/useCategories";
 import { CATEGORY_TYPE_LABELS } from "@/lib/constants";
 
@@ -59,62 +60,69 @@ export default function Categories() {
         </Button>
       </div>
 
-      {!categories || categories.length === 0 ? (
-        <div className="flex h-40 items-center justify-center rounded-lg border border-dashed">
-          <p className="text-sm text-muted-foreground">{t("categories.noCategories")}</p>
+      <BudgetAlertBanner />
+
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+        <div className="xl:col-span-2">
+          {!categories || categories.length === 0 ? (
+            <div className="flex h-40 items-center justify-center rounded-lg border border-dashed">
+              <p className="text-sm text-muted-foreground">{t("categories.noCategories")}</p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-12">{t("categories.color")}</TableHead>
+                  <TableHead>{t("categories.name")}</TableHead>
+                  <TableHead className="hidden sm:table-cell">{t("categories.type")}</TableHead>
+                  <TableHead className="hidden sm:table-cell">{t("categories.icon")}</TableHead>
+                  <TableHead className="w-20 text-right">{t("categories.actions")}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {treeRows.map(({ node: cat, depth }) => (
+                  <TableRow key={cat.id}>
+                    <TableCell>
+                      <div
+                        className="h-5 w-5 rounded-full border"
+                        style={{ backgroundColor: cat.color ?? "#e5e7eb" }}
+                      />
+                    </TableCell>
+                    <TableCell className="font-medium">
+                      <span style={{ paddingLeft: `${depth * 20}px` }} className="inline-flex items-center gap-1">
+                        {depth > 0 && <ChevronRight className="size-3 text-muted-foreground" />}
+                        {cat.name}
+                      </span>
+                    </TableCell>
+                    <TableCell className="hidden sm:table-cell text-muted-foreground">
+                      {t(`transactions.${CATEGORY_TYPE_LABELS[Number(cat.type)] ?? "expense"}`)}
+                    </TableCell>
+                    <TableCell className="hidden sm:table-cell text-muted-foreground">
+                      {cat.icon || "—"}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-1">
+                        <Button variant="ghost" size="icon-xs" onClick={() => { setEditingCategory(cat); setDialogOpen(true); }} aria-label={t("categories.edit")}>
+                          <PencilIcon className="size-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon-xs"
+                          onClick={() => setDeletingCategory(cat)}
+                          aria-label={t("categories.delete")}
+                        >
+                          <Trash2 className="size-4 text-destructive" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </div>
-      ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-12">{t("categories.color")}</TableHead>
-              <TableHead>{t("categories.name")}</TableHead>
-              <TableHead className="hidden sm:table-cell">{t("categories.type")}</TableHead>
-              <TableHead className="hidden sm:table-cell">{t("categories.icon")}</TableHead>
-              <TableHead className="w-20 text-right">{t("categories.actions")}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {treeRows.map(({ node: cat, depth }) => (
-              <TableRow key={cat.id}>
-                <TableCell>
-                  <div
-                    className="h-5 w-5 rounded-full border"
-                    style={{ backgroundColor: cat.color ?? "#e5e7eb" }}
-                  />
-                </TableCell>
-                <TableCell className="font-medium">
-                  <span style={{ paddingLeft: `${depth * 20}px` }} className="inline-flex items-center gap-1">
-                    {depth > 0 && <ChevronRight className="size-3 text-muted-foreground" />}
-                    {cat.name}
-                  </span>
-                </TableCell>
-                <TableCell className="hidden sm:table-cell text-muted-foreground">
-                  {t(`transactions.${CATEGORY_TYPE_LABELS[Number(cat.type)] ?? "expense"}`)}
-                </TableCell>
-                <TableCell className="hidden sm:table-cell text-muted-foreground">
-                  {cat.icon || "—"}
-                </TableCell>
-                <TableCell className="text-right">
-                  <div className="flex justify-end gap-1">
-                    <Button variant="ghost" size="icon-xs" onClick={() => { setEditingCategory(cat); setDialogOpen(true); }} aria-label={t("categories.edit")}>
-                      <PencilIcon className="size-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon-xs"
-                      onClick={() => setDeletingCategory(cat)}
-                      aria-label={t("categories.delete")}
-                    >
-                      <Trash2 className="size-4 text-destructive" />
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      )}
+        <BudgetsWidget />
+      </div>
 
       <CategoryFormDialog
         open={dialogOpen}

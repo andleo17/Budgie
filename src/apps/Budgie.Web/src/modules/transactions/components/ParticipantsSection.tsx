@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import client from "@/lib/api-client";
@@ -15,13 +15,19 @@ import {
   ComboboxValue,
 } from "@/components/ui/combobox";
 import { Label } from "@/components/ui/label";
-import { X, UserPlus, Tag, CheckCircle, Clock } from "lucide-react";
+import {
+  ToggleGroup,
+  ToggleGroupItem,
+} from "@/components/ui/toggle-group";
+import { X, UserPlus, Tag, CheckCircle, Clock, SlidersHorizontal } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
 import type { TransactionParticipantForm } from "../schemas";
 import type { components } from "@/lib/api-types";
 
 type AccountResponse = components["schemas"]["AccountResponse"];
 type PersonResponse = components["schemas"]["PersonResponse"];
+
+type SplitMode = "exact" | "equal" | "percent";
 
 interface ParticipantsSectionProps {
   participants: TransactionParticipantForm[];
@@ -30,16 +36,22 @@ interface ParticipantsSectionProps {
   currency?: string;
   defaultAccountId?: string;
   transactionType?: string;
+  totalAmount?: number;
 }
 
 const conditions = [
   { value: "tag" as const, labelKey: "transactions.conditionTag", icon: Tag, color: "text-muted-foreground" },
-  { value: "cash" as const, labelKey: "transactions.conditionCash", icon: CheckCircle, color: "text-emerald-400" },
-  { value: "credit" as const, labelKey: "transactions.conditionCredit", icon: Clock, color: "text-amber-400" },
+  { value: "cash" as const, labelKey: "transactions.conditionCash", icon: CheckCircle, color: "text-emerald-500" },
+  { value: "credit" as const, labelKey: "transactions.conditionCredit", icon: Clock, color: "text-amber-500" },
 ];
 
-export function ParticipantsSection({ participants, onChange, accounts, currency = "USD", defaultAccountId, transactionType }: ParticipantsSectionProps) {
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
+export function ParticipantsSection({ participants, onChange, accounts, currency = "USD", defaultAccountId, transactionType, totalAmount = 0 }: ParticipantsSectionProps) {
   const { t } = useTranslation();
+  const [splitMode, setSplitMode] = useState<SplitMode>("exact");
 
   const { data: persons } = useQuery({
     queryKey: ["persons"],
@@ -59,11 +71,28 @@ export function ParticipantsSection({ participants, onChange, accounts, currency
   const addPerson = useCallback((personId: string) => {
     const person = (persons ?? []).find((p) => p.id === personId);
     if (!person) return;
-    onChange([
+    const next = [
       ...participants,
-      { personId: person.id, personName: person.name, contributedAmount: "0", paymentCondition: "tag" },
-    ]);
-  }, [persons, participants, onChange]);
+      { personId: person.id, personName: person.name, contributedAmount: "0", paymentCondition: "tag" as const },
+    ];
+    if (splitMode === "exact") {
+      onChange(next);
+      return;
+    }
+    // Re-apply split across the new participant set
+    const active = next.filter((p) => p.paymentCondition !== "tag");
+    if (active.length === 0) { onChange(next); return; }
+    if (splitMode === "equal") {
+      const each = round2(totalAmount / active.length);
+      onChange(next.map((p) => active.includes(p) ? { ...p, contributedAmount: String(each) } : p));
+    } else {
+      const percent = 100 / active.length;
+      onChange(next.map((p) => active.includes(p)
+        ? { ...p, contributedAmount: String(round2(totalAmount * percent / 100)) }
+        : p));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [persons, participants, onChange, splitMode, totalAmount]);
 
   function updatePerson(index: number, updates: Partial<TransactionParticipantForm>) {
     onChange(participants.map((p, i) => (i === index ? { ...p, ...updates } : p)));
@@ -73,48 +102,106 @@ export function ParticipantsSection({ participants, onChange, accounts, currency
     onChange(participants.filter((_, i) => i !== index));
   }
 
+  function applySplit(mode: SplitMode, total: number, list: TransactionParticipantForm[]) {
+    const active = list.filter((p) => p.paymentCondition !== "tag");
+    if (active.length === 0) return;
+
+    if (mode === "equal") {
+      const each = round2(total / active.length);
+      onChange(list.map((p) => active.includes(p) ? { ...p, contributedAmount: String(each) } : p));
+    } else if (mode === "percent") {
+      const percent = 100 / active.length;
+      onChange(list.map((p) => active.includes(p)
+        ? { ...p, contributedAmount: String(round2(total * percent / 100)) }
+        : p));
+    }
+  }
+
+  const switchSplitMode = (mode: SplitMode) => {
+    setSplitMode(mode);
+    if (mode !== "exact") applySplit(mode, totalAmount, participants);
+  };
+
+  const summary = useMemo(() => {
+    const total = participants.reduce((s, p) => s + (parseFloat(p.contributedAmount) || 0), 0);
+    return {
+      allocated: total,
+      remaining: round2(totalAmount - total),
+      count: participants.filter((p) => p.paymentCondition !== "tag").length,
+    };
+  }, [participants, totalAmount]);
+
+  const showSplitControls = participants.length >= 2 && totalAmount > 0;
+
   return (
-    <div className="space-y-2 rounded-lg border bg-muted/20 p-3">
-      <div className="flex items-center justify-between">
+    <div className="rounded-lg border bg-muted/20 p-3 flex flex-col gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <Label className="text-sm font-medium">{t("transactions.participants")}</Label>
-        {availablePersons.length > 0 && (
-          <Combobox<PersonResponse>
-            items={availablePersons}
-            itemToStringValue={(p: PersonResponse) => p.name}
-            itemToStringLabel={(p: PersonResponse) => p.name}
-            onValueChange={(p: PersonResponse | null) => p && addPerson(p.id)}
-          >
-            <ComboboxTrigger
-              render={
-                <Button type="button" variant="outline" size="sm" className="h-7 text-xs gap-1">
-                  <UserPlus className="size-3" />
-                  {t("transactions.addParticipant")}
-                </Button>
-              }
+        <div className="flex flex-wrap items-center gap-2">
+          {showSplitControls && (
+            <ToggleGroup
+              value={[splitMode]}
+              onValueChange={(v) => v && v[0] && switchSplitMode(v[0] as SplitMode)}
+              size="sm"
             >
-              <ComboboxValue />
-            </ComboboxTrigger>
-            <ComboboxContent className="w-56" align="end">
-              <ComboboxInput showTrigger={false} placeholder={t("transactions.searchPersons")} />
-              <ComboboxEmpty>{t("transactions.noResults")}</ComboboxEmpty>
-              <ComboboxList>
-                {(p) => (
-                  <ComboboxItem key={p.id} value={p}>
-                    {p.name}
-                  </ComboboxItem>
-                )}
-              </ComboboxList>
-            </ComboboxContent>
-          </Combobox>
-        )}
+              <ToggleGroupItem value="exact">{t("transactions.splitExact")}</ToggleGroupItem>
+              <ToggleGroupItem value="equal">1/{t("transactions.splitN")}</ToggleGroupItem>
+              <ToggleGroupItem value="percent">%</ToggleGroupItem>
+            </ToggleGroup>
+          )}
+          {availablePersons.length > 0 && (
+            <Combobox<PersonResponse>
+              items={availablePersons}
+              itemToStringValue={(p: PersonResponse) => p.name}
+              itemToStringLabel={(p: PersonResponse) => p.name}
+              onValueChange={(p: PersonResponse | null) => p && addPerson(p.id)}
+            >
+              <ComboboxTrigger
+                render={
+                  <Button type="button" variant="outline" size="sm" className="h-7 text-xs gap-1">
+                    <UserPlus className="size-3" />
+                    {t("transactions.addParticipant")}
+                  </Button>
+                }
+              >
+                <ComboboxValue />
+              </ComboboxTrigger>
+              <ComboboxContent className="w-56" align="end">
+                <ComboboxInput showTrigger={false} placeholder={t("transactions.searchPersons")} />
+                <ComboboxEmpty>{t("transactions.noResults")}</ComboboxEmpty>
+                <ComboboxList>
+                  {(p) => (
+                    <ComboboxItem key={p.id} value={p}>
+                      {p.name}
+                    </ComboboxItem>
+                  )}
+                </ComboboxList>
+              </ComboboxContent>
+            </Combobox>
+          )}
+        </div>
       </div>
+
+      {showSplitControls && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border bg-card px-3 py-2 text-xs">
+          <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+            <SlidersHorizontal className="size-3.5" />
+            {t("transactions.splitSummary", { allocated: formatCurrency(summary.allocated, currency), total: formatCurrency(totalAmount, currency) })}
+          </span>
+          <span className={summary.remaining >= 0 ? "text-muted-foreground" : "font-semibold text-destructive"}>
+            {summary.remaining >= 0
+              ? t("transactions.splitRemaining", { amount: formatCurrency(summary.remaining, currency) })
+              : t("transactions.splitOver", { amount: formatCurrency(Math.abs(summary.remaining), currency) })}
+          </span>
+        </div>
+      )}
 
       {participants.length === 0 ? (
         <p className="text-xs text-muted-foreground py-1">{t("transactions.noParticipants")}</p>
       ) : (
-        <div className="space-y-2">
+        <div className="flex flex-col gap-2">
           {participants.map((p, i) => (
-            <div key={i} className="rounded-md border bg-card p-2 space-y-2">
+            <div key={p.personId || i} className="rounded-md border bg-card p-2 flex flex-col gap-2">
               <div className="flex items-center gap-2">
                 <span className="min-w-20 text-sm font-medium truncate">
                   {p.personName || (persons ?? []).find((pp) => pp.id === p.personId)?.name || p.personId.slice(0, 8)}
@@ -162,7 +249,7 @@ export function ParticipantsSection({ participants, onChange, accounts, currency
                           ? (p.destinationAccountId || defaultAccountId)
                           : undefined,
                       })}
-                      className={`flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors ${
+                      className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors ${
                         isActive
                           ? `${c.color} bg-muted font-semibold`
                           : "text-muted-foreground hover:text-foreground"

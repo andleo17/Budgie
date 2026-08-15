@@ -180,7 +180,7 @@ export function TransferForm({ defaultAccountId, onSuccess, onCancel }: Transfer
         />
       </Field>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Field>
           <FieldLabel>{t("transactions.amount")} <span className="text-destructive">*</span></FieldLabel>
           <Controller name="amount" control={form.control} render={({ field }) => (
@@ -196,7 +196,7 @@ export function TransferForm({ defaultAccountId, onSuccess, onCancel }: Transfer
       </div>
 
       {showExchangeRate && (
-        <div className="grid grid-cols-2 gap-3 rounded-lg border bg-muted/30 p-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 rounded-lg border bg-muted/30 p-3">
           <Field>
             <FieldLabel>{t("transactions.exchangeRate")} <small className="text-muted-foreground">({sourceAccount?.currency} → {destinationAccount?.currency})</small></FieldLabel>
             <Controller name="exchangeRate" control={form.control} render={({ field }) => (

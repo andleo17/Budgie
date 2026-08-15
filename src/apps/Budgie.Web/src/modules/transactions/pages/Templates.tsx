@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Plus, FileText } from "lucide-react";
+import { Plus, FileText } from "lucide-react";
 import client from "@/lib/api-client";
 import type { components } from "@/lib/api-types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PageSkeleton } from "@/components/page-skeleton";
 import { TemplateCard } from "@/modules/transactions/components/TemplateCard";
 import { TemplateForm } from "@/modules/transactions/components/TemplateForm";
 import { toast } from "sonner";
@@ -102,9 +103,7 @@ export default function Templates() {
       </div>
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-16">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-        </div>
+        <PageSkeleton header={false} cards={6} rows={0} />
       ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
           <FileText className="h-12 w-12 mb-3" />

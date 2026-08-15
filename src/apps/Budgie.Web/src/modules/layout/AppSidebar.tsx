@@ -17,6 +17,7 @@ import {
 import { Activity } from "lucide-react";
 import { MAIN_NAV_ITEMS } from "./sidebar-config";
 import { UserDropdownMenu } from "./components/UserDropdownMenu";
+import { preloadRoutes } from "@/modules/routes";
 
 export function AppSidebar() {
   const { t } = useTranslation();
@@ -34,7 +35,7 @@ export function AppSidebar() {
               render={<Link to="/dashboard" />}
             >
               <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                <Activity className="text-primary size-4" />
+                <Activity className="size-4" />
               </div>
               <span className="font-semibold tracking-tight">Budgie</span>
             </SidebarMenuButton>
@@ -52,7 +53,7 @@ export function AppSidebar() {
                 return (
                   <SidebarMenuItem key={item.path}>
                     <SidebarMenuButton
-                      render={<Link to={item.path} />}
+                      render={<Link to={item.path} onMouseEnter={preloadRoutes} onFocus={preloadRoutes} />}
                       isActive={location.pathname.startsWith(item.path)}
                       tooltip={name}
                     >

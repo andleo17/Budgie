@@ -57,7 +57,7 @@ export function ApplyFromTemplateDialog({ open, onClose, onApply }: ApplyFromTem
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) { onClose(); setSearch(""); } }}>
-      <DialogContent className="max-w-md max-h-[70vh] overflow-y-auto">
+      <DialogContent className="max-h-[70vh] overflow-y-auto sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{t("templates.selectTemplate")}</DialogTitle>
           <DialogDescription>{t("templates.description")}</DialogDescription>

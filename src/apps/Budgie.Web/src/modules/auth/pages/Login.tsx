@@ -46,11 +46,11 @@ export default function Login() {
       ? mutation.error?.message || t("auth.invalidCredentials")
       : "";
 
-  if (registrationStatus?.enabled && !registrationStatus.hasUsers) {
+  if (registrationStatus?.allowRegistration && !registrationStatus.initialized) {
     return <Navigate to="/register" replace />;
   }
 
-  const registrationClosed = registrationStatus?.enabled === false;
+  const registrationClosed = registrationStatus?.allowRegistration === false;
 
   return (
     <AuthLayout tagline={t("auth.tagline")}>

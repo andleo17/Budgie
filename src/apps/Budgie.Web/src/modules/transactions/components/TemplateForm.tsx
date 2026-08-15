@@ -276,7 +276,7 @@ export function TemplateForm({ open, onClose, template }: TemplateFormProps) {
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="max-w-xl max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>{isEdit ? t("templates.editTemplate") : t("templates.createTemplate")}</DialogTitle>
           <DialogDescription>{t("templates.description")}</DialogDescription>

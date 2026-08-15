@@ -612,10 +612,10 @@ export function TransactionFilters() {
 
       {/* Period navigator / Date range picker */}
       {isCustomMode ? (
-        <div className="flex items-center gap-1">
+        <div className="flex flex-wrap items-center gap-1">
           <Popover>
-            <PopoverTrigger render={<Button variant="outline" className="min-w-56 justify-start text-left font-normal">
-              <CalendarIcon className="mr-2 size-4" />
+            <PopoverTrigger render={<Button variant="outline" className="min-w-0 flex-1 justify-start text-left font-normal">
+              <CalendarIcon className="mr-2 size-4 shrink-0" />
               {from && to
                 ? `${format(parseLocalDate(from), "MMM d, yyyy", { locale: dateLocale })} – ${format(parseLocalDate(to), "MMM d, yyyy", { locale: dateLocale })}`
                 : t("transactions.customDate")}
@@ -643,6 +643,9 @@ export function TransactionFilters() {
                   setSearchParams(next, { replace: true });
                 }}
                 numberOfMonths={2}
+                captionLayout="dropdown"
+                startMonth={new Date(new Date().getFullYear() - 10, 0, 1)}
+                endMonth={new Date(new Date().getFullYear() + 1, 11, 31)}
               />
             </PopoverContent>
           </Popover>
@@ -651,7 +654,7 @@ export function TransactionFilters() {
           </Button>
         </div>
       ) : (
-        <div className="flex items-center gap-1">
+        <div className="flex flex-wrap items-center gap-1">
           <button
             type="button"
             onClick={goPrev}
@@ -661,7 +664,7 @@ export function TransactionFilters() {
             <ChevronLeft className="size-4" />
           </button>
           <Popover open={pickerOpen} onOpenChange={handlePickerOpen}>
-            <PopoverTrigger render={<Button variant="outline" className="min-w-44 justify-center text-sm font-normal">
+            <PopoverTrigger render={<Button variant="outline" className="min-w-0 flex-1 justify-center text-sm font-normal">
               {currentPeriod?.label ?? ""}
             </Button>} />
             <PopoverContent className="w-64 p-3" align="start">

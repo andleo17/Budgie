@@ -1,5 +1,6 @@
 import createClient from "openapi-fetch"
 import type { paths } from "./api-types"
+import i18n from "@/i18n/config"
 
 const REFRESH_URL = "/api/users/refresh"
 
@@ -49,6 +50,10 @@ async function authFetch(input: RequestInfo | URL, init?: RequestInit): Promise<
     headers.set("Authorization", `Bearer ${token}`)
   }
 
+  // Sync the UI language to the backend so localized errors are returned.
+  const activeLanguage = (i18n.language ?? "es").split("-")[0].toLowerCase()
+  headers.set("Accept-Language", ["es", "en"].includes(activeLanguage) ? activeLanguage : "es")
+
   const response = await fetch(input, { ...init, headers })
 
   if (response.status === 401 && !input.toString().includes(REFRESH_URL)) {
@@ -72,6 +77,7 @@ async function authFetch(input: RequestInfo | URL, init?: RequestInit): Promise<
       if (newToken) {
         retryHeaders.set("Authorization", `Bearer ${newToken}`)
       }
+      retryHeaders.set("Accept-Language", headers.get("Accept-Language") ?? "es")
       return fetch(input, { ...init, headers: retryHeaders })
     }
 

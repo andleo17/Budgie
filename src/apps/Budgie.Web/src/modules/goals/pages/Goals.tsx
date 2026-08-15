@@ -7,6 +7,7 @@ import { GoalsEmptyState } from "../components/GoalsEmptyState";
 import { toGoalAccount, type GoalAccount } from "../components/goal-utils";
 import { Plus } from "lucide-react";
 import { useGoals } from "@/lib/hooks/useGoals";
+import { PageSkeleton } from "@/components/page-skeleton";
 
 export default function Goals() {
   const { t, i18n } = useTranslation();
@@ -43,14 +44,7 @@ export default function Goals() {
       {goals.length > 0 && <GoalsStatsBar goals={goals} />}
 
       {isLoading ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div
-              key={i}
-              className="h-48 rounded-2xl border bg-card animate-pulse"
-            />
-          ))}
-        </div>
+        <PageSkeleton header={false} cards={3} rows={0} />
       ) : goals.length === 0 ? (
         <GoalsEmptyState onCreate={() => { setEditGoal(null); setCreateOpen(true); }} />
       ) : (
