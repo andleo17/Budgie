@@ -54,7 +54,8 @@ internal static class TransactionsEndpoints
                 IncludeRunningBalance: includeRunningBalance,
                 Page: page, PageSize: pageSize));
             return result.Match(Results.Ok, err => Results.BadRequest(err));
-        });
+        })
+        .Produces<PagedTransactionResponse>(StatusCodes.Status200OK);
         group.MapDelete("/transactions/{id:guid}", async (Guid id, IMediator mediator) =>
         {
             var result = await mediator.Send(new DeleteTransactionCommand(id));

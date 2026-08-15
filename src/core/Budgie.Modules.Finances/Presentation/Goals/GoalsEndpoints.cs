@@ -1,3 +1,4 @@
+using Budgie.Modules.Finances.Application.Goals;
 using Budgie.Modules.Finances.Application.Goals.CreateGoal;
 using Budgie.Modules.Finances.Application.Goals.DeleteGoal;
 using Budgie.Modules.Finances.Application.Goals.GetGoals;
@@ -18,7 +19,8 @@ internal static class GoalsEndpoints
         {
             var result = await mediator.Send(new GetGoalsQuery());
             return result.Match(Results.Ok, err => Results.BadRequest(err));
-        });
+        })
+        .Produces<List<GoalResponse>>(StatusCodes.Status200OK);
 
         group.MapPost("/goals", async (CreateGoalCommand command, IMediator mediator) =>
         {
@@ -45,7 +47,8 @@ internal static class GoalsEndpoints
         {
             var result = await mediator.Send(new GetGoalsStatusQuery());
             return result.Match(Results.Ok, err => Results.BadRequest(err));
-        });
+        })
+        .Produces<List<GoalStatus>>(StatusCodes.Status200OK);
     }
 }
 

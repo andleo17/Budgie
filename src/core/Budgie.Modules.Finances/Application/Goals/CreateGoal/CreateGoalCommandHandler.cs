@@ -1,9 +1,10 @@
+using Budgie.Modules.Finances.Application;
 using Budgie.Modules.Finances.Domain.Goals;
 using Budgie.Modules.Finances.Infrastructure.Logging;
 using Budgie.Shared.Abstractions;
-using Budgie.Shared.Infrastructure;
 using ErrorOr;
 using Mediator;
+using Microsoft.Extensions.Logging;
 
 namespace Budgie.Modules.Finances.Application.Goals.CreateGoal;
 
@@ -13,7 +14,8 @@ public record CreateGoalCommand(
     DateTime? TargetDate) : IRequest<ErrorOr<Guid>>;
 
 internal sealed class CreateGoalCommandHandler(
-    IDbConnectionFactory factory,
+    IGoalRepository goalRepository,
+    IAccountRepository accountRepository,
     ICurrentUserProvider currentUserProvider,
     ILogger<CreateGoalCommandHandler> logger)
     : IRequestHandler<CreateGoalCommand, ErrorOr<Guid>>
@@ -21,26 +23,13 @@ internal sealed class CreateGoalCommandHandler(
     public async ValueTask<ErrorOr<Guid>> Handle(CreateGoalCommand request, CancellationToken ct)
     {
         var userId = currentUserProvider.GetUserId();
+        var account = await accountRepository.GetByIdAsync(request.AccountId, userId, ct);
 
-        var currency = await factory.QuerySingleOrDefaultAsync<string>(
-            @"SELECT ""Currency"" FROM ""Accounts"" WHERE ""Id"" = @Id AND ""UserId"" = @UserId",
-            new { Id = request.AccountId, UserId = userId }, ct);
-
-        if (currency is null)
+        if (account is null)
             return Error.NotFound("Account.NotFound", "Account not found.");
 
-        var goal = Goal.Create(userId, request.AccountId, request.TargetAmount, currency, request.TargetDate);
-
-        await factory.ExecuteAsync(
-            @"INSERT INTO ""Goals"" (""Id"",""UserId"",""AccountId"",""TargetAmount"",""TargetCurrency"",""TargetDate"",""CreatedAt"")
-              VALUES (@Id,@UserId,@AccountId,@TargetAmount,@TargetCurrency,@TargetDate,@CreatedAt)",
-            new
-            {
-                goal.Id, goal.UserId, goal.AccountId,
-                TargetAmount = goal.TargetAmount.Amount,
-                TargetCurrency = goal.TargetAmount.Currency.Code,
-                goal.TargetDate, goal.CreatedAt
-            }, ct);
+        var goal = Goal.Create(userId, request.AccountId, request.TargetAmount, account.Balance.Currency.Code, request.TargetDate);
+        await goalRepository.AddAsync(goal, ct);
 
         LogMessages.GoalCreated(logger, goal.Id);
 

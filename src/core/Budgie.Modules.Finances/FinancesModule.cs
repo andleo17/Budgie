@@ -3,6 +3,7 @@ using Budgie.Modules.Finances.Infrastructure;
 using Budgie.Modules.Finances.Infrastructure.Database;
 using Budgie.Modules.Finances.Presentation.Accounts;
 using Budgie.Modules.Finances.Presentation.Categories;
+using Budgie.Modules.Finances.Presentation.Export;
 using Budgie.Modules.Finances.Presentation.Goals;
 using Budgie.Modules.Finances.Presentation.Persons;
 using Budgie.Modules.Finances.Presentation.RecurringTransactions;
@@ -24,6 +25,9 @@ public static class FinancesModule
         services.AddScoped<ITransactionRepository, TransactionRepository>();
         services.AddScoped<ICategoryRepository, CategoryRepository>();
         services.AddScoped<IRecurringTransactionRepository, RecurringTransactionRepository>();
+        services.AddScoped<IGoalRepository, GoalRepository>();
+        services.AddScoped<IReportRepository, ReportRepository>();
+        services.AddScoped<IExportRepository, ExportRepository>();
         return services;
     }
 
@@ -41,6 +45,7 @@ public static class FinancesModule
         GoalsEndpoints.MapEndpoints(group);
         ReportsEndpoints.MapEndpoints(group);
         RecurringTransactionEndpoints.MapEndpoints(group);
+        ExportEndpoints.MapEndpoints(group);
         return app;
     }
 }

@@ -1,3 +1,4 @@
+using Budgie.Modules.Finances.Application.Reports.GetCategoryBudgets;
 using Budgie.Modules.Finances.Application.Reports.GetCategorySpending;
 using Budgie.Modules.Finances.Application.Reports.GetDashboardSummary;
 using Budgie.Modules.Finances.Application.Reports.GetTransactionsSummary;
@@ -16,7 +17,15 @@ internal static class ReportsEndpoints
         {
             var result = await mediator.Send(new GetDashboardSummaryQuery());
             return result.Match(Results.Ok, err => Results.BadRequest(err));
-        });
+        })
+        .Produces<DashboardSummary>(StatusCodes.Status200OK);
+
+        group.MapGet("/reports/budgets", async (DateTime? month, IMediator mediator) =>
+        {
+            var result = await mediator.Send(new GetCategoryBudgetsQuery(month));
+            return result.Match(Results.Ok, err => Results.BadRequest(err));
+        })
+        .Produces<List<CategoryBudget>>(StatusCodes.Status200OK);
 
         group.MapGet("/transactions/summary", async (DateTime? startDate, DateTime? endDate,
             string? accountIds, IMediator mediator) =>
@@ -26,7 +35,8 @@ internal static class ReportsEndpoints
             var result = await mediator.Send(new GetTransactionsSummaryQuery(startDate, endDate,
                 accountIdList as IReadOnlyList<Guid>));
             return result.Match(Results.Ok, err => Results.BadRequest(err));
-        });
+        })
+        .Produces<GetTransactionsSummaryResponse>(StatusCodes.Status200OK);
 
         group.MapGet("/reports/spending-by-category", async (DateTime? start, DateTime? end,
             IMediator mediator) =>
@@ -37,6 +47,7 @@ internal static class ReportsEndpoints
 
             var result = await mediator.Send(new GetCategorySpendingQuery(startDate, endDate));
             return result.Match(Results.Ok, err => Results.BadRequest(err));
-        });
+        })
+        .Produces<List<CategorySpending>>(StatusCodes.Status200OK);
     }
 }

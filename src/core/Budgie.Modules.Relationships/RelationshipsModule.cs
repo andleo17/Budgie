@@ -1,3 +1,5 @@
+using Budgie.Modules.Relationships.Application;
+using Budgie.Modules.Relationships.Infrastructure.Database;
 using Budgie.Modules.Relationships.Presentation;
 using Budgie.Modules.Relationships.Presentation.Persons;
 using Microsoft.AspNetCore.Builder;
@@ -10,6 +12,8 @@ public static class RelationshipsModule
 {
     public static IServiceCollection AddRelationshipsModule(this IServiceCollection services)
     {
+        services.AddScoped<IPersonRepository, PersonRepository>();
+        services.AddScoped<ITagRepository, TagRepository>();
         return services;
     }
 

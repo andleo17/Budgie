@@ -1,3 +1,4 @@
+using Budgie.Modules.Relationships.Application.Persons;
 using Budgie.Modules.Relationships.Application.Persons.CreatePerson;
 using Budgie.Modules.Relationships.Application.Persons.DeletePerson;
 using Budgie.Modules.Relationships.Application.Persons.GetPersons;
@@ -22,7 +23,8 @@ public static class CreatePersonEndpoint
             return result.Match(
                 id => Results.Created($"/api/relationships/persons/{id}", new { id }),
                 errors => Results.BadRequest(errors.ToDictionary(e => e.Code, e => new[] { e.Description })));
-        });
+        })
+        .Produces<Budgie.Shared.Dtos.CreatedResponse>(StatusCodes.Status201Created);
     }
 }
 
@@ -34,11 +36,12 @@ internal static class PersonsEndpoints
         {
             var result = await mediator.Send(new GetPersonsQuery());
             return result.Match(Results.Ok, errors => Results.BadRequest(errors));
-        });
+        })
+        .Produces<List<PersonResponse>>(StatusCodes.Status200OK);
 
-        group.MapPut("/persons/{id:guid}", async (Guid id, UpdatePersonCommand cmd, IMediator mediator) =>
+        group.MapPut("/persons/{id:guid}", async (Guid id, UpdatePersonRequest req, IMediator mediator) =>
         {
-            var result = await mediator.Send(cmd with { Id = id });
+            var result = await mediator.Send(new UpdatePersonCommand(id, req.Name, req.TagNames));
             return result.Match(_ => Results.NoContent(), errors => Results.BadRequest(errors));
         });
 
@@ -72,7 +75,8 @@ internal static class TagsEndpoints
         {
             var result = await mediator.Send(new GetTagsQuery());
             return result.Match(Results.Ok, errors => Results.BadRequest(errors));
-        });
+        })
+        .Produces<List<TagResponse>>(StatusCodes.Status200OK);
 
         group.MapPut("/tags/{id:guid}", async (Guid id, UpdateTagRequest req, IMediator mediator) =>
         {
@@ -89,3 +93,4 @@ internal static class TagsEndpoints
 }
 
 public record UpdateTagRequest(string Name, string? Color = null);
+public record UpdatePersonRequest(string Name, List<string>? TagNames = null);

@@ -144,7 +144,7 @@ internal sealed class TransactionRepository(IDbConnectionFactory factory) : ITra
         var offset = ((request.Page ?? 1) - 1) * pageSize;
         p.Add("PageSize", pageSize); p.Add("Offset", offset);
         var rows = await factory.QueryListAsync<TxQueryRow>(
-            $@"SELECT t.""Id"",t.""AccountId"",a.""Name"" AS AccountName,t.""CategoryId"",c.""Name"" AS CategoryName,t.""Amount"",t.""Currency"",t.""ExchangeRate"",t.""Date"",t.""Notes"",t.""Type"",t.""Installments"",t.""IsInitialBalance"",t.""LinkedTransactionId"",t.""ParentTransactionId"" FROM ""Transactions"" t JOIN ""Accounts"" a ON a.""Id""=t.""AccountId"" LEFT JOIN ""Categories"" c ON c.""Id""=t.""CategoryId"" WHERE {where} ORDER BY t.""Date"" DESC, (t.""ParentTransactionId"" IS NULL), (COALESCE(t.""ParentTransactionId"", t.""Id"")), (CASE WHEN t.""Type"" = 3 AND t.""ParentTransactionId"" IS NOT NULL THEN 0 ELSE 1 END), t.""Id"" LIMIT @PageSize OFFSET @Offset", p, ct);
+            $@"SELECT t.""Id"",t.""AccountId"",a.""Name"" AS AccountName,t.""CategoryId"",c.""Name"" AS CategoryName,t.""Amount"",t.""Currency"",t.""ExchangeRate"",t.""Date"",t.""Notes"",t.""Type"",t.""Installments"",t.""IsInitialBalance"",t.""LinkedTransactionId"",t.""ParentTransactionId"",t.""InstallmentGroupId"",t.""InstallmentNumber"",t.""TotalInstallments"" FROM ""Transactions"" t JOIN ""Accounts"" a ON a.""Id""=t.""AccountId"" LEFT JOIN ""Categories"" c ON c.""Id""=t.""CategoryId"" WHERE {where} ORDER BY t.""Date"" DESC, (t.""ParentTransactionId"" IS NULL), (COALESCE(t.""ParentTransactionId"", t.""Id"")), (CASE WHEN t.""Type"" = 3 AND t.""ParentTransactionId"" IS NOT NULL THEN 0 ELSE 1 END), t.""Id"" LIMIT @PageSize OFFSET @Offset", p, ct);
 
         var baseItems = rows.Select(r => BaseResponse(r)).ToList();
         return await BuildResponsesAsync(baseItems, ct);
@@ -167,7 +167,7 @@ internal sealed class TransactionRepository(IDbConnectionFactory factory) : ITra
             : 0m;
 
         var all = await factory.QueryListAsync<TxQueryRow>(
-            $@"SELECT t.""Id"",t.""AccountId"",a.""Name"" AS AccountName,t.""CategoryId"",c.""Name"" AS CategoryName,t.""Amount"",t.""Currency"",t.""ExchangeRate"",t.""Date"",t.""Notes"",t.""Type"",t.""Installments"",t.""IsInitialBalance"",t.""LinkedTransactionId"",t.""ParentTransactionId"" FROM ""Transactions"" t JOIN ""Accounts"" a ON a.""Id""=t.""AccountId"" LEFT JOIN ""Categories"" c ON c.""Id""=t.""CategoryId"" WHERE {where} ORDER BY t.""Date"" ASC, (t.""ParentTransactionId"" IS NOT NULL), (COALESCE(t.""ParentTransactionId"", t.""Id"")), (CASE WHEN t.""Type"" = 3 AND t.""ParentTransactionId"" IS NOT NULL THEN 0 ELSE 1 END), t.""Id""", p, ct);
+            $@"SELECT t.""Id"",t.""AccountId"",a.""Name"" AS AccountName,t.""CategoryId"",c.""Name"" AS CategoryName,t.""Amount"",t.""Currency"",t.""ExchangeRate"",t.""Date"",t.""Notes"",t.""Type"",t.""Installments"",t.""IsInitialBalance"",t.""LinkedTransactionId"",t.""ParentTransactionId"",t.""InstallmentGroupId"",t.""InstallmentNumber"",t.""TotalInstallments"" FROM ""Transactions"" t JOIN ""Accounts"" a ON a.""Id""=t.""AccountId"" LEFT JOIN ""Categories"" c ON c.""Id""=t.""CategoryId"" WHERE {where} ORDER BY t.""Date"" ASC, (t.""ParentTransactionId"" IS NOT NULL), (COALESCE(t.""ParentTransactionId"", t.""Id"")), (CASE WHEN t.""Type"" = 3 AND t.""ParentTransactionId"" IS NOT NULL THEN 0 ELSE 1 END), t.""Id""", p, ct);
 
         var runningBalance = startBalance;
         var parentRunningBalance = new Dictionary<Guid, decimal>();
@@ -203,7 +203,9 @@ internal sealed class TransactionRepository(IDbConnectionFactory factory) : ITra
         r.Id, r.AccountId, r.AccountName, r.CategoryId, r.CategoryName,
         r.Amount, r.Currency, r.ExchangeRate, r.Date, r.Notes,
         (TransactionType)r.Type, r.Installments, r.IsInitialBalance,
-        null, r.LinkedTransactionId, r.ParentTransactionId);
+        null, r.LinkedTransactionId, r.ParentTransactionId,
+        null, null,
+        r.InstallmentGroupId, r.InstallmentNumber, r.TotalInstallments);
 
     private async Task<List<TransactionResponse>> BuildResponsesAsync(List<TransactionResponse> items, CancellationToken ct)
     {
@@ -252,6 +254,47 @@ internal sealed class TransactionRepository(IDbConnectionFactory factory) : ITra
     public Task AddTrackingParticipant(Guid txId, Guid personId, string currency, CancellationToken ct)
         => factory.ExecuteAsync(@"INSERT INTO ""TransactionParticipants"" (""Id"",""TransactionId"",""PersonId"",""ContributedAmount"",""ContributedCurrency"",""RemainingAmount"",""RemainingCurrency"",""IsTrackingOnly"") VALUES (@Id,@TxId,@PId,0,@Cur,0,@Cur,TRUE)", new { Id = Guid.NewGuid(), TxId = txId, PId = personId, Cur = currency }, ct);
 
+    public async Task<bool> HasTransactionsBeforeAsync(Guid accountId, DateTime date, CancellationToken ct)
+        => await factory.ExecuteScalarAsync<bool>(
+            @"SELECT EXISTS(SELECT 1 FROM ""Transactions"" WHERE ""AccountId"" = @AccountId AND ""Date"" < @Date)",
+            new { AccountId = accountId, Date = date }, ct);
+
+    public async Task<List<Application.Debts.GetPersonDebts.DebtResponse>> GetPersonDebtsAsync(Guid personId, CancellationToken ct)
+    {
+        const string sql = @"SELECT tp.""Id"" AS ParticipantId, tp.""TransactionId"", tp.""PersonId"",
+            tp.""ContributedAmount"", tp.""RemainingAmount"", t.""Date"", t.""Notes"", tp.""RemainingCurrency"" AS Currency
+            FROM ""TransactionParticipants"" tp JOIN ""Transactions"" t ON t.""Id"" = tp.""TransactionId""
+            WHERE tp.""PersonId"" = @PersonId AND tp.""RemainingAmount"" > 0 AND NOT tp.""IsTrackingOnly""
+              AND t.""Type"" = @LoanType";
+        return (await factory.QueryListAsync<Application.Debts.GetPersonDebts.DebtResponse>(sql,
+            new { PersonId = personId, LoanType = (int)TransactionType.Loan }, ct)).ToList();
+    }
+
+    public async Task<Application.Persons.GetPersonSummary.PersonSummaryResponse> GetPersonSummaryAsync(Guid personId, CancellationToken ct)
+    {
+        const string sql = @"
+            WITH person_participants AS (
+                SELECT tp.*, t.""ParentTransactionId"" FROM ""TransactionParticipants"" tp
+                JOIN ""Transactions"" t ON t.""Id"" = tp.""TransactionId""
+                WHERE tp.""PersonId"" = @PersonId
+            ), parent_ids AS (
+                SELECT DISTINCT p.""TransactionId"" AS parent_tx_id FROM person_participants p
+                WHERE p.""ParentTransactionId"" IS NULL AND EXISTS (
+                    SELECT 1 FROM ""Transactions"" c JOIN ""TransactionParticipants"" cp ON cp.""TransactionId"" = c.""Id""
+                    WHERE c.""ParentTransactionId"" = p.""TransactionId"" AND cp.""PersonId"" = @PersonId)
+            ), effective AS (
+                SELECT * FROM person_participants
+                WHERE ""TransactionId"" NOT IN (SELECT parent_tx_id FROM parent_ids)
+            )
+            SELECT COUNT(*) AS TotalTransactions,
+                COALESCE(SUM(""ContributedAmount""),0) AS TotalContributed,
+                COALESCE(SUM(CASE WHEN ""RemainingAmount""<=0 AND NOT ""IsTrackingOnly"" THEN ""ContributedAmount"" ELSE 0 END),0) AS TotalRepaid,
+                COALESCE(SUM(""ContributedAmount"" - CASE WHEN ""RemainingAmount""<=0 AND NOT ""IsTrackingOnly"" THEN ""ContributedAmount"" ELSE 0 END),0) AS TotalPending,
+                COALESCE(MIN(""RemainingCurrency""),'USD') AS Currency
+            FROM effective";
+        return await factory.QuerySingleAsync<Application.Persons.GetPersonSummary.PersonSummaryResponse>(sql, new { PersonId = personId }, ct);
+    }
+
     private static (string where, DynamicParameters p) BuildWhere(GetTransactionsQuery r)
     {
         var c = new List<string>();
@@ -273,7 +316,8 @@ internal sealed class TransactionRepository(IDbConnectionFactory factory) : ITra
     private record TxQueryRow(Guid Id, Guid AccountId, string AccountName, Guid? CategoryId,
         string? CategoryName, decimal Amount, string Currency, decimal ExchangeRate,
         DateTime Date, string? Notes, int Type, int Installments, bool IsInitialBalance,
-        Guid? LinkedTransactionId, Guid? ParentTransactionId);
+        Guid? LinkedTransactionId, Guid? ParentTransactionId,
+        Guid? InstallmentGroupId, int? InstallmentNumber, int? TotalInstallments);
 
     private record ParticipantRow(Guid TransactionId, Guid PersonId, decimal ContributedAmount,
         decimal RemainingAmount, bool IsTrackingOnly, Guid? DestinationAccountId);

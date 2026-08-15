@@ -7,6 +7,7 @@ using Budgie.Shared.Domain.ValueObjects;
 using Budgie.Shared.Enums;
 using ErrorOr;
 using Mediator;
+using System.Globalization;
 
 namespace Budgie.Modules.Finances.Application.Transactions.UpdateTransaction;
 
@@ -36,8 +37,12 @@ internal sealed class UpdateTransactionCommandHandler(
         if (existing.IsInitialBalance && normalizedDate != existing.Date)
             return Error.Validation("Transaction.InitialBalanceDateLocked", "Initial balance transaction date cannot be modified.");
 
-        if (normalizedDate < account.CreatedAt.Date)
-            return Error.Validation("Transaction.DateBeforeAccountCreation", "Transaction date cannot be before the account was created.");
+        if (normalizedDate < account.ControlStartDate.Date)
+        {
+            return CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "en"
+                ? Error.Validation("Transaction.BeforeControlStartDate", $"Transaction date ({normalizedDate:yyyy-MM-dd}) cannot precede the account control start date ({account.ControlStartDate:yyyy-MM-dd}).")
+                : Error.Validation("Transaction.BeforeControlStartDate", $"La fecha de la transacción ({normalizedDate:yyyy-MM-dd}) no puede ser anterior a la fecha de control de la cuenta ({account.ControlStartDate:yyyy-MM-dd}).");
+        }
 
         if (request.Participants is { Count: > 1 } &&
             request.Participants.Count(p => p.RemainingAmount == 0 && !p.IsTrackingOnly && p.DestinationAccountId.HasValue) > 1)

@@ -19,7 +19,7 @@ public static class CreateAccountEndpoint
                 (AccountType)(req.Type ?? 1),
                 req.CreditLimit, req.CreditConsumptionMode, req.BillingCycleDay,
                 req.PaymentDueDay, req.AnnualInterestRate, req.BillingCycleDayInclusive,
-                req.InterestCalculationMethod, req.CreatedAt);
+                req.InterestCalculationMethod, req.CreatedAt, req.ControlStartDate);
             var result = await mediator.Send(cmd);
             return result.Match(
                 id => Results.Created($"/api/finances/accounts/{id}", new { id }),
@@ -33,4 +33,4 @@ public record CreateAccountRequest(
     CreditConsumptionMode? CreditConsumptionMode = null, int? BillingCycleDay = null,
     int? PaymentDueDay = null, decimal? AnnualInterestRate = null,
     bool BillingCycleDayInclusive = true, InterestCalculationMethod? InterestCalculationMethod = null,
-    DateTime? CreatedAt = null);
+    DateTime? CreatedAt = null, DateTime? ControlStartDate = null);

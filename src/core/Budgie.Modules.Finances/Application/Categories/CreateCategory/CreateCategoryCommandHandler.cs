@@ -7,7 +7,7 @@ using Mediator;
 namespace Budgie.Modules.Finances.Application.Categories.CreateCategory;
 
 public record CreateCategoryCommand(
-    string Name, int Type, string? Color = null, string? Icon = null, Guid? ParentId = null)
+    string Name, int Type, string? Color = null, string? Icon = null, Guid? ParentId = null, decimal? MonthlyBudget = null)
     : IRequest<ErrorOr<Guid>>;
 
 internal sealed class CreateCategoryCommandHandler(
@@ -32,7 +32,7 @@ internal sealed class CreateCategoryCommandHandler(
                 return Error.Validation("Category.MaxDepthExceeded", "Maximum category depth is 3.");
         }
 
-        var category = Category.Create(userId, request.Name, request.Type, request.Color, request.Icon, request.ParentId);
+        var category = Category.Create(userId, request.Name, request.Type, request.Color, request.Icon, request.ParentId, request.MonthlyBudget);
         await categoryRepository.AddAsync(category, ct);
         return category.Id;
     }

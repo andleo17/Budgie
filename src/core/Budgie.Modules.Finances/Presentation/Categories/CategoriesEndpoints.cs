@@ -1,3 +1,4 @@
+using Budgie.Modules.Finances.Application;
 using Budgie.Modules.Finances.Application.Categories.CreateCategory;
 using Budgie.Modules.Finances.Application.Categories.DeleteCategory;
 using Budgie.Modules.Finances.Application.Categories.GetCategories;
@@ -17,7 +18,8 @@ internal static class CategoriesEndpoints
         {
             var result = await mediator.Send(new GetCategoriesQuery(includeSystem));
             return result.Match(Results.Ok, err => Results.BadRequest(err));
-        });
+        })
+        .Produces<List<CategoryResponse>>(StatusCodes.Status200OK);
         group.MapPost("/categories", async (CreateCategoryCommand cmd, IMediator mediator) =>
         {
             var result = await mediator.Send(cmd);
@@ -27,7 +29,7 @@ internal static class CategoriesEndpoints
         });
         group.MapPut("/categories/{id:guid}", async (Guid id, UpdateCategoryRequest req, IMediator mediator) =>
         {
-            var cmd = new UpdateCategoryCommand(id, req.Name, req.Type ?? 1, req.Color, req.Icon, req.ParentId);
+            var cmd = new UpdateCategoryCommand(id, req.Name, req.Type ?? 1, req.Color, req.Icon, req.ParentId, req.MonthlyBudget);
             var result = await mediator.Send(cmd);
             return result.Match(_ => Results.NoContent(), err => Results.BadRequest(err));
         });
@@ -40,4 +42,4 @@ internal static class CategoriesEndpoints
 }
 
 public record UpdateCategoryRequest(
-    string Name, string? Color = null, string? Icon = null, int? Type = null, Guid? ParentId = null);
+    string Name, string? Color = null, string? Icon = null, int? Type = null, Guid? ParentId = null, decimal? MonthlyBudget = null);

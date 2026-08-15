@@ -7,7 +7,7 @@ using Mediator;
 namespace Budgie.Modules.Finances.Application.Categories.UpdateCategory;
 
 public record UpdateCategoryCommand(
-    Guid Id, string Name, int Type, string? Color = null, string? Icon = null, Guid? ParentId = null)
+    Guid Id, string Name, int Type, string? Color = null, string? Icon = null, Guid? ParentId = null, decimal? MonthlyBudget = null)
     : IRequest<ErrorOr<Success>>;
 
 internal sealed class UpdateCategoryCommandHandler(
@@ -45,7 +45,7 @@ internal sealed class UpdateCategoryCommandHandler(
                 return Error.Validation("Category.MaxDepthExceeded", "Moving this category would exceed the maximum depth of 3.");
         }
 
-        category.Update(request.Name, request.Color, request.Icon, request.Type, request.ParentId);
+        category.Update(request.Name, request.Color, request.Icon, request.Type, request.ParentId, request.MonthlyBudget);
         await categoryRepository.UpdateAsync(category, ct);
         return Result.Success;
     }

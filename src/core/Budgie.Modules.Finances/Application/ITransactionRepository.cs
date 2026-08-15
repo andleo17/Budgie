@@ -27,6 +27,9 @@ public interface ITransactionRepository
     Task<int> GetTransactionCountAsync(Application.Transactions.GetTransactions.GetTransactionsQuery request, CancellationToken ct);
     Task<List<Application.Transactions.TransactionResponse>> GetTransactionsAsync(Application.Transactions.GetTransactions.GetTransactionsQuery request, CancellationToken ct);
     Task AddTrackingParticipant(Guid txId, Guid personId, string currency, CancellationToken ct);
+    Task<bool> HasTransactionsBeforeAsync(Guid accountId, DateTime date, CancellationToken ct);
+    Task<List<Application.Debts.GetPersonDebts.DebtResponse>> GetPersonDebtsAsync(Guid personId, CancellationToken ct);
+    Task<Application.Persons.GetPersonSummary.PersonSummaryResponse> GetPersonSummaryAsync(Guid personId, CancellationToken ct);
 }
 
 public record RepaymentDetailInfo(Guid RepaidParticipantId, decimal Amount);

@@ -15,7 +15,7 @@ internal sealed class AccountRepository(IDbConnectionFactory factory) : IAccount
         var row = await factory.QuerySingleOrDefaultAsync<AccountRow>(
             @"SELECT ""Id"",""UserId"",""Name"",""Balance"",""Currency"",""Type"",
               ""CreditLimit"",""CreditLimitCurrency"",""CreditConsumptionMode"",""AnnualInterestRate"",
-              ""BillingCycleDayInclusive"",""CreatedAt""
+              ""BillingCycleDayInclusive"",""ControlStartDate"",""CreatedAt""
               FROM ""Accounts"" WHERE ""Id"" = @Id AND ""UserId"" = @UserId",
             new { Id = id, UserId = userId }, ct);
         return row is null ? null : Map(row);
@@ -26,7 +26,7 @@ internal sealed class AccountRepository(IDbConnectionFactory factory) : IAccount
         var row = await factory.QuerySingleOrDefaultAsync<AccountRow>(
             @"SELECT ""Id"",""UserId"",""Name"",""Balance"",""Currency"",""Type"",
               ""CreditLimit"",""CreditLimitCurrency"",""CreditConsumptionMode"",""AnnualInterestRate"",
-              ""BillingCycleDayInclusive"",""CreatedAt""
+              ""BillingCycleDayInclusive"",""ControlStartDate"",""CreatedAt""
               FROM ""Accounts"" WHERE ""Id"" = @Id",
             new { Id = id }, ct);
         return row is null ? null : Map(row);
@@ -34,12 +34,17 @@ internal sealed class AccountRepository(IDbConnectionFactory factory) : IAccount
 
     public async Task<List<AccountResponse>> GetByUserIdAsync(Guid userId, CancellationToken ct)
     {
-        return (await factory.QueryListAsync<AccountResponse>(
+        var rows = await factory.QueryListAsync<AccountResponseRow>(
             @"SELECT ""Id"",""Name"",""Balance"",""Currency"",""Type"",""CreditLimit"",""CreditLimitCurrency"",
-              ""CreditConsumptionMode"" AS CreditConsumptionMode,""AnnualInterestRate"" AS AnnualInterestRate,
-              ""BillingCycleDayInclusive"",""CreatedAt""
+              ""CreditConsumptionMode"",""AnnualInterestRate"",
+              ""BillingCycleDayInclusive"",""BillingCycleDay"",""PaymentDueDay"",""InterestCalculationMethod"",""ControlStartDate"",""CreatedAt""
               FROM ""Accounts"" WHERE ""UserId"" = @UserId",
-            new { UserId = userId }, ct)).ToList();
+            new { UserId = userId }, ct);
+        return rows.Select(r => new AccountResponse(
+            r.Id, r.Name, r.Balance, r.Currency, r.Type,
+            r.CreditLimit, r.CreditLimitCurrency, r.CreditConsumptionMode, r.AnnualInterestRate,
+            r.BillingCycleDayInclusive, r.ControlStartDate, r.CreatedAt,
+            r.BillingCycleDay, r.PaymentDueDay, r.InterestCalculationMethod)).ToList();
     }
 
     public async Task AddAsync(Account account, CancellationToken ct)
@@ -47,10 +52,10 @@ internal sealed class AccountRepository(IDbConnectionFactory factory) : IAccount
         await factory.ExecuteAsync(
             @"INSERT INTO ""Accounts"" (""Id"",""UserId"",""Name"",""Balance"",""Currency"",""Type"",
               ""CreditLimit"",""CreditLimitCurrency"",""CreditConsumptionMode"",
-              ""AnnualInterestRate"",""BillingCycleDayInclusive"",""CreatedAt"")
+              ""AnnualInterestRate"",""BillingCycleDayInclusive"",""ControlStartDate"",""CreatedAt"")
               VALUES (@Id,@UserId,@Name,@Balance,@Currency,@Type,
               @CreditLimit,@CreditLimitCurrency,@CreditConsumptionMode,
-              @AnnualInterestRate,@BillingCycleDayInclusive,@CreatedAt)",
+              @AnnualInterestRate,@BillingCycleDayInclusive,@ControlStartDate,@CreatedAt)",
             new
             {
                 account.Id, account.UserId, Name = account.Name.Value,
@@ -62,6 +67,7 @@ internal sealed class AccountRepository(IDbConnectionFactory factory) : IAccount
                 AnnualInterestRate = account.CreditCardSettings is not null
                     ? (decimal?)account.CreditCardSettings.AnnualInterestRate.Value : null,
                 BillingCycleDayInclusive = account.CreditCardSettings?.BillingCycleDayInclusive ?? true,
+                ControlStartDate = account.ControlStartDate,
                 account.CreatedAt
             }, ct);
     }
@@ -70,7 +76,8 @@ internal sealed class AccountRepository(IDbConnectionFactory factory) : IAccount
         => factory.ExecuteAsync(
             @"UPDATE ""Accounts"" SET ""Name"" = @Name, ""CreditLimit"" = @CreditLimit,
               ""CreditLimitCurrency"" = @CreditLimitCurrency, ""CreditConsumptionMode"" = @CreditConsumptionMode,
-              ""AnnualInterestRate"" = @AnnualInterestRate, ""BillingCycleDayInclusive"" = @BillingCycleDayInclusive
+              ""AnnualInterestRate"" = @AnnualInterestRate, ""BillingCycleDayInclusive"" = @BillingCycleDayInclusive,
+              ""ControlStartDate"" = @ControlStartDate
               WHERE ""Id"" = @Id",
             new
             {
@@ -81,6 +88,7 @@ internal sealed class AccountRepository(IDbConnectionFactory factory) : IAccount
                 AnnualInterestRate = account.CreditCardSettings is not null
                     ? (decimal?)account.CreditCardSettings.AnnualInterestRate.Value : null,
                 BillingCycleDayInclusive = account.CreditCardSettings?.BillingCycleDayInclusive ?? true,
+                ControlStartDate = account.ControlStartDate,
                 account.Id
             }, ct);
 
@@ -102,7 +110,8 @@ internal sealed class AccountRepository(IDbConnectionFactory factory) : IAccount
             Name = Name.From(row.Name),
             Balance = Money.FromAny(row.Balance, CurrencyCode.From(row.Currency)),
             Type = (AccountType)row.Type,
-            CreatedAt = row.CreatedAt
+            CreatedAt = row.CreatedAt,
+            ControlStartDate = row.ControlStartDate ?? row.CreatedAt.Date
         };
         if (row.CreditLimit.HasValue)
         {
@@ -118,5 +127,11 @@ internal sealed class AccountRepository(IDbConnectionFactory factory) : IAccount
 
     private record AccountRow(Guid Id, Guid UserId, string Name, decimal Balance, string Currency,
         int Type, decimal? CreditLimit, string? CreditLimitCurrency, int CreditConsumptionMode,
-        decimal? AnnualInterestRate, bool BillingCycleDayInclusive, DateTime CreatedAt);
+        decimal? AnnualInterestRate, bool BillingCycleDayInclusive, DateTime? ControlStartDate, DateTime CreatedAt);
+
+    private record AccountResponseRow(Guid Id, string Name, decimal Balance, string Currency,
+        int Type, decimal? CreditLimit, string? CreditLimitCurrency, int CreditConsumptionMode,
+        decimal? AnnualInterestRate, bool BillingCycleDayInclusive,
+        int? BillingCycleDay, int? PaymentDueDay, int? InterestCalculationMethod,
+        DateTime ControlStartDate, DateTime CreatedAt);
 }

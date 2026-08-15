@@ -1,5 +1,5 @@
+using Budgie.Modules.Finances.Application;
 using Budgie.Shared.Abstractions;
-using Budgie.Shared.Infrastructure;
 using ErrorOr;
 using Mediator;
 
@@ -16,31 +16,14 @@ public record GoalStatus(
     DateTime? TargetDate);
 
 internal sealed class GetGoalsStatusQueryHandler(
-    IDbConnectionFactory factory,
+    IReportRepository reportRepository,
     ICurrentUserProvider currentUserProvider)
     : IRequestHandler<GetGoalsStatusQuery, ErrorOr<List<GoalStatus>>>
 {
     public async ValueTask<ErrorOr<List<GoalStatus>>> Handle(GetGoalsStatusQuery request, CancellationToken ct)
     {
         var userId = currentUserProvider.GetUserId();
-
-        var rows = await factory.QueryListAsync<GoalStatusRow>(
-            @"SELECT a.""Id"" AS AccountId, a.""Name"" AS AccountName, a.""Balance"" AS CurrentBalance,
-                    g.""TargetAmount"", g.""TargetDate""
-              FROM ""Goals"" g
-              INNER JOIN ""Accounts"" a ON a.""Id"" = g.""AccountId""
-              WHERE g.""UserId"" = @UserId AND g.""TargetAmount"" > 0",
-            new { UserId = userId }, ct);
-
-        return rows.Select(r => new GoalStatus(
-            r.AccountId,
-            r.AccountName,
-            r.CurrentBalance,
-            r.TargetAmount,
-            (double)(r.CurrentBalance / r.TargetAmount * 100),
-            r.TargetDate)).ToList();
+        var statusList = await reportRepository.GetGoalsStatusAsync(userId, ct);
+        return statusList;
     }
-
-    private record GoalStatusRow(Guid AccountId, string AccountName, decimal CurrentBalance,
-        decimal TargetAmount, DateTime? TargetDate);
 }

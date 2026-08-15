@@ -6,6 +6,7 @@ using Budgie.Shared.Domain.ValueObjects;
 using Budgie.Shared.Enums;
 using ErrorOr;
 using Mediator;
+using System.Globalization;
 
 namespace Budgie.Modules.Finances.Application.Accounts.UpdateAccount;
 
@@ -14,7 +15,8 @@ public record UpdateAccountCommand(
     CreditConsumptionMode? CreditConsumptionMode = null,
     int? BillingCycleDay = null, int? PaymentDueDay = null,
     decimal? AnnualInterestRate = null, bool BillingCycleDayInclusive = true,
-    InterestCalculationMethod? InterestCalculationMethod = null) : IRequest<ErrorOr<Success>>;
+    InterestCalculationMethod? InterestCalculationMethod = null,
+    DateTime? ControlStartDate = null) : IRequest<ErrorOr<Success>>;
 
 internal sealed class UpdateAccountCommandHandler(
     IAccountRepository accountRepository,
@@ -44,7 +46,19 @@ internal sealed class UpdateAccountCommandHandler(
                 request.InterestCalculationMethod ?? Budgie.Shared.Enums.InterestCalculationMethod.FrenchAmortization);
         }
 
-        account.Update(request.Name, creditCardSettings);
+        var newControlStartDate = request.ControlStartDate ?? account.ControlStartDate;
+        if (newControlStartDate.Date != account.ControlStartDate.Date)
+        {
+            var hasPriorTransactions = await txRepository.HasTransactionsBeforeAsync(account.Id, newControlStartDate.Date, ct);
+            if (hasPriorTransactions)
+            {
+                return CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "en"
+                    ? Error.Validation("Account.ControlStartDateLocked", "ControlStartDate cannot be moved forward because existing transactions precede the proposed date.")
+                    : Error.Validation("Account.ControlStartDateLocked", "No se puede adelantar ControlStartDate porque existen transacciones anteriores a la fecha propuesta.");
+            }
+        }
+
+        account.Update(request.Name, creditCardSettings, newControlStartDate);
         await accountRepository.UpdateAsync(account, ct);
 
         if (account.Type == AccountType.Credit && request.CreditLimit > oldCreditLimit)
