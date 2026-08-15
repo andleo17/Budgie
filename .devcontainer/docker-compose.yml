@@ -5,6 +5,9 @@ services:
       dockerfile: Dockerfile
     volumes:
       - ..:/workspace:cached
+      - ${HOME}/.nuget/packages:/home/andleo/.nuget/packages:ro
+      - ${HOME}/.bun/install/cache:/home/vscode/.bun/install/cache:ro
+      - /var/run/docker.sock:/var/run/docker.sock
     command: sleep infinity
     environment:
       ASPNETCORE_ENVIRONMENT: Development

@@ -47,4 +47,10 @@ public static partial class LogMessages
 
     [LoggerMessage(EventId = 15, Level = LogLevel.Information, Message = "Seeded system category: {Name} ({Id})")]
     public static partial void SystemCategorySeeded(ILogger logger, string name, Guid id);
+
+    [LoggerMessage(EventId = 16, Level = LogLevel.Warning, Message = "Category '{CategoryName}' reached {Spent:C} of a {MonthlyBudget:C} monthly budget (Warning threshold).")]
+    public static partial void BudgetWarning(ILogger logger, string categoryName, decimal spent, decimal monthlyBudget);
+
+    [LoggerMessage(EventId = 17, Level = LogLevel.Warning, Message = "Category '{CategoryName}' exceeded its {MonthlyBudget:C} monthly budget with {Spent:C} spent.")]
+    public static partial void BudgetExceeded(ILogger logger, string categoryName, decimal spent, decimal monthlyBudget);
 }
