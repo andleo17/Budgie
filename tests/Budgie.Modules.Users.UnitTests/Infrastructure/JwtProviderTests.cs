@@ -77,7 +77,7 @@ public class JwtProviderTests
 
         var handler = new JwtSecurityTokenHandler();
         var jwtToken = handler.ReadJwtToken(token);
-        var expectedExpiry = DateTime.UtcNow.AddHours(24);
+        var expectedExpiry = DateTime.UtcNow.AddMinutes(15);
         jwtToken.ValidTo.Should().BeCloseTo(expectedExpiry, TimeSpan.FromSeconds(10));
     }
 }

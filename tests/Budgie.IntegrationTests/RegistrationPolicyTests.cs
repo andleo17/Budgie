@@ -28,11 +28,11 @@ public class RegistrationPolicyTests : IClassFixture<AutoRegistrationFactory>
         second.StatusCode.Should().Be(HttpStatusCode.Forbidden);
 
         var status = await _client.GetFromJsonAsync<RegistrationStatusResponse>("/api/users/registration-status");
-        status!.Enabled.Should().BeFalse();
-        status.HasUsers.Should().BeTrue();
+        status!.Initialized.Should().BeTrue();
+        status.AllowRegistration.Should().BeFalse();
     }
 
-    private record RegistrationStatusResponse(bool Enabled, bool HasUsers);
+    private record RegistrationStatusResponse(bool Initialized, bool AllowRegistration);
 }
 
 public class AutoRegistrationFactory : BudgieWebApplicationFactory

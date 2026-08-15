@@ -1,7 +1,9 @@
 using Budgie.Modules.Users.Application;
 using Budgie.Modules.Users.Application.Register;
 using Budgie.Modules.Users.Domain;
+using Budgie.Modules.Users.Domain.Events;
 using FluentAssertions;
+using Mediator;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using Xunit;
@@ -11,16 +13,19 @@ namespace Budgie.Modules.Users.UnitTests.Application.Register;
 public class RegisterUserCommandHandlerTests
 {
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
-    private readonly IUserSettingsRepository _settingsRepository = Substitute.For<IUserSettingsRepository>();
+    private readonly IUserInviteRepository _inviteRepository = Substitute.For<IUserInviteRepository>();
     private readonly IRegistrationPolicy _registrationPolicy = Substitute.For<IRegistrationPolicy>();
+    private readonly IMediator _mediator = Substitute.For<IMediator>();
     private readonly RegisterUserCommandHandler _handler;
 
     public RegisterUserCommandHandlerTests()
     {
         _registrationPolicy.CanRegisterAsync(Arg.Any<CancellationToken>()).Returns(true);
+        _userRepository.AnyAsync(Arg.Any<CancellationToken>()).Returns(true);
 
         _handler = new RegisterUserCommandHandler(
-            _userRepository, _settingsRepository, _registrationPolicy, NullLogger<RegisterUserCommandHandler>.Instance);
+            _userRepository, _inviteRepository, _registrationPolicy,
+            _mediator, NullLogger<RegisterUserCommandHandler>.Instance);
     }
 
     [Fact]
@@ -37,15 +42,28 @@ public class RegisterUserCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_ValidCredentials_CreatesDefaultSettings()
+    public async Task Handle_ValidCredentials_PublishesUserRegisteredEvent()
     {
         var command = new RegisterUserCommand("test@example.com", "SecurePass123!", "Test User");
 
         var result = await _handler.Handle(command, CancellationToken.None);
 
         result.IsError.Should().BeFalse();
-        await _settingsRepository.Received(1).AddAsync(
-            Arg.Is<UserSettings>(s => s.UserId == result.Value && !s.IsConfigured),
+        await _mediator.Received(1).Publish(
+            Arg.Is<UserRegisteredEvent>(e => e.UserId == result.Value && e.Role == Shared.Enums.UserRole.User),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Handle_NoUsers_AssignsAdminRole()
+    {
+        _userRepository.AnyAsync(Arg.Any<CancellationToken>()).Returns(false);
+        var command = new RegisterUserCommand("first@example.com", "SecurePass123!", "First");
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        await _userRepository.Received(1).AddAsync(Arg.Is<User>(u => u.Role == Shared.Enums.UserRole.Admin),
             Arg.Any<CancellationToken>());
     }
 

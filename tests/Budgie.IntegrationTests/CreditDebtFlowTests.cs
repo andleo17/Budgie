@@ -93,12 +93,17 @@ public class CreditDebtFlowTests : IClassFixture<BudgieWebApplicationFactory>
         var parent = transactions.Items.Single(t => t.type == 1 && t.parentTransactionId == null);
         parent.participants.Should().ContainSingle(p => p.personId == _personId);
 
-        var childIncome = transactions.Items.SingleOrDefault(t => t.type == 0 && t.parentTransactionId != null);
+        // Immediate settlement income is recorded against the destination (cash) account
+        var destTransactions = await _client.GetFromJsonAsync<PagedTransactions>($"/api/finances/transactions?accountIds={destAccountId}");
+        var childIncome = destTransactions!.Items.SingleOrDefault(t => t.type == 0 && t.parentTransactionId != null);
         childIncome.Should().NotBeNull("la contribución al contado debe listarse como transacción hija Income");
         childIncome!.participants.Should().ContainSingle(p => p.personId == _personId);
 
-        var account = await _client.GetFromJsonAsync<AccountDto>($"/api/finances/accounts/{_accountId}");
-        account!.Balance.Should().Be(1000m - 50m + 30m);
+        var source = await _client.GetFromJsonAsync<AccountDto>($"/api/finances/accounts/{_accountId}");
+        source!.Balance.Should().Be(1000m - 50m);
+
+        var dest = await _client.GetFromJsonAsync<AccountDto>($"/api/finances/accounts/{destAccountId}");
+        dest!.Balance.Should().Be(500m + 30m);
     }
 
     [Fact]
