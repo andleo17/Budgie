@@ -27,3 +27,12 @@ public interface IRefreshTokenRepository
     Task AddAsync(RefreshToken token, CancellationToken ct);
     Task RevokeAsync(Guid id, CancellationToken ct);
 }
+
+public interface IUserInviteRepository
+{
+    Task<UserInvite?> GetByHashAsync(string tokenHash, CancellationToken ct);
+    Task AddAsync(UserInvite invite, CancellationToken ct);
+    Task MarkAsUsedAsync(Guid id, CancellationToken ct);
+    Task<List<UserInvite>> GetActiveInvitesAsync(CancellationToken ct);
+}
+

@@ -13,10 +13,24 @@ CREATE TABLE IF NOT EXISTS "Users" (
     "Email" VARCHAR(255) NOT NULL,
     "Name" VARCHAR(100) NOT NULL,
     "PasswordHash" VARCHAR(255) NOT NULL,
+    "Role" INT NOT NULL DEFAULT 2,
     "CreatedAt" TIMESTAMP WITHOUT TIME ZONE NOT NULL,
     "UpdatedAt" TIMESTAMP WITHOUT TIME ZONE
 );
+ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "Role" INT NOT NULL DEFAULT 2;
 CREATE UNIQUE INDEX IF NOT EXISTS "IX_Users_Email" ON "Users"("Email");
+
+CREATE TABLE IF NOT EXISTS "UserInvites" (
+    "Id" UUID PRIMARY KEY,
+    "TokenHash" VARCHAR(255) NOT NULL,
+    "Email" VARCHAR(255),
+    "ExpiresAt" TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+    "CreatedAt" TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+    "IsUsed" BOOLEAN NOT NULL DEFAULT FALSE,
+    "CreatedByUserId" UUID NOT NULL REFERENCES "Users"("Id") ON DELETE CASCADE
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_UserInvites_TokenHash" ON "UserInvites"("TokenHash");
+CREATE INDEX IF NOT EXISTS "IX_UserInvites_CreatedByUserId" ON "UserInvites"("CreatedByUserId");
 
 CREATE TABLE IF NOT EXISTS "UserSettings" (
     "UserId" UUID PRIMARY KEY REFERENCES "Users"("Id") ON DELETE CASCADE,
@@ -82,8 +96,10 @@ CREATE TABLE IF NOT EXISTS "Accounts" (
     "BillingCycleDay" INT,
     "PaymentDueDay" INT,
     "InterestCalculationMethod" INT NOT NULL DEFAULT 0,
+    "ControlStartDate" TIMESTAMP WITHOUT TIME ZONE,
     "CreatedAt" TIMESTAMP WITHOUT TIME ZONE NOT NULL
 );
+ALTER TABLE "Accounts" ADD COLUMN IF NOT EXISTS "ControlStartDate" TIMESTAMP WITHOUT TIME ZONE;
 CREATE INDEX IF NOT EXISTS "IX_Accounts_UserId" ON "Accounts"("UserId");
 
 -- Finances module: Categories
@@ -95,8 +111,10 @@ CREATE TABLE IF NOT EXISTS "Categories" (
     "Icon" VARCHAR(50),
     "Type" INT NOT NULL,
     "IsSystem" BOOLEAN NOT NULL DEFAULT FALSE,
+    "MonthlyBudget" DECIMAL(18,2),
     "ParentId" UUID REFERENCES "Categories"("Id") ON DELETE SET NULL
 );
+ALTER TABLE "Categories" ADD COLUMN IF NOT EXISTS "MonthlyBudget" DECIMAL(18,2);
 CREATE INDEX IF NOT EXISTS "IX_Categories_UserId" ON "Categories"("UserId");
 
 -- Finances module: Transactions

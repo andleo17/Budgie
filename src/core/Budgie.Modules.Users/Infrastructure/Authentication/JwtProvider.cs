@@ -20,7 +20,8 @@ public class JwtProvider(IConfiguration configuration) : IJwtProvider
         {
             new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
             new(JwtRegisteredClaimNames.Email, user.Email),
-            new("name", user.Name)
+            new("name", user.Name),
+            new("role", user.Role.ToString())
         };
 
         var secretKey = configuration["Jwt:Secret"] ?? "a-very-long-and-secure-secret-key-123456789";
@@ -31,7 +32,7 @@ public class JwtProvider(IConfiguration configuration) : IJwtProvider
             issuer: configuration["Jwt:Issuer"] ?? "Budgie",
             audience: configuration["Jwt:Audience"] ?? "Budgie",
             claims: claims,
-            expires: DateTime.UtcNow.AddHours(24),
+            expires: DateTime.UtcNow.AddMinutes(15),
             signingCredentials: creds);
 
         return new JwtSecurityTokenHandler().WriteToken(token);

@@ -21,6 +21,7 @@ public static class UsersModule
         services.AddScoped<Application.IUserRepository, UserRepository>();
         services.AddScoped<Application.IUserSettingsRepository, UserSettingsRepository>();
         services.AddScoped<Application.IRefreshTokenRepository, RefreshTokenRepository>();
+        services.AddScoped<Application.IUserInviteRepository, UserInviteRepository>();
         return services;
     }
 
@@ -63,6 +64,30 @@ public static class UsersModule
                 errors => Results.Unauthorized());
         })
         .Produces<Application.Login.LoginResponse>(200);
+
+        group.MapPost("/invites", async (Application.Invites.CreateInviteCommand command, Mediator.IMediator mediator) =>
+        {
+            var result = await mediator.Send(command);
+            return result.Match(
+                response => Results.Ok(response),
+                errors => result.FirstError.Type == ErrorOr.ErrorType.Forbidden
+                    ? Results.Forbid()
+                    : Results.BadRequest(errors));
+        })
+        .RequireAuthorization()
+        .Produces<Application.Invites.CreateInviteResponse>(StatusCodes.Status200OK);
+
+        group.MapPost("/admin/create-user", async (Application.Admin.CreateUser.AdminCreateUserCommand command, Mediator.IMediator mediator) =>
+        {
+            var result = await mediator.Send(command);
+            return result.Match(
+                userId => Results.Created($"/api/users/{userId}", new { Id = userId }),
+                errors => result.FirstError.Type == ErrorOr.ErrorType.Forbidden
+                    ? Results.Forbid()
+                    : Results.BadRequest(errors));
+        })
+        .RequireAuthorization()
+        .Produces<Budgie.Shared.Dtos.CreatedResponse>(StatusCodes.Status201Created);
 
         Budgie.Modules.Users.Presentation.Settings.SettingsEndpoints.MapEndpoints(group);
         Budgie.Modules.Users.Presentation.Profile.ProfileEndpoints.MapEndpoints(group);

@@ -20,9 +20,9 @@ internal sealed class RegistrationPolicy(
             _ => !hasUsers,
         };
 
-        return new RegistrationStatusResponse(enabled, hasUsers);
+        return new RegistrationStatusResponse(hasUsers, enabled);
     }
 
     public async Task<bool> CanRegisterAsync(CancellationToken ct)
-        => (await GetStatusAsync(ct)).Enabled;
+        => (await GetStatusAsync(ct)).AllowRegistration;
 }
