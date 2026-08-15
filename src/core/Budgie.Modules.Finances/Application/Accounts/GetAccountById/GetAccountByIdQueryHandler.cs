@@ -23,7 +23,11 @@ internal sealed class GetAccountByIdQueryHandler(
                 (int)(account.CreditCardSettings?.CreditConsumptionMode ?? 0),
                 account.CreditCardSettings?.AnnualInterestRate.Value,
                 account.CreditCardSettings?.BillingCycleDayInclusive ?? true,
-                account.CreatedAt)
+                account.ControlStartDate,
+                account.CreatedAt,
+                account.CreditCardSettings?.BillingCycleDay,
+                account.CreditCardSettings?.PaymentDueDay,
+                (int?)account.CreditCardSettings?.InterestCalculationMethod)
             : Error.NotFound("Account.NotFound", "Account not found.");
     }
 }

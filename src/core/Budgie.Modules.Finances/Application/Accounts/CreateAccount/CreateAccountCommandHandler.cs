@@ -1,6 +1,7 @@
 using Budgie.Modules.Finances.Application;
 using Budgie.Modules.Finances.Domain.Accounts;
 using Budgie.Modules.Finances.Domain.Categories;
+using Budgie.Modules.Finances.Domain.Events;
 using Budgie.Modules.Finances.Domain.Transactions;
 using Budgie.Shared.Abstractions;
 using Budgie.Shared.Domain.ValueObjects;
@@ -12,15 +13,15 @@ namespace Budgie.Modules.Finances.Application.Accounts.CreateAccount;
 
 public record CreateAccountCommand(
     string Name, string Currency, decimal InitialBalance, AccountType Type,
-    decimal? CreditLimit, CreditConsumptionMode? CreditConsumptionMode = null,
+    decimal? CreditLimit = null, CreditConsumptionMode? CreditConsumptionMode = null,
     int? BillingCycleDay = null, int? PaymentDueDay = null, decimal? AnnualInterestRate = null,
     bool BillingCycleDayInclusive = true, InterestCalculationMethod? InterestCalculationMethod = null,
-    DateTime? CreatedAt = null) : IRequest<ErrorOr<Guid>>;
+    DateTime? CreatedAt = null, DateTime? ControlStartDate = null) : IRequest<ErrorOr<Guid>>;
 
 internal sealed class CreateAccountCommandHandler(
     IAccountRepository accountRepository,
-    ITransactionRepository txRepository,
-    ICurrentUserProvider currentUserProvider)
+    ICurrentUserProvider currentUserProvider,
+    IMediator mediator)
     : IRequestHandler<CreateAccountCommand, ErrorOr<Guid>>
 {
     public async ValueTask<ErrorOr<Guid>> Handle(CreateAccountCommand request, CancellationToken ct)
@@ -42,43 +43,13 @@ internal sealed class CreateAccountCommandHandler(
         }
 
         var account = Account.Create(userId, request.Name, request.Currency, 0m,
-            request.Type, creditCardSettings, request.CreatedAt);
+            request.Type, creditCardSettings, request.CreatedAt, request.ControlStartDate);
 
         await accountRepository.AddAsync(account, ct);
 
-        var balanceDelta = 0m;
-
-        if (request.Type == AccountType.Credit && request.CreditLimit > 0)
-        {
-            var limitAmount = request.CreditLimit.Value;
-            var limitTx = Transaction.Create(userId, account.Id, null, limitAmount,
-                account.Balance.Currency, 1m, account.CreatedAt, null,
-                TransactionType.Income);
-            await txRepository.AddAsync(limitTx, ct);
-            balanceDelta += limitAmount;
-        }
-
-        if (request.InitialBalance != 0)
-        {
-            var txType = request.Type == AccountType.Credit
-                ? TransactionType.Expense
-                : request.InitialBalance > 0 ? TransactionType.Income : TransactionType.Expense;
-            var absAmount = Math.Abs(request.InitialBalance);
-
-            var tx = Transaction.Create(userId, account.Id, SystemCategoryIds.InitialBalance,
-                absAmount, account.Balance.Currency, 1m, account.CreatedAt, null,
-                txType, isInitialBalance: true);
-            await txRepository.AddAsync(tx, ct);
-
-            balanceDelta += txType is TransactionType.Income ? absAmount : -absAmount;
-        }
-
-        if (balanceDelta != 0)
-        {
-            var accountForBalance = await accountRepository.GetByIdRawAsync(account.Id, ct);
-            if (accountForBalance is not null)
-                await accountRepository.UpdateBalanceAsync(account.Id, accountForBalance.Balance.Amount + balanceDelta, ct);
-        }
+        await mediator.Publish(new AccountCreatedEvent(
+            account.Id, userId, account.Name.Value, request.InitialBalance, request.CreditLimit,
+            account.Balance.Currency.Code, account.Type, account.ControlStartDate), ct);
 
         return account.Id;
     }

@@ -15,6 +15,7 @@ public class Account : Entity
     public Money Balance { get; internal set; } = null!;
     public AccountType Type { get; internal set; }
     public DateTime CreatedAt { get; internal set; }
+    public DateTime ControlStartDate { get; internal set; }
     public CreditCardSettings? CreditCardSettings { get; internal set; }
 
     public Account() { }
@@ -26,12 +27,16 @@ public class Account : Entity
         decimal initialBalance,
         AccountType type = AccountType.Checking,
         CreditCardSettings? creditCardSettings = null,
-        DateTime? createdAt = null)
+        DateTime? createdAt = null,
+        DateTime? controlStartDate = null)
     {
         var currencyCode = CurrencyCode.From(currency);
 
         if (type == AccountType.Credit && creditCardSettings is null)
             throw new ArgumentException("Credit card settings are required for credit accounts.", nameof(creditCardSettings));
+
+        var createdDate = GuardDate(createdAt ?? DateTime.UtcNow);
+        var startDate = GuardDate(controlStartDate ?? createdDate.Date);
 
         return new Account
         {
@@ -40,16 +45,21 @@ public class Account : Entity
             Name = Name.From(name, MaxNameLength),
             Balance = Money.FromNonNegative(initialBalance, currencyCode),
             Type = type,
-            CreatedAt = GuardDate(createdAt ?? DateTime.UtcNow),
+            CreatedAt = createdDate,
+            ControlStartDate = startDate,
             CreditCardSettings = creditCardSettings
         };
     }
 
-    public void Update(string name, CreditCardSettings? creditCardSettings)
+    public void Update(string name, CreditCardSettings? creditCardSettings, DateTime? controlStartDate = null)
     {
         Name = Name.From(name, MaxNameLength);
         CreditCardSettings = creditCardSettings;
+        if (controlStartDate.HasValue)
+            ControlStartDate = GuardDate(controlStartDate.Value.Date);
     }
+
+    public bool CanAcceptTransactionOn(DateTime date) => date.Date >= ControlStartDate.Date;
 
     public (DateTime Start, DateTime End)? GetBillingPeriod(DateTime asOf)
     {

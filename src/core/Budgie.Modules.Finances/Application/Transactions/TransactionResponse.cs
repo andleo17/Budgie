@@ -8,4 +8,5 @@ public record TransactionResponse(Guid Id, Guid AccountId, string AccountName, G
     string? Notes, TransactionType Type, int Installments, bool IsInitialBalance,
     decimal? RunningBalance = null, Guid? LinkedTransactionId = null, Guid? ParentTransactionId = null,
     Guid? TransferDestinationAccountId = null, string? TransferDestinationAccountName = null,
+    Guid? InstallmentGroupId = null, int? InstallmentNumber = null, int? TotalInstallments = null,
     List<TransactionParticipantDto>? Participants = null);

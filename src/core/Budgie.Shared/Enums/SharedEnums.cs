@@ -1,10 +1,18 @@
 namespace Budgie.Shared.Enums;
 
+public enum UserRole
+{
+    Admin = 1,
+    User = 2
+}
+
 public enum AccountType
 {
-    Checking,
-    Savings,
-    Credit
+    Checking = 0,
+    Savings = 1,
+    Credit = 2,
+    Cash = 3,
+    Debt = 4
 }
 
 public enum CreditConsumptionMode

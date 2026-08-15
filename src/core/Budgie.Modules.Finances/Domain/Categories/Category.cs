@@ -15,13 +15,14 @@ public class Category : Entity
     public string? Icon { get; internal set; }
     public int Type { get; internal set; }
     public bool IsSystem { get; internal set; }
+    public decimal? MonthlyBudget { get; internal set; }
     public Guid? ParentId { get; internal set; }
     public Category? Parent { get; internal set; }
     public ICollection<Category> Children { get; internal set; } = [];
 
     public Category() { }
 
-    public static Category Create(Guid userId, string name, int type, string? color = null, string? icon = null, Guid? parentId = null)
+    public static Category Create(Guid userId, string name, int type, string? color = null, string? icon = null, Guid? parentId = null, decimal? monthlyBudget = null)
     {
         return new Category
         {
@@ -31,7 +32,8 @@ public class Category : Entity
             Color = HexColor.FromNullable(color),
             Icon = icon,
             Type = type,
-            ParentId = parentId
+            ParentId = parentId,
+            MonthlyBudget = monthlyBudget.HasValue && monthlyBudget.Value > 0 ? monthlyBudget.Value : null
         };
     }
 
@@ -47,7 +49,7 @@ public class Category : Entity
         };
     }
 
-    public void Update(string name, string? color, string? icon, int? type = null, Guid? parentId = null)
+    public void Update(string name, string? color, string? icon, int? type = null, Guid? parentId = null, decimal? monthlyBudget = null)
     {
         Name = Name.From(name, MaxNameLength);
         Color = HexColor.FromNullable(color);
@@ -55,6 +57,7 @@ public class Category : Entity
         if (type.HasValue)
             Type = type.Value;
         ParentId = parentId;
+        MonthlyBudget = monthlyBudget.HasValue && monthlyBudget.Value > 0 ? monthlyBudget.Value : null;
     }
 
     public bool HasCircularReference(Guid targetParentId, Dictionary<Guid, Category?> categoryMap)
