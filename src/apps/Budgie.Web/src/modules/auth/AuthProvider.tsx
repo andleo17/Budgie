@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, startTransition } from 'react';
+import { useState, useEffect, useCallback, useRef, startTransition } from 'react';
 import type { ReactNode } from 'react';
 import { jwtDecode } from 'jwt-decode';
 import client from '@/lib/api-client';
@@ -38,10 +38,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const navigate = useNavigate();
 
+  // Keep a stable reference to navigate so the settings check only runs
+  // on token changes, not on every render (avoiding redundant HTTP calls
+  // and full-screen "Loading..." flashes while navigating).
+  const navigateRef = useRef(navigate);
+  navigateRef.current = navigate;
+
   const setToken = useCallback((newToken: string | null) => {
     if (newToken) {
       localStorage.setItem('token', newToken);
-      startTransition(() => setIsLoading(true));
     } else {
       localStorage.removeItem('token');
       localStorage.removeItem('refreshToken');
@@ -57,7 +62,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (response?.status === 403) {
           startTransition(() => setIsConfigured(false));
           if (window.location.pathname !== '/setup') {
-            navigate('/setup');
+            navigateRef.current('/setup');
           }
         } else if (response?.status === 401) {
           setToken(null);
@@ -67,33 +72,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       startTransition(() => setIsConfigured(data.isConfigured));
       if (!data.isConfigured && window.location.pathname !== '/setup') {
-        navigate('/setup');
+        navigateRef.current('/setup');
       } else if (data.isConfigured && window.location.pathname === '/setup') {
-        navigate('/dashboard');
+        navigateRef.current('/dashboard');
       }
     } catch {
       // ignore
     }
-  }, [navigate, setToken]);
+  }, [setToken]);
 
   useEffect(() => {
     if (token) {
-      startTransition(() => setIsLoading(true));
-      setTimeout(() =>
-        checkSettings().finally(() => startTransition(() => setIsLoading(false))),
-        0
-      );
+      setIsLoading(true);
+      checkSettings().finally(() => setIsLoading(false));
     } else {
       localStorage.removeItem('token');
       localStorage.removeItem('refreshToken');
-      startTransition(() => setIsLoading(false));
+      setIsLoading(false);
     }
-  }, [token, navigate, checkSettings]);
+  }, [token, checkSettings]);
 
   const logout = useCallback(() => {
     setToken(null);
-    navigate('/login');
-  }, [setToken, navigate]);
+    navigateRef.current('/login');
+  }, [setToken]);
 
   return (
     <AuthContext.Provider value={{ token, setToken, user, isConfigured, logout, isLoading, checkSettings }}>
