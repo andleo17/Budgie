@@ -51,7 +51,15 @@ function DialogContent({
       <DialogPrimitive.Popup
         data-slot="dialog-content"
         className={cn(
-          "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 duration-100 outline-none sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+          // Mobile: native bottom sheet — full-width, slides up, drag handle,
+          // rounded top corners, internal scroll with iOS safe-area padding.
+          "fixed inset-x-0 bottom-0 z-50 grid max-h-[90dvh] w-full gap-4 overflow-y-auto overscroll-contain rounded-t-2xl bg-popover p-4 pb-safe text-sm text-popover-foreground ring-1 ring-foreground/10 transition-transform duration-200 ease-out outline-none",
+          "before:absolute before:top-2 before:left-1/2 before:h-1.5 before:w-10 before:-translate-x-1/2 before:rounded-full before:bg-muted-foreground/30 before:content-['']",
+          "data-open:translate-y-0 data-starting-style:translate-y-full data-ending-style:translate-y-full",
+          // Desktop: restore centered dialog.
+          "sm:top-1/2 sm:left-1/2 sm:bottom-auto sm:max-h-none sm:w-auto sm:max-w-[calc(100%-2rem)] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl sm:overflow-visible sm:pb-4 sm:transition-none sm:before:hidden",
+          "sm:data-open:animate-in sm:data-open:fade-in-0 sm:data-open:zoom-in-95 sm:data-closed:animate-out sm:data-closed:fade-out-0 sm:data-closed:zoom-out-95",
+          "sm:data-starting-style:-translate-y-1/2 sm:data-ending-style:-translate-y-1/2",
           className
         )}
         {...props}

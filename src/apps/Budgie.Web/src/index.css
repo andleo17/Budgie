@@ -159,4 +159,29 @@
   code, pre {
     font-family: 'JetBrains Mono', monospace;
   }
+
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+@layer utilities {
+  /* Amount colors centralized (light/dark aware) for consistent Revolut-style accents */
+  .amount-positive {
+    color: #059669; /* emerald-600 */
+  }
+  .dark .amount-positive {
+    color: #34d399; /* emerald-400 */
+  }
+  .amount-negative {
+    color: #dc2626; /* red-600 */
+  }
+  .dark .amount-negative {
+    color: #f87171; /* red-400 */
+  }
+
+  /* iOS safe area helper (keeps base 1rem padding) */
+  .pb-safe {
+    padding-bottom: max(env(safe-area-inset-bottom), 1rem);
+  }
 }

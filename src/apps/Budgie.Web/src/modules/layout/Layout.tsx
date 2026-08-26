@@ -9,7 +9,7 @@ import { Separator } from "@/components/ui/separator";
 import { PageSkeleton } from "@/components/page-skeleton";
 import { AppSidebar } from "@/modules/layout/AppSidebar";
 
-export function Layout() {
+export function Layout({ loading = false }: { loading?: boolean }) {
   return (
     <SidebarProvider>
       <AppSidebar />
@@ -21,9 +21,13 @@ export function Layout() {
           </div>
         </header>
         <main className="flex flex-1 flex-col gap-4 p-4 md:p-8 w-full">
-          <Suspense fallback={<PageSkeleton />}>
-            <Outlet />
-          </Suspense>
+          {loading ? (
+            <PageSkeleton />
+          ) : (
+            <Suspense fallback={<PageSkeleton />}>
+              <Outlet />
+            </Suspense>
+          )}
         </main>
       </SidebarInset>
     </SidebarProvider>

@@ -13,7 +13,6 @@ import { getDateLocale, parseDbDate } from "@/lib/date-locale";
 import { formatCurrency } from "@/lib/format";
 import client from "@/lib/api-client";
 import type { components } from "@/lib/api-types";
-import { TransactionSummaryBar } from "@/modules/transactions/components/TransactionSummaryBar";
 import { TransactionRow } from "@/modules/transactions/components/TransactionRow";
 import { TransactionFilters } from "@/modules/transactions/components/TransactionFilters";
 import { TransactionFormDialog } from "@/modules/transactions/components/TransactionFormDialog";
@@ -25,13 +24,9 @@ import { DeleteTransactionDialog } from "@/modules/transactions/components/Delet
 import { TransactionEmptyState } from "@/modules/transactions/components/TransactionEmptyState";
 import { ApplyFromTemplateDialog } from "@/modules/transactions/components/ApplyFromTemplateDialog";
 import { PageSkeleton } from "@/components/page-skeleton";
-import { ChevronLeft, ChevronRight, Wallet, FileText } from "lucide-react";
+import { MetricStrip, type MetricItem } from "@/components/shared/MetricStrip";
+import { ChevronLeft, ChevronRight, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Progress,
-  ProgressLabel,
-  ProgressValue,
-} from "@/components/ui/progress";
 import { parseViewMode, type ViewMode, TransactionType } from "@/lib/constants";
 import { getMonthRange, getBillingPeriodRange } from "../period-utils";
 import { useTransactions, useTransactionSummary, useSettings } from "@/lib/hooks/useTransactions";
@@ -220,24 +215,60 @@ export default function Transactions() {
   const totalPages = Math.ceil(totalCount / pageSize);
   const showPagination = totalPages > 1;
 
-  const endingBalance = useMemo(() => {
-    if (!hasSingleAccount) return null;
-    if (transactions.length > 0) {
-      const first = transactions[0];
-      if (first.runningBalance === undefined || first.runningBalance === null)
-        return null;
-      return { value: Number(first.runningBalance), currency: first.currency };
-    }
-    if (allAccounts) {
-      return { value: Number(allAccounts.balance), currency: allAccounts.currency };
-    }
-    return null;
-  }, [transactions, hasSingleAccount, allAccounts]);
-
   const groups = useMemo(
     () => groupTransactions(transactions, view),
     [transactions, view],
   );
+
+  const { data: rawCategories } = useQuery({
+    queryKey: ["categories", "includeSystem"],
+    queryFn: async () => {
+      const { data, error } = await client.GET("/api/finances/categories");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const categoryColorMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const c of rawCategories ?? []) {
+      if (c.color?.startsWith("#")) map.set(c.id, c.color);
+    }
+    return map;
+  }, [rawCategories]);
+
+  const stripMetrics = useMemo<MetricItem[]>(() => {
+    const mainCurrency = hasSingleAccount && allAccounts
+      ? allAccounts.currency
+      : (summary?.mainCurrency ?? settings?.mainCurrency ?? "USD");
+    const currencies = summary?.currencies ?? [];
+    const multiCurrency = currencies.length > 1;
+
+    const income = multiCurrency
+      ? Number(summary?.approximateIncome ?? 0)
+      : Number(currencies[0]?.income ?? 0);
+    const expenses = multiCurrency
+      ? Number(summary?.approximateExpenses ?? 0)
+      : Number(currencies[0]?.expenses ?? 0);
+    const net = multiCurrency
+      ? Number(summary?.approximateIncome ?? 0) - Number(summary?.approximateExpenses ?? 0)
+      : Number(currencies[0]?.balance ?? 0);
+
+    const metrics: MetricItem[] = [
+      { label: t("transactions.summaryIncome"), value: formatCurrency(income, mainCurrency), tone: "positive" },
+      { label: t("transactions.summaryExpenses"), value: formatCurrency(expenses, mainCurrency), tone: "negative" },
+      { label: t("transactions.summaryNet"), value: formatCurrency(Math.abs(net), mainCurrency), tone: net >= 0 ? "positive" : "negative" },
+    ];
+
+    if (hasSingleAccount && allAccounts) {
+      metrics.push({
+        label: t("accounts.currentBalance"),
+        value: formatCurrency(allAccounts.balance, allAccounts.currency),
+        tone: "neutral",
+      });
+    }
+    return metrics;
+  }, [summary, settings, hasSingleAccount, allAccounts, t]);
 
   const groupBalancesMap = useMemo(() => {
     const map = new Map<string, { currency: string; balance: number }[]>();
@@ -261,7 +292,7 @@ export default function Transactions() {
     setCopySource(null);
     setDialogTx(tx);
     setDialogOpen(true);
-  }, [setDialogTx, setDialogOpen]);
+  }, [setCopySource, setDialogTx, setDialogOpen]);
 
   const handleCopy = useCallback((tx: TransactionResponse) => {
     setCopySource(tx);
@@ -312,86 +343,7 @@ export default function Transactions() {
         </div>
       </div>
 
-      {hasSingleAccount && allAccounts && (
-        <div className="rounded-xl border bg-card p-3">
-          <div className="flex items-center gap-3">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-blue-500/10">
-              <Wallet className="size-5 text-blue-400" />
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">
-                {t("accounts.currentBalance")}
-              </p>
-              <p className="text-lg font-bold tabular-nums leading-tight">
-                {formatCurrency(allAccounts.balance, allAccounts.currency)}
-              </p>
-            </div>
-          </div>
-          {allAccounts.creditLimit != null &&
-            Number(allAccounts.creditLimit) > 0 &&
-            (() => {
-              const limit = Number(allAccounts.creditLimit);
-              const available = Number(allAccounts.balance);
-              const used = Math.max(0, limit - available);
-              const pct = Math.min(100, (used / limit) * 100);
-              return (
-                <div className="mt-3">
-                  <Progress value={pct} className="flex-wrap gap-1">
-                    <ProgressLabel className="text-xs text-muted-foreground">
-                      {t("accounts.creditUsed")}:{" "}
-                      {formatCurrency(used, allAccounts.currency)}
-                    </ProgressLabel>
-                    <ProgressValue className="text-xs">
-                      {() => formatCurrency(limit, allAccounts.currency)}
-                    </ProgressValue>
-                  </Progress>
-                  <p className="text-xs text-muted-foreground/70 mt-0.5">
-                    {t("accounts.availableCredit")}:{" "}
-                    {formatCurrency(available, allAccounts.currency)}
-                  </p>
-                </div>
-              );
-            })()}
-        </div>
-      )}
-
-      <TransactionSummaryBar
-        currencies={
-          summary?.currencies?.length
-            ? summary.currencies.map((c) => ({
-                income: Number(c.income),
-                expenses: Number(c.expenses),
-                balance: Number(c.balance),
-                currency: c.currency,
-              }))
-            : hasSingleAccount && allAccounts
-              ? [
-                  {
-                    income: 0,
-                    expenses: 0,
-                    balance: Number(allAccounts.balance),
-                    currency: allAccounts.currency,
-                  },
-                ]
-              : [
-                  {
-                    income: 0,
-                    expenses: 0,
-                    balance: 0,
-                    currency: settings?.mainCurrency ?? "USD",
-                  },
-                ]
-        }
-        mainCurrency={
-          hasSingleAccount && allAccounts
-            ? allAccounts.currency
-            : (summary?.mainCurrency ?? settings?.mainCurrency ?? "USD")
-        }
-        approximateIncome={Number(summary?.approximateIncome ?? 0)}
-        approximateExpenses={Number(summary?.approximateExpenses ?? 0)}
-        isLoading={summaryLoading}
-        endingBalance={endingBalance}
-      />
+      <MetricStrip metrics={stripMetrics} isLoading={summaryLoading} />
 
       <TransactionFilters />
 
@@ -441,6 +393,7 @@ export default function Transactions() {
                         showRunningBalance={hasSingleAccount}
                         onEdit={handleEdit}
                         mainCurrency={mainCurrency}
+                        categoryColor={tx.categoryId ? categoryColorMap.get(tx.categoryId) : undefined}
                       />
                     ))}
                   </div>

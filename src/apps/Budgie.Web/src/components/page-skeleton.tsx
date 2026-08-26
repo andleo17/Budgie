@@ -30,7 +30,7 @@ export function PageSkeleton({ header = true, cards = 3, rows = 4 }: PageSkeleto
         ))}
       </div>
       {Array.from({ length: rows }).map((_, i) => (
-        <Skeleton key={i} className="h-12 w-full" />
+        <Skeleton key={i} className="h-14 w-full" />
       ))}
     </div>
   );

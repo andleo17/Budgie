@@ -35,14 +35,16 @@ usando componentes shadcn/ui existentes y sin cambios de arquitectura ni rutas.
   Nunca altera la grilla (fila única siempre; 4 columnas iguales cuando existe).
 - Skeleton propio coherente con la altura final (~40px).
 
-#### `ResponsiveSheet.tsx`
-- Envuelve los primitivos `Dialog`/`Sheet` de shadcn:
-  - `< sm`: renderiza `Sheet` con `side="bottom"`, handle visual,
-    `rounded-t-2xl`, animación de entrada desde abajo, altura máxima
-    `90dvh` con scroll interno y `overscroll-behavior: contain`.
-  - `≥ sm`: renderiza el `DialogContent` centrado actual (sin cambios).
-- API espejo de Dialog (`open`, `onOpenChange`, título/descripción) para
-  migrar formularios sin reescribir su contenido interno.
+#### Bottom sheets (implementación en `ui/dialog.tsx`)
+> Desviación del diseño original: en lugar de un wrapper `ResponsiveSheet`,
+> el comportamiento bottom-sheet vive directamente en `DialogContent` de
+> shadcn. Como `Sheet` es el mismo primitivo Dialog de base-ui, se logró con
+> CSS responsivo dentro del componente: **todos** los diálogos existentes
+> heredan el patrón sin migrar llamadores, evitando dualidad de patrones.
+- `< sm`: sheet inferior full-width, animación slide-up, handle visual,
+  `rounded-t-2xl`, altura máxima `90dvh` con scroll interno,
+  `overscroll-behavior: contain` y safe-area iOS.
+- `≥ sm`: diálogo centrado actual (sin cambios visuales ni de animación).
 
 #### Tokens Revolut (`src/index.css`)
 - Radio de tarjetas: `rounded-2xl` (utilidad compartida).
@@ -63,10 +65,10 @@ usando componentes shadcn/ui existentes y sin cambios de arquitectura ni rutas.
 2. **Dashboard**: stats apiladas en móvil; gráfico de spending con altura fija reservada.
 3. **Cuentas / Personas / Categorías / Metas / Templates**:
    tarjetas full-width en móvil, jerarquía clara, acciones en menú existente.
-4. **Formularios**: migración a `ResponsiveSheet` — todos: transacción
-   (ingreso/gasto), transferencia, préstamo, cobro/pago, cuenta, persona,
-   categoría, meta y template. Los diálogos de edición de solo lectura
-   (transfer/collection) también pasan por `ResponsiveSheet` por consistencia.
+4. **Formularios**: bottom sheets automáticos vía `DialogContent` (ver
+   primitivas) — aplicado a todos los diálogos existentes sin cambios por
+   formulario. Los diálogos de edición de solo lectura (transfer/collection)
+   incluidos.
 
 ## Detalles nativos transversales
 

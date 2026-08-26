@@ -13,14 +13,17 @@ interface TransactionRowProps {
   showRunningBalance: boolean;
   onEdit: (tx: TransactionResponse) => void;
   mainCurrency: string;
+  /** Category hex color (Revolut-style colored icon); falls back to type color. */
+  categoryColor?: string | null;
 }
 
-export function TransactionRow({ transaction, showRunningBalance, onEdit, mainCurrency }: TransactionRowProps) {
+export function TransactionRow({ transaction, showRunningBalance, onEdit, mainCurrency, categoryColor }: TransactionRowProps) {
   const { t, i18n } = useTranslation();
   const dateLocale = getDateLocale(i18n.language);
   const typeInfo = getTypeInfo(transaction.type);
   const TypeIcon = transaction.isInitialBalance ? Wallet : typeInfo.icon;
-  const iconColor = transaction.isInitialBalance ? "text-violet-400" : typeInfo.color;
+  const typeColor = transaction.isInitialBalance ? "text-violet-400" : typeInfo.color;
+  const useCategoryColor = !!categoryColor && categoryColor.startsWith("#") && !transaction.isInitialBalance;
   const isIncome = transaction.type === 0 || transaction.type === 4;
   const amount = Number(transaction.amount);
   const runningBalance = transaction.runningBalance ? Number(transaction.runningBalance) : null;
@@ -35,11 +38,20 @@ export function TransactionRow({ transaction, showRunningBalance, onEdit, mainCu
 
   return (
     <div
-      className={`flex cursor-pointer items-center gap-3 border-b border-border/30 px-4 py-2.5 transition-colors hover:bg-muted/20 ${isVirtualChild ? "opacity-60" : ""}`}
+      className={`flex min-h-11 cursor-pointer items-center gap-3 border-b border-border/30 px-4 py-2 transition-colors active:bg-muted/40 sm:hover:bg-muted/20 ${isVirtualChild ? "opacity-60" : ""}`}
       onClick={() => onEdit(transaction)}
     >
-      <div className={`flex size-8 shrink-0 items-center justify-center rounded-lg ${iconColor.replace("text-", "bg-")}/10`}>
-        {isVirtualChild ? <Link className={`size-4 ${iconColor}`} /> : <TypeIcon className={`size-4 ${iconColor}`} />}
+      <div
+      className="flex size-9 shrink-0 items-center justify-center rounded-full"
+        style={useCategoryColor ? { backgroundColor: `${categoryColor}1f`, color: categoryColor! } : undefined}
+      >
+        {useCategoryColor ? (
+          isVirtualChild ? <Link className="size-4" /> : <TypeIcon className="size-4" />
+        ) : (
+          <div className={`flex size-8 items-center justify-center rounded-lg ${typeColor.replace("text-", "bg-")}/10`}>
+            {isVirtualChild ? <Link className={`size-4 ${typeColor}`} /> : <TypeIcon className={`size-4 ${typeColor}`} />}
+          </div>
+        )}
       </div>
       <div className="flex min-w-0 flex-1 items-center gap-2">
         <div className="min-w-0 flex-1">
@@ -104,7 +116,7 @@ export function TransactionRow({ transaction, showRunningBalance, onEdit, mainCu
       </div>
         <div className="flex items-center gap-3 shrink-0">
         <div className="text-right">
-          <p className={`text-sm font-semibold tabular-nums ${isIncome ? "text-emerald-400" : "text-red-400"}`}>
+          <p className={`text-sm font-semibold tabular-nums ${isIncome ? "amount-positive" : "amount-negative"}`}>
             {isIncome ? "+" : "-"}
             {formatCurrency(amount, transaction.currency)}
           </p>
