@@ -115,6 +115,7 @@ export default function Transactions() {
     useState<FormType>("income-expense");
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<components["schemas"]["RecurringTransactionResponse"] | null>(null);
+  const [copySource, setCopySource] = useState<TransactionResponse | null>(null);
   const [deletingTx, setDeletingTx] = useState<TransactionResponse | null>(null);
   const [page, setPage] = useState(1);
 
@@ -257,9 +258,18 @@ export default function Transactions() {
   }, [groups]);
 
   const handleEdit = useCallback((tx: TransactionResponse) => {
+    setCopySource(null);
     setDialogTx(tx);
     setDialogOpen(true);
   }, [setDialogTx, setDialogOpen]);
+
+  const handleCopy = useCallback((tx: TransactionResponse) => {
+    setCopySource(tx);
+    setDialogTx(null);
+    setSelectedTemplate(null);
+    setDialogFormType("income-expense");
+    setDialogOpen(true);
+  }, [setCopySource, setDialogTx, setSelectedTemplate, setDialogFormType, setDialogOpen]);
 
   const handleDelete = useCallback((tx: TransactionResponse) => {
     setDeletingTx(tx);
@@ -294,6 +304,7 @@ export default function Transactions() {
           <TransactionTypeDropdown
             onSelect={(type) => {
               setDialogTx(null);
+              setCopySource(null);
               setDialogFormType(type);
               setDialogOpen(true);
             }}
@@ -468,12 +479,14 @@ export default function Transactions() {
         open={dialogOpen}
         onOpenChange={(v) => {
           setDialogOpen(v);
-          if (!v) setSelectedTemplate(null);
+          if (!v) { setSelectedTemplate(null); setCopySource(null); }
         }}
         transaction={dialogTx}
+        copySource={copySource}
         defaultAccountId={hasSingleAccount ? accounts : undefined}
         formType={dialogTx ? undefined : dialogFormType}
         onDelete={handleDelete}
+        onCopy={handleCopy}
         template={dialogTx ? undefined : selectedTemplate}
       />
 

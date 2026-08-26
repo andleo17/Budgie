@@ -358,9 +358,7 @@ const es = {
     installments: "Cuotas",
     interestFree: "Sin intereses",
     inInstallments: "En cuotas",
-    copyFromTransaction: "Copiar de transacción",
-    searchTransactions: "Buscar transacciones…",
-    loading: "Cargando…",
+    cloneTransaction: "Clonar",
   },
   categories: {
     title: "Categorías",

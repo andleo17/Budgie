@@ -356,9 +356,7 @@ const en = {
     installments: "Installments",
     interestFree: "Interest free",
     inInstallments: "In installments",
-    copyFromTransaction: "Copy from transaction",
-    searchTransactions: "Search transactions…",
-    loading: "Loading…",
+    cloneTransaction: "Clone",
   },
   categories: {
     title: "Categories",

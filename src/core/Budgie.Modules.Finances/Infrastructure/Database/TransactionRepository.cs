@@ -289,7 +289,7 @@ internal sealed class TransactionRepository(IDbConnectionFactory factory) : ITra
             SELECT COUNT(*) AS TotalTransactions,
                 COALESCE(SUM(""ContributedAmount""),0) AS TotalContributed,
                 COALESCE(SUM(CASE WHEN ""RemainingAmount""<=0 AND NOT ""IsTrackingOnly"" THEN ""ContributedAmount"" ELSE 0 END),0) AS TotalRepaid,
-                COALESCE(SUM(""ContributedAmount"" - CASE WHEN ""RemainingAmount""<=0 AND NOT ""IsTrackingOnly"" THEN ""ContributedAmount"" ELSE 0 END),0) AS TotalPending,
+                COALESCE(SUM(CASE WHEN NOT ""IsTrackingOnly"" THEN ""ContributedAmount"" - CASE WHEN ""RemainingAmount""<=0 THEN ""ContributedAmount"" ELSE 0 END ELSE 0 END),0) AS TotalPending,
                 COALESCE(MIN(""RemainingCurrency""),'USD') AS Currency
             FROM effective";
         return await factory.QuerySingleAsync<Application.Persons.GetPersonSummary.PersonSummaryResponse>(sql, new { PersonId = personId }, ct);

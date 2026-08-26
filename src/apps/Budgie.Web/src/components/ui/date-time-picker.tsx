@@ -1,5 +1,4 @@
 import { format } from "date-fns";
-import type { ChangeEvent } from "react";
 import { CalendarIcon, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -35,6 +34,17 @@ export function DateTimePicker({ value, onChange, disabled }: DateTimePickerProp
     onChange(`${y}-${m}-${d}T${timeStr || "00:00:00"}`);
   };
 
+  const handleMonthChange = (month: Date) => {
+    if (disabled || !selectedDate) return;
+    const y = month.getFullYear();
+    const m = month.getMonth();
+    const daysInMonth = new Date(y, m + 1, 0).getDate();
+    const d = Math.min(selectedDate.getDate(), daysInMonth);
+    const mm = String(m + 1).padStart(2, "0");
+    const dd = String(d).padStart(2, "0");
+    onChange(`${y}-${mm}-${dd}T${timeStr || "00:00:00"}`);
+  };
+
   const handleTimeChange = (t: string) => {
     if (disabled) return;
     const normalizedTime = t.length === 5 ? `${t}:00` : t;
@@ -47,13 +57,6 @@ export function DateTimePicker({ value, onChange, disabled }: DateTimePickerProp
     } else {
       onChange(`${dateStr}T${normalizedTime}`);
     }
-  };
-
-  const handleDateInput = (e: ChangeEvent<HTMLInputElement>) => {
-    if (disabled) return;
-    const v = e.target.value;
-    if (!v) return;
-    onChange(`${v}T${timeStr || "00:00:00"}`);
   };
 
   return (
@@ -81,30 +84,13 @@ export function DateTimePicker({ value, onChange, disabled }: DateTimePickerProp
           locale={dateLocale}
           selected={selectedDate}
           onSelect={handleDateSelect}
+          onMonthChange={handleMonthChange}
           captionLayout="dropdown"
           startMonth={new Date(new Date().getFullYear() - 10, 0, 1)}
           endMonth={new Date(new Date().getFullYear() + 1, 11, 31)}
           autoFocus
         />
-        <div className="mt-3 flex flex-wrap items-center gap-2 border-t pt-3">
-          <CalendarIcon className="size-4 text-muted-foreground shrink-0" />
-          <Input
-            type="date"
-            value={dateStr}
-            onChange={handleDateInput}
-            className="w-36"
-            disabled={disabled}
-          />
-          <Clock className="size-4 text-muted-foreground shrink-0" />
-          <Input
-            type="time"
-            value={timeStr}
-            onChange={(e) => handleTimeChange(e.target.value)}
-            className="w-32"
-            disabled={disabled}
-          />
-        </div>
-        <div className="mt-3 flex items-center border-t pt-3">
+        <div className="mt-3 flex items-center gap-2 border-t pt-3">
           <Button
             type="button"
             variant="ghost"
@@ -124,6 +110,14 @@ export function DateTimePicker({ value, onChange, disabled }: DateTimePickerProp
             <CalendarIcon className="mr-1 size-3.5" />
             {t("transactions.today")}
           </Button>
+          <Clock className="size-4 text-muted-foreground shrink-0" />
+          <Input
+            type="time"
+            value={timeStr}
+            onChange={(e) => handleTimeChange(e.target.value)}
+            className="w-32"
+            disabled={disabled}
+          />
         </div>
       </PopoverContent>
     </Popover>

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useForm, Controller, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -37,9 +37,8 @@ import {
   FieldError,
 } from "@/components/ui/field";
 import { CategoryCombobox } from "@/modules/categories/components/CategoryCombobox";
-import { TransactionCopyPopover } from "./TransactionCopyPopover";
 import { ParticipantsSection } from "./ParticipantsSection";
-import { Loader2, Trash2, Percent } from "lucide-react";
+import { Loader2, Trash2, Percent, Copy } from "lucide-react";
 
 type TransactionResponse = components["schemas"]["TransactionResponse"];
 type RecurringTransactionResponse = components["schemas"]["RecurringTransactionResponse"];
@@ -47,13 +46,15 @@ type RecurringTransactionResponse = components["schemas"]["RecurringTransactionR
 interface IncomeExpenseFormProps {
   transaction?: TransactionResponse | null;
   template?: RecurringTransactionResponse | null;
+  copySource?: TransactionResponse | null;
   defaultAccountId?: string;
   onSuccess: () => void;
   onCancel: () => void;
   onDelete?: (tx: TransactionResponse) => void;
+  onCopy?: (tx: TransactionResponse) => void;
 }
 
-export function IncomeExpenseForm({ transaction, template, defaultAccountId, onSuccess, onCancel, onDelete }: IncomeExpenseFormProps) {
+export function IncomeExpenseForm({ transaction, template, copySource, defaultAccountId, onSuccess, onCancel, onDelete, onCopy }: IncomeExpenseFormProps) {
   const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
   const isEdit = !!transaction;
@@ -158,6 +159,31 @@ export function IncomeExpenseForm({ transaction, template, defaultAccountId, onS
           destinationAccountId: p.destinationAccountId ?? undefined,
         }))
       );
+    } else if (copySource) {
+      const rate = Number(copySource.exchangeRate) || 1;
+      const amount = Math.abs(Number(copySource.amount));
+      form.reset({
+        type: String(copySource.type),
+        date: copySource.date?.slice(0, 19) ?? formatLocal(new Date()),
+        accountId: copySource.accountId,
+        amount: String(amount),
+        currency: copySource.currency,
+        exchangeRate: String(rate),
+        convertedAmount: String(amount * rate),
+        categoryId: copySource.categoryId ?? "",
+        notes: copySource.notes ?? "",
+        installments: String(copySource.installments ?? 1),
+        isInterestFree: false,
+      });
+      setParticipants(
+        (copySource.participants ?? []).map((p) => ({
+          personId: p.personId,
+          personName: "",
+          contributedAmount: String(p.contributedAmount),
+          paymentCondition: p.isTrackingOnly ? "tag" : Number(p.remainingAmount) > 0 ? "credit" : "cash" as const,
+          destinationAccountId: p.destinationAccountId ?? undefined,
+        }))
+      );
     } else if (settings?.mainCurrency) {
       const defaultAccount = accounts?.find((a) => a.id === defaultAccountId);
       form.reset({
@@ -174,7 +200,7 @@ export function IncomeExpenseForm({ transaction, template, defaultAccountId, onS
         isInterestFree: true,
       });
     }
-  }, [transaction, template, settings, form, accounts, defaultAccountId]);
+  }, [transaction, template, copySource, settings, form, accounts, defaultAccountId]);
 
   const createMutation = useMutation({
     mutationFn: async (body: components["schemas"]["CreateTransactionCommand"]) => {
@@ -221,40 +247,6 @@ export function IncomeExpenseForm({ transaction, template, defaultAccountId, onS
   const watchedType = useWatch({ control: form.control, name: "type" });
   const mainCurrency = settings?.mainCurrency ?? "USD";
   const showExchangeRate = watchedCurrency && watchedCurrency !== mainCurrency;
-
-  const prevType = useRef<string | undefined>(undefined);
-  useEffect(() => {
-    if (prevType.current !== undefined && prevType.current !== watchedType) {
-      form.setValue("categoryId", "");
-    }
-    prevType.current = watchedType;
-  }, [watchedType, form]);
-
-  const applyCopied = (tx: TransactionResponse) => {
-    const rate = Number(tx.exchangeRate) || 1;
-    const amount = Math.abs(Number(tx.amount));
-    form.setValue("type", String(tx.type));
-    form.setValue("date", tx.date?.slice(0, 19) ?? formatLocal(new Date()));
-    form.setValue("accountId", tx.accountId);
-    form.setValue("amount", String(amount));
-    form.setValue("currency", tx.currency);
-    form.setValue("exchangeRate", String(rate));
-    form.setValue("convertedAmount", String(amount * rate));
-    form.setValue("categoryId", tx.categoryId ?? "");
-    form.setValue("notes", tx.notes ?? "");
-    form.setValue("installments", String(tx.installments ?? 1));
-    form.setValue("isInterestFree", false);
-    setParticipants(
-      (tx.participants ?? []).map((p) => ({
-        personId: p.personId,
-        personName: "",
-        contributedAmount: String(p.contributedAmount),
-        paymentCondition: p.isTrackingOnly ? "tag" : Number(p.remainingAmount) > 0 ? "credit" : "cash",
-        destinationAccountId: p.destinationAccountId ?? undefined,
-      }))
-    );
-    prevType.current = String(tx.type);
-  };
 
   const participantsPayload = useMemo(() =>
     participants
@@ -350,10 +342,6 @@ export function IncomeExpenseForm({ transaction, template, defaultAccountId, onS
         {formError && (
           <p className="text-sm text-red-400 rounded-lg border border-red-400/30 bg-red-400/10 px-3 py-2">{formError}</p>
         )}
-        <div className="flex justify-end -mt-1 mb-1">
-          <TransactionCopyPopover onSelect={applyCopied} />
-        </div>
-
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field>
             <FieldLabel>{t("transactions.type")}</FieldLabel>
@@ -362,7 +350,10 @@ export function IncomeExpenseForm({ transaction, template, defaultAccountId, onS
                 name="type"
                 control={form.control}
                 render={({ field }) => (
-                  <Select items={transactionTypeItems} value={field.value} onValueChange={field.onChange}>
+                  <Select items={transactionTypeItems} value={field.value} onValueChange={(v) => {
+                    if (v !== field.value) form.setValue("categoryId", "");
+                    field.onChange(v);
+                  }}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -544,10 +535,18 @@ const sorted = accounts ?? [];
         <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
           <div>
             {isEdit && onDelete && transaction && (
-              <Button type="button" variant="outline" className="text-red-400 border-red-400/30 hover:bg-red-400/10 hover:text-red-300" onClick={() => { onDelete(transaction); onCancel(); }}>
-                <Trash2 className="size-3.5 mr-1.5" />
-                {t("accounts.delete")}
-              </Button>
+              <>
+                {onCopy && (
+                  <Button type="button" variant="outline" size="sm" className="mr-2" onClick={() => onCopy(transaction)}>
+                    <Copy className="size-3.5 mr-1.5" />
+                    {t("transactions.cloneTransaction")}
+                  </Button>
+                )}
+                <Button type="button" variant="outline" className="text-red-400 border-red-400/30 hover:bg-red-400/10 hover:text-red-300" onClick={() => { onDelete(transaction); onCancel(); }}>
+                  <Trash2 className="size-3.5 mr-1.5" />
+                  {t("accounts.delete")}
+                </Button>
+              </>
             )}
           </div>
           <div className="flex flex-wrap items-center gap-2">

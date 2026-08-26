@@ -37,9 +37,11 @@ interface TransactionFormDialogProps {
   onOpenChange: (v: boolean) => void;
   transaction?: TransactionResponse | null;
   template?: RecurringTransactionResponse | null;
+  copySource?: TransactionResponse | null;
   defaultAccountId?: string;
   formType?: FormType;
   onDelete?: (tx: TransactionResponse) => void;
+  onCopy?: (tx: TransactionResponse) => void;
 }
 
 function getFormType(transaction?: TransactionResponse | null): FormType {
@@ -52,7 +54,7 @@ function getFormType(transaction?: TransactionResponse | null): FormType {
   }
 }
 
-export function TransactionFormDialog({ open, onOpenChange, transaction, template, defaultAccountId, formType, onDelete }: TransactionFormDialogProps) {
+export function TransactionFormDialog({ open, onOpenChange, transaction, template, copySource, defaultAccountId, formType, onDelete, onCopy }: TransactionFormDialogProps) {
   const { t, i18n } = useTranslation();
   const dateLocale = getDateLocale(i18n.language);
   const type = formType ?? getFormType(transaction) ?? (template ? templateToFormType(template) : "income-expense");
@@ -95,10 +97,12 @@ export function TransactionFormDialog({ open, onOpenChange, transaction, templat
           <IncomeExpenseForm
             transaction={transaction}
             template={template}
+            copySource={copySource}
             defaultAccountId={defaultAccountId}
             onSuccess={handleSuccess}
             onCancel={handleCancel}
             onDelete={onDelete}
+            onCopy={onCopy}
           />
         )}
         {type === "transfer" && (
