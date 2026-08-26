@@ -1,4 +1,5 @@
 import { format } from "date-fns";
+import type { ChangeEvent } from "react";
 import { CalendarIcon, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -48,6 +49,13 @@ export function DateTimePicker({ value, onChange, disabled }: DateTimePickerProp
     }
   };
 
+  const handleDateInput = (e: ChangeEvent<HTMLInputElement>) => {
+    if (disabled) return;
+    const v = e.target.value;
+    if (!v) return;
+    onChange(`${v}T${timeStr || "00:00:00"}`);
+  };
+
   return (
     <Popover>
       <PopoverTrigger render={
@@ -78,7 +86,25 @@ export function DateTimePicker({ value, onChange, disabled }: DateTimePickerProp
           endMonth={new Date(new Date().getFullYear() + 1, 11, 31)}
           autoFocus
         />
-        <div className="mt-3 flex items-center gap-2 border-t pt-3">
+        <div className="mt-3 flex flex-wrap items-center gap-2 border-t pt-3">
+          <CalendarIcon className="size-4 text-muted-foreground shrink-0" />
+          <Input
+            type="date"
+            value={dateStr}
+            onChange={handleDateInput}
+            className="w-36"
+            disabled={disabled}
+          />
+          <Clock className="size-4 text-muted-foreground shrink-0" />
+          <Input
+            type="time"
+            value={timeStr}
+            onChange={(e) => handleTimeChange(e.target.value)}
+            className="w-32"
+            disabled={disabled}
+          />
+        </div>
+        <div className="mt-3 flex items-center border-t pt-3">
           <Button
             type="button"
             variant="ghost"
@@ -98,14 +124,6 @@ export function DateTimePicker({ value, onChange, disabled }: DateTimePickerProp
             <CalendarIcon className="mr-1 size-3.5" />
             {t("transactions.today")}
           </Button>
-          <Clock className="size-4 text-muted-foreground shrink-0" />
-          <Input
-            type="time"
-            value={timeStr}
-            onChange={(e) => handleTimeChange(e.target.value)}
-            className="w-32"
-            disabled={disabled}
-          />
         </div>
       </PopoverContent>
     </Popover>

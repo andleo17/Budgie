@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useForm, Controller, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -214,6 +214,15 @@ export function TemplateForm({ open, onClose, template }: TemplateFormProps) {
   const isRecurring = useWatch({ control: form.control, name: "isRecurring" });
   const selectedFrequency = useWatch({ control: form.control, name: "frequency" });
   const selectedEndType = useWatch({ control: form.control, name: "endType" });
+  const watchedType = useWatch({ control: form.control, name: "type" });
+
+  const prevType = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (prevType.current !== undefined && prevType.current !== watchedType) {
+      form.setValue("categoryId", "");
+    }
+    prevType.current = watchedType;
+  }, [watchedType, form]);
 
   const typeItems = [
     { label: t("transactions.income"), value: "0" },
@@ -392,7 +401,7 @@ export function TemplateForm({ open, onClose, template }: TemplateFormProps) {
               <Field>
                 <FieldLabel>{t("transactions.category")}</FieldLabel>
                 <FieldContent>
-                  <CategoryCombobox value={field.value} onValueChange={(id) => field.onChange(id ?? "")} placeholder={t("transactions.uncategorized")} showNoneOption />
+                  <CategoryCombobox value={field.value} onValueChange={(id) => field.onChange(id ?? "")} placeholder={t("transactions.uncategorized")} showNoneOption type={parseInt(watchedType ?? "1", 10)} />
                 </FieldContent>
               </Field>
             )}

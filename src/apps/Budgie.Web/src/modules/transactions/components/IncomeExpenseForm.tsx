@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useForm, Controller, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -37,6 +37,7 @@ import {
   FieldError,
 } from "@/components/ui/field";
 import { CategoryCombobox } from "@/modules/categories/components/CategoryCombobox";
+import { TransactionCopyPopover } from "./TransactionCopyPopover";
 import { ParticipantsSection } from "./ParticipantsSection";
 import { Loader2, Trash2, Percent } from "lucide-react";
 
@@ -217,8 +218,43 @@ export function IncomeExpenseForm({ transaction, template, defaultAccountId, onS
   const [showInstallments, setShowInstallments] = useState(false);
 
   const watchedCurrency = useWatch({ control: form.control, name: "currency" });
+  const watchedType = useWatch({ control: form.control, name: "type" });
   const mainCurrency = settings?.mainCurrency ?? "USD";
   const showExchangeRate = watchedCurrency && watchedCurrency !== mainCurrency;
+
+  const prevType = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (prevType.current !== undefined && prevType.current !== watchedType) {
+      form.setValue("categoryId", "");
+    }
+    prevType.current = watchedType;
+  }, [watchedType, form]);
+
+  const applyCopied = (tx: TransactionResponse) => {
+    const rate = Number(tx.exchangeRate) || 1;
+    const amount = Math.abs(Number(tx.amount));
+    form.setValue("type", String(tx.type));
+    form.setValue("date", tx.date?.slice(0, 19) ?? formatLocal(new Date()));
+    form.setValue("accountId", tx.accountId);
+    form.setValue("amount", String(amount));
+    form.setValue("currency", tx.currency);
+    form.setValue("exchangeRate", String(rate));
+    form.setValue("convertedAmount", String(amount * rate));
+    form.setValue("categoryId", tx.categoryId ?? "");
+    form.setValue("notes", tx.notes ?? "");
+    form.setValue("installments", String(tx.installments ?? 1));
+    form.setValue("isInterestFree", false);
+    setParticipants(
+      (tx.participants ?? []).map((p) => ({
+        personId: p.personId,
+        personName: "",
+        contributedAmount: String(p.contributedAmount),
+        paymentCondition: p.isTrackingOnly ? "tag" : Number(p.remainingAmount) > 0 ? "credit" : "cash",
+        destinationAccountId: p.destinationAccountId ?? undefined,
+      }))
+    );
+    prevType.current = String(tx.type);
+  };
 
   const participantsPayload = useMemo(() =>
     participants
@@ -314,6 +350,10 @@ export function IncomeExpenseForm({ transaction, template, defaultAccountId, onS
         {formError && (
           <p className="text-sm text-red-400 rounded-lg border border-red-400/30 bg-red-400/10 px-3 py-2">{formError}</p>
         )}
+        <div className="flex justify-end -mt-1 mb-1">
+          <TransactionCopyPopover onSelect={applyCopied} />
+        </div>
+
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field>
             <FieldLabel>{t("transactions.type")}</FieldLabel>
@@ -440,7 +480,7 @@ const sorted = accounts ?? [];
           <FieldLabel>{t("transactions.category")}</FieldLabel>
           <FieldContent>
             <Controller name="categoryId" control={form.control} render={({ field }) => (
-              <CategoryCombobox value={field.value} onValueChange={(id) => field.onChange(id ?? "")} placeholder={t("transactions.uncategorized")} showNoneOption />
+              <CategoryCombobox value={field.value} onValueChange={(id) => field.onChange(id ?? "")} placeholder={t("transactions.uncategorized")} showNoneOption type={parseInt(watchedType ?? "1", 10)} />
             )} />
           </FieldContent>
         </Field>
