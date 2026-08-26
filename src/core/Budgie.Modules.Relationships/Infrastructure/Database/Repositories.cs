@@ -16,7 +16,7 @@ internal sealed class PersonRepository(IDbConnectionFactory factory) : IPersonRe
         if (row is null) return null;
 
         var tags = (await factory.QueryListAsync<TagRow>(
-            @"SELECT t.""Id"", t.""Name"", t.""Color"" FROM ""Tags"" t JOIN ""PersonTags"" pt ON pt.""TagId"" = t.""Id"" WHERE pt.""PersonId"" = @PId",
+            @"SELECT t.""Id"", t.""Name"", t.""Color"" FROM ""Tags"" t JOIN ""PersonTags"" pt ON pt.""TagId"" = t.""Id"" WHERE pt.""PersonId"" = @PId ORDER BY t.""Name""",
             new { PId = id }, ct)).ToList();
 
         return new PersonResponse(row.Id, row.Name, row.PhotoPath,
@@ -32,7 +32,8 @@ internal sealed class PersonRepository(IDbConnectionFactory factory) : IPersonRe
         var personTags = (await factory.QueryListAsync<PersonTagRow>(
             @"SELECT pt.""PersonId"", t.""Id"" AS TagId, t.""Name"" AS TagName, t.""Color"" AS TagColor
               FROM ""PersonTags"" pt JOIN ""Tags"" t ON t.""Id"" = pt.""TagId""
-              WHERE t.""UserId"" = @UserId",
+              WHERE t.""UserId"" = @UserId
+              ORDER BY t.""Name""",
             new { UserId = userId }, ct)).ToList();
 
         var tagMap = personTags.GroupBy(pt => pt.PersonId)
@@ -54,16 +55,11 @@ internal sealed class PersonRepository(IDbConnectionFactory factory) : IPersonRe
         {
             foreach (var tagName in tagNames)
             {
-                var tag = await factory.QuerySingleOrDefaultAsync<TagRow>(
-                    @"SELECT ""Id"",""Name"",""Color"" FROM ""Tags"" WHERE ""UserId"" = @UserId AND ""Name"" = @Name",
-                    new { UserId = userId, Name = tagName }, ct);
+                var tagId = await GetOrCreateTagAsync(userId, tagName, ct);
 
-                if (tag is not null)
-                {
-                    await factory.ExecuteAsync(
-                        @"INSERT INTO ""PersonTags"" (""PersonId"",""TagId"") VALUES (@PId,@TId) ON CONFLICT DO NOTHING",
-                        new { PId = id, TId = tag.Id }, ct);
-                }
+                await factory.ExecuteAsync(
+                    @"INSERT INTO ""PersonTags"" (""PersonId"",""TagId"") VALUES (@PId,@TId) ON CONFLICT DO NOTHING",
+                    new { PId = id, TId = tagId }, ct);
             }
         }
     }
@@ -82,20 +78,30 @@ internal sealed class PersonRepository(IDbConnectionFactory factory) : IPersonRe
         {
             foreach (var tagName in tagNames)
             {
-                var tag = await factory.QuerySingleOrDefaultAsync<TagRow>(
-                    @"SELECT ""Id"",""Name"",""Color"" FROM ""Tags"" WHERE ""UserId"" = @UserId AND ""Name"" = @Name",
-                    new { UserId = userId, Name = tagName }, ct);
+                var tagId = await GetOrCreateTagAsync(userId, tagName, ct);
 
-                if (tag is not null)
-                {
-                    await factory.ExecuteAsync(
-                        @"INSERT INTO ""PersonTags"" (""PersonId"",""TagId"") VALUES (@PId,@TId) ON CONFLICT DO NOTHING",
-                        new { PId = id, TId = tag.Id }, ct);
-                }
+                await factory.ExecuteAsync(
+                    @"INSERT INTO ""PersonTags"" (""PersonId"",""TagId"") VALUES (@PId,@TId) ON CONFLICT DO NOTHING",
+                    new { PId = id, TId = tagId }, ct);
             }
         }
 
         return true;
+    }
+
+    private async Task<Guid> GetOrCreateTagAsync(Guid userId, string tagName, CancellationToken ct)
+    {
+        var tag = await factory.QuerySingleOrDefaultAsync<TagRow>(
+            @"SELECT ""Id"",""Name"",""Color"" FROM ""Tags"" WHERE ""UserId"" = @UserId AND ""Name"" = @Name",
+            new { UserId = userId, Name = tagName }, ct);
+
+        if (tag is not null) return tag.Id;
+
+        var newId = Guid.NewGuid();
+        await factory.ExecuteAsync(
+            @"INSERT INTO ""Tags"" (""Id"",""UserId"",""Name"",""Color"",""CreatedAt"") VALUES (@Id,@UserId,@Name,@Color,NOW())",
+            new { Id = newId, UserId = userId, Name = tagName, Color = (string?)null }, ct);
+        return newId;
     }
 
     public async Task<bool> DeleteAsync(Guid id, Guid userId, CancellationToken ct)

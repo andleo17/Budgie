@@ -140,9 +140,11 @@ function PersonCard({
 
           <div className="flex min-h-5 flex-wrap items-center gap-1">
             {person.tags && person.tags.length > 0 ? (
-              person.tags.map((tag) => (
-                <TagBadge key={tag.id} tag={tag} />
-              ))
+              [...person.tags]
+                .sort((a, b) => a.name.localeCompare(b.name))
+                .map((tag) => (
+                  <TagBadge key={tag.id} tag={tag} />
+                ))
             ) : (
               <span className="text-xs text-muted-foreground italic">{t("persons.noTags")}</span>
             )}
