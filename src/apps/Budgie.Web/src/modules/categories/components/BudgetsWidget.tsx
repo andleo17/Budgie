@@ -169,7 +169,7 @@ export function BudgetAlertBanner() {
   if (exceeded.length === 0) return null;
 
   return (
-    <div className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+    <div className="flex items-center gap-2 rounded-2xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
       <AlertCircle className="size-4 shrink-0" />
       <span>{t("budgets.exceededBanner", { count: exceeded.length })}</span>
     </div>

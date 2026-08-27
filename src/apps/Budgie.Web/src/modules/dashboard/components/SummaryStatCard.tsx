@@ -19,18 +19,18 @@ export function SummaryStatCard({
   isLoading,
 }: SummaryStatCardProps) {
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium">{label}</CardTitle>
-        <Icon className={`h-4 w-4 ${iconColor}`} />
+    <Card className="gap-2 py-3 sm:py-4" size="sm">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-0">
+        <CardTitle className="text-xs font-medium sm:text-sm">{label}</CardTitle>
+        <Icon className={`size-3.5 sm:size-4 ${iconColor}`} />
       </CardHeader>
       <CardContent>
         {isLoading ? (
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <Loader2 className="size-5 animate-spin text-muted-foreground sm:size-6" />
         ) : (
           <>
-            <div className="text-2xl font-bold">{value}</div>
-            <p className="text-xs text-muted-foreground mt-1">{subLabel}</p>
+            <div className="truncate text-lg font-bold tabular-nums sm:text-2xl">{value}</div>
+            <p className="mt-1 hidden text-xs text-muted-foreground sm:block">{subLabel}</p>
           </>
         )}
       </CardContent>

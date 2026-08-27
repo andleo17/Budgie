@@ -42,7 +42,7 @@ export function TemplateCard({ template, onEdit, onDelete, onApply, isApplying }
   const color = typeColors[template.type as keyof typeof typeColors] || "text-gray-500 bg-gray-500/10";
 
   return (
-    <div className="rounded-xl border bg-card p-4 space-y-3">
+    <div className="rounded-2xl border bg-card p-4 space-y-3 transition-all active:bg-muted/40 sm:hover:shadow-sm sm:hover:border-accent-foreground/20">
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-3 min-w-0">
           <div className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${color}`}>

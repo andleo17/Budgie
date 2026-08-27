@@ -22,7 +22,7 @@ export default function Dashboard() {
         </h1>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 md:gap-8 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-2 md:gap-8 lg:grid-cols-4">
         <SummaryStatCard
           label={t("dashboard.totalBalance")}
           value={formatCurrency(summary?.totalBalance ?? 0, summary?.currency)}

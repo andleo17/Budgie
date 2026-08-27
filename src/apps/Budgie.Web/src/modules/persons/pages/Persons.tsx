@@ -99,7 +99,7 @@ function PersonCard({
   const hasPending = summary && Number(summary.totalPending) > 0;
 
   return (
-    <div className="group relative rounded-lg border bg-card p-3 transition-all hover:shadow-sm hover:border-accent-foreground/20 min-h-30">
+    <div className="group relative min-h-30 rounded-2xl border bg-card p-3 transition-all active:bg-muted/40 sm:hover:border-accent-foreground/20 sm:hover:shadow-sm">
       <div className="flex items-start gap-3">
         <Avatar className="size-12 shrink-0">
           <AvatarImage src={person.photoPath ?? undefined} alt={person.name} />

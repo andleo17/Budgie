@@ -65,7 +65,7 @@ export default function Categories() {
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
         <div className="xl:col-span-2">
           {!categories || categories.length === 0 ? (
-            <div className="flex h-40 items-center justify-center rounded-lg border border-dashed">
+            <div className="flex h-40 items-center justify-center rounded-2xl border border-dashed">
               <p className="text-sm text-muted-foreground">{t("categories.noCategories")}</p>
             </div>
           ) : (
