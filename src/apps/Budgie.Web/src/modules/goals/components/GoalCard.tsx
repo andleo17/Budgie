@@ -46,7 +46,7 @@ export default function GoalCard({
   return (
     <div
       className={cn(
-        "group relative rounded-2xl border bg-card p-5 transition-all duration-200 hover:shadow-xl hover:shadow-black/30 hover:-translate-y-0.5 overflow-hidden",
+        "group relative rounded-2xl border bg-card p-5 transition-all duration-200 active:scale-[0.995] active:bg-muted/30 hover:shadow-xl hover:shadow-black/30 hover:-translate-y-0.5 overflow-hidden",
         status.bg,
       )}
     >

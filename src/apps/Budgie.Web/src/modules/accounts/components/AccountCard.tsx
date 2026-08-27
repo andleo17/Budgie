@@ -89,7 +89,7 @@ export function AccountCard({
   return (
     <>
       <Card
-        className="group cursor-pointer transition-all hover:shadow-md"
+        className="group cursor-pointer transition-all active:bg-muted/30 active:shadow-sm sm:hover:shadow-md"
         onClick={(e) => {
           if (
             (e.target as HTMLElement).closest(

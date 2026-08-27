@@ -81,7 +81,7 @@ export default function Categories() {
               </TableHeader>
               <TableBody>
                 {treeRows.map(({ node: cat, depth }) => (
-                  <TableRow key={cat.id}>
+                   <TableRow key={cat.id} className="active:bg-muted/40 sm:hover:bg-muted/20">
                     <TableCell>
                       <div
                         className="h-5 w-5 rounded-full border"

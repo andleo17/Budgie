@@ -25,7 +25,7 @@ import { TransactionEmptyState } from "@/modules/transactions/components/Transac
 import { ApplyFromTemplateDialog } from "@/modules/transactions/components/ApplyFromTemplateDialog";
 import { PageSkeleton } from "@/components/page-skeleton";
 import { MetricStrip, type MetricItem } from "@/components/shared/MetricStrip";
-import { ChevronLeft, ChevronRight, FileText } from "lucide-react";
+import { ChevronLeft, ChevronRight, FileText, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { parseViewMode, type ViewMode, TransactionType } from "@/lib/constants";
 import { getMonthRange, getBillingPeriodRange } from "../period-utils";
@@ -427,6 +427,20 @@ export default function Transactions() {
           </Button>
         </div>
       )}
+
+      <Button
+        size="icon"
+        aria-label={t("transactions.add")}
+        className="fixed bottom-4 right-4 z-40 size-14 rounded-full shadow-lg shadow-black/20 sm:hidden"
+        onClick={() => {
+          setDialogTx(null);
+          setCopySource(null);
+          setDialogFormType("income-expense");
+          setDialogOpen(true);
+        }}
+      >
+        <Plus className="size-6" />
+      </Button>
 
       <TransactionFormDialog
         open={dialogOpen}
