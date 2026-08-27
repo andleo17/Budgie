@@ -37,15 +37,19 @@ interface Handler {
 
 const METHOD_WILDCARD = "*"
 
+const mocksByPage = new WeakMap<Page, ApiMock>()
+
 export class ApiMock {
   private handlers: Handler[] = []
+  private installed = false
 
   constructor(private readonly page: Page) {}
 
   handle(method: string, pathMatcher: string, respond: HandlerFn | unknown): this {
     const pattern = this.toPattern(pathMatcher)
-    this.handlers.push({ method: method.toUpperCase(), pattern, respond })
-    if (this.handlers.length === 1) this.install()
+    // Nuevos handlers al frente para que un mock posterior pueda sobrescribir uno previo
+    this.handlers.unshift({ method: method.toUpperCase(), pattern, respond })
+    if (!this.installed) this.install()
     return this
   }
 
@@ -55,6 +59,7 @@ export class ApiMock {
   }
 
   private install(): void {
+    this.installed = true
     this.page.route("**/api/**", (route) => this.route(route))
   }
 
@@ -98,5 +103,10 @@ export class ApiMock {
 }
 
 export function mockApi(page: Page): ApiMock {
-  return new ApiMock(page)
+  let existing = mocksByPage.get(page)
+  if (!existing) {
+    existing = new ApiMock(page)
+    mocksByPage.set(page, existing)
+  }
+  return existing
 }
