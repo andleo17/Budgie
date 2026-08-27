@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
+    "test:e2e": "bunx playwright test",
     "api:spec": "curl -s http://localhost:5057/openapi/v1.json > openapi.json",
     "api:gen": "npx openapi-typescript openapi.json --output src/lib/api-types.ts"
   },
@@ -45,6 +46,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.55.0",
     "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^26.2.0",
     "@types/react": "^19.2.18",

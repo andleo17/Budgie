@@ -50,3 +50,10 @@ It is engineered as a **Modular Monolith** using **Clean Architecture**, with a 
    - Unit tests (xUnit, NSubstitute, FluentAssertions) for Aggregates, Value Objects, CQRS Handlers, Event Handlers, and bilingual i18n errors.
    - Integration tests (WebApplicationFactory + PostgreSQL) for end-to-end user flows, Zero-Trust Onboarding, Strict Ledger rules, Splits, and Snapshots.
    - Conventional Commits 1.0.0 standards and approved scopes (`feat`, `fix`, `test`, `refactor`, `perf`, `docs`, `chore`).
+
+7. **[Specification-Driven Development (SDD) Methodology](file:///home/andleo/Proyectos/Budgie/docs/specs/07-sdd-methodology.md)**
+   - Spec-first cycle: `brainstorming -> writing-plans -> implementing -> writing-tests/e2e-testing -> code-review -> verifying -> release`.
+   - Sub-agents split into Backend (C#/.NET/AOT/Dapper) and Frontend (React/shadcn/UI/UX/Playwright) groups, plus cross-cutting `plan-writer` and `verify`.
+   - Traceability from specs/plans to real source paths; quality gates via `verifying`.
+   - Playwright E2E against a mocked (MSW/OpenAPI) API — deterministic, no PostgreSQL/API AOT required.
+   - Replaces `harness/`; gates live in the `verify`/`verifying` build.

@@ -3,10 +3,10 @@
 # ──────────────────────────────────────────────
 
 # ──────────────────────────────────────────────
-# Harness (opencode headless)
+# Playwright (frontend E2E)
 # ──────────────────────────────────────────────
-harness/logs/
-
+test-results/
+playwright-report/
 # User-specific files
 *.rsuser
 *.suo
