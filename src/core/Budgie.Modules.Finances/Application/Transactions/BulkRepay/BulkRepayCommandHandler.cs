@@ -60,7 +60,7 @@ internal sealed class BulkRepayCommandHandler(
 
         account.ApplyTransaction(Money.FromPositive(request.Amount, CurrencyCode.From(request.Currency)),
             request.ExchangeRate, 1, TransactionType.Repayment);
-        await accountRepository.UpdateBalanceAsync(account.Id, account.Balance.Amount, ct);
+        await accountRepository.UpdateBalanceAsync(account.UserId, account.Id, account.Balance.Amount, ct);
 
         return repayment.Id;
     }

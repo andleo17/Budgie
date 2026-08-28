@@ -35,7 +35,7 @@ async function refreshToken(): Promise<boolean> {
   }
 }
 
-async function authFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+export async function authFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   const token = localStorage.getItem("token")
 
   // input may be a Request object (from openapi-fetch) — read its headers if init has none

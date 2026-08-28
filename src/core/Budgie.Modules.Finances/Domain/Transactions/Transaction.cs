@@ -26,6 +26,7 @@ public class Transaction : Entity
     public int TotalInstallments { get; internal set; } = 1;
     public Percentage InterestRate { get; internal set; } = Percentage.From(0);
     public string? RepaidParticipants { get; internal set; }
+    public string? ExternalUid { get; internal set; }
 
     private readonly List<TransactionParticipant> _participants = new();
     public IReadOnlyCollection<TransactionParticipant> Participants => _participants.AsReadOnly();

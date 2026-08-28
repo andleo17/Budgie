@@ -17,6 +17,7 @@ public class Account : Entity
     public DateTime CreatedAt { get; internal set; }
     public DateTime ControlStartDate { get; internal set; }
     public CreditCardSettings? CreditCardSettings { get; internal set; }
+    public string? ExternalUid { get; internal set; }
 
     public Account() { }
 

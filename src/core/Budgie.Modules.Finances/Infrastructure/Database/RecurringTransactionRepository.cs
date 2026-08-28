@@ -1,3 +1,4 @@
+using System.Data;
 using Budgie.Modules.Finances.Application;
 using Budgie.Modules.Finances.Application.RecurringTransactions.Shared;
 using Budgie.Modules.Finances.Domain.RecurringTransactions;
@@ -16,7 +17,7 @@ internal sealed class RecurringTransactionRepository(IDbConnectionFactory factor
             @"SELECT r.""Id"",r.""UserId"",r.""Name"",r.""AccountId"",r.""CategoryId"",r.""Amount"",r.""Currency"",
                     r.""ExchangeRate"",r.""Notes"",r.""Type"",r.""Installments"",r.""IsInterestFree"",r.""Applicability"",
                     r.""Frequency"",r.""CustomIntervalDays"",r.""EndType"",r.""EndAfterCount"",r.""EndDate"",r.""StartDate"",
-                    r.""NextDueDate"",r.""TimesApplied"",r.""LastAppliedDate"",r.""IsActive""
+                    r.""NextDueDate"",r.""TimesApplied"",r.""LastAppliedDate"",r.""IsActive"",r.""ExternalUid""
               FROM ""RecurringTransactions"" r WHERE r.""Id"" = @Id AND r.""UserId"" = @UserId",
             new { Id = id, UserId = userId }, ct);
         if (row is null) return null;
@@ -24,6 +25,14 @@ internal sealed class RecurringTransactionRepository(IDbConnectionFactory factor
         var template = Map(row);
         await LoadParticipantsAsync(template, ct);
         return template;
+    }
+
+    public async Task<Dictionary<string, Guid>> GetExternalUidMapAsync(Guid userId, CancellationToken ct)
+    {
+        var rows = await factory.QueryListAsync<ExternalUidRow>(
+            @"SELECT ""ExternalUid"", ""Id"" FROM ""RecurringTransactions"" WHERE ""UserId"" = @UserId AND ""ExternalUid"" IS NOT NULL",
+            new { UserId = userId }, ct);
+        return rows.Where(r => r.ExternalUid is not null).ToDictionary(r => r.ExternalUid!, r => r.Id);
     }
 
     public async Task<List<RecurringTransaction>> GetByUserIdAsync(Guid userId, RecurringApplicability? applicability, bool? isActive, CancellationToken ct)
@@ -39,7 +48,7 @@ internal sealed class RecurringTransactionRepository(IDbConnectionFactory factor
             $@"SELECT r.""Id"",r.""UserId"",r.""Name"",r.""AccountId"",r.""CategoryId"",r.""Amount"",r.""Currency"",
                     r.""ExchangeRate"",r.""Notes"",r.""Type"",r.""Installments"",r.""IsInterestFree"",r.""Applicability"",
                     r.""Frequency"",r.""CustomIntervalDays"",r.""EndType"",r.""EndAfterCount"",r.""EndDate"",r.""StartDate"",
-                    r.""NextDueDate"",r.""TimesApplied"",r.""LastAppliedDate"",r.""IsActive""
+                    r.""NextDueDate"",r.""TimesApplied"",r.""LastAppliedDate"",r.""IsActive"",r.""ExternalUid""
               FROM ""RecurringTransactions"" r WHERE {where}
               ORDER BY COALESCE(r.""LastAppliedDate"", r.""StartDate"", '0001-01-01') DESC",
             parameters, ct);
@@ -55,7 +64,7 @@ internal sealed class RecurringTransactionRepository(IDbConnectionFactory factor
             @"SELECT r.""Id"",r.""UserId"",r.""Name"",r.""AccountId"",r.""CategoryId"",r.""Amount"",r.""Currency"",
                     r.""ExchangeRate"",r.""Notes"",r.""Type"",r.""Installments"",r.""IsInterestFree"",r.""Applicability"",
                     r.""Frequency"",r.""CustomIntervalDays"",r.""EndType"",r.""EndAfterCount"",r.""EndDate"",r.""StartDate"",
-                    r.""NextDueDate"",r.""TimesApplied"",r.""LastAppliedDate"",r.""IsActive""
+                    r.""NextDueDate"",r.""TimesApplied"",r.""LastAppliedDate"",r.""IsActive"",r.""ExternalUid""
               FROM ""RecurringTransactions"" r
               WHERE r.""UserId"" = @UserId AND r.""IsActive"" = TRUE
                 AND r.""Applicability"" IN (1, 2)
@@ -77,22 +86,28 @@ internal sealed class RecurringTransactionRepository(IDbConnectionFactory factor
               ORDER BY ""NextDueDate""",
             new { UserId = userId, Now = DateTime.UtcNow }, ct)).ToList();
 
-    public Task AddAsync(RecurringTransaction template, CancellationToken ct)
-        => factory.ExecuteAsync(
-            @"INSERT INTO ""RecurringTransactions"" (""Id"",""UserId"",""AccountId"",""CategoryId"",""Name"",""Amount"",""Currency"",""ExchangeRate"",""Notes"",""Type"",""Installments"",""IsInterestFree"",""Applicability"",""Frequency"",""CustomIntervalDays"",""EndType"",""EndAfterCount"",""EndDate"",""StartDate"",""NextDueDate"",""TimesApplied"",""LastAppliedDate"",""IsActive"")
-              VALUES (@Id,@UserId,@AccountId,@CategoryId,@Name,@Amount,@Currency,@ExchangeRate,@Notes,@Type,@Installments,@IsInterestFree,@Applicability,@Frequency,@CustomIntervalDays,@EndType,@EndAfterCount,@EndDate,@StartDate,@NextDueDate,@TimesApplied,@LastAppliedDate,@IsActive)",
-            new
-            {
-                template.Id, template.UserId, template.AccountId, template.CategoryId,
-                Name = template.Name.Value, Amount = template.Amount.Amount,
-                Currency = template.Amount.Currency.Code, template.ExchangeRate, template.Notes,
-                Type = (int)template.Type, template.Installments, template.IsInterestFree,
-                Applicability = (int)template.Applicability,
-                Frequency = (int?)template.Frequency ?? 3,
-                template.CustomIntervalDays, EndType = template.EndType.HasValue ? (int?)template.EndType.Value : null,
-                template.EndAfterCount, template.EndDate, template.StartDate,
-                template.NextDueDate, template.TimesApplied, template.LastAppliedDate, template.IsActive
-            }, ct);
+    public Task AddAsync(RecurringTransaction template, CancellationToken ct, IDbTransaction? tx = null)
+    {
+        const string sql =
+            @"INSERT INTO ""RecurringTransactions"" (""Id"",""UserId"",""AccountId"",""CategoryId"",""Name"",""Amount"",""Currency"",""ExchangeRate"",""Notes"",""Type"",""Installments"",""IsInterestFree"",""Applicability"",""Frequency"",""CustomIntervalDays"",""EndType"",""EndAfterCount"",""EndDate"",""StartDate"",""NextDueDate"",""TimesApplied"",""LastAppliedDate"",""IsActive"",""ExternalUid"")
+              VALUES (@Id,@UserId,@AccountId,@CategoryId,@Name,@Amount,@Currency,@ExchangeRate,@Notes,@Type,@Installments,@IsInterestFree,@Applicability,@Frequency,@CustomIntervalDays,@EndType,@EndAfterCount,@EndDate,@StartDate,@NextDueDate,@TimesApplied,@LastAppliedDate,@IsActive,@ExternalUid)";
+        var p = new
+        {
+            template.Id, template.UserId, template.AccountId, template.CategoryId,
+            Name = template.Name.Value, Amount = template.Amount.Amount,
+            Currency = template.Amount.Currency.Code, template.ExchangeRate, template.Notes,
+            Type = (int)template.Type, template.Installments, template.IsInterestFree,
+            Applicability = (int)template.Applicability,
+            Frequency = (int?)template.Frequency ?? 3,
+            template.CustomIntervalDays, EndType = template.EndType.HasValue ? (int?)template.EndType.Value : null,
+            template.EndAfterCount, template.EndDate, template.StartDate,
+            template.NextDueDate, template.TimesApplied, template.LastAppliedDate, template.IsActive,
+            template.ExternalUid
+        };
+        return tx is not null
+            ? tx.Connection!.ExecuteAsync(new CommandDefinition(sql, p, transaction: tx, cancellationToken: ct))
+            : factory.ExecuteAsync(sql, p, ct);
+    }
 
     public Task AddParticipantsAsync(RecurringTransaction template, CancellationToken ct)
         => InsertParticipantsAsync(template.Id, template.Participants, ct);
@@ -182,7 +197,8 @@ internal sealed class RecurringTransactionRepository(IDbConnectionFactory factor
             NextDueDate = isTemplate ? null : row.NextDueDate,
             TimesApplied = row.TimesApplied,
             LastAppliedDate = row.LastAppliedDate,
-            IsActive = row.IsActive
+            IsActive = row.IsActive,
+            ExternalUid = row.ExternalUid
         };
     }
 
@@ -220,7 +236,9 @@ internal sealed class RecurringTransactionRepository(IDbConnectionFactory factor
         decimal Amount, string Currency, decimal ExchangeRate, string? Notes, int Type, int Installments,
         bool IsInterestFree, int Applicability, int Frequency, int? CustomIntervalDays, int? EndType,
         int? EndAfterCount, DateTime? EndDate, DateTime? StartDate, DateTime? NextDueDate,
-        int TimesApplied, DateTime? LastAppliedDate, bool IsActive);
+        int TimesApplied, DateTime? LastAppliedDate, bool IsActive, string? ExternalUid);
+
+    private record ExternalUidRow(string? ExternalUid, Guid Id);
 
     private record RecurringTransactionParticipantRow(Guid RecurringTransactionId, Guid PersonId,
         decimal ContributedAmount, string ContributedCurrency, decimal RemainingAmount,

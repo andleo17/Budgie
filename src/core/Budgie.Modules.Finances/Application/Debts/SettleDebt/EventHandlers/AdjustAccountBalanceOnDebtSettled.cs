@@ -14,6 +14,6 @@ internal sealed class AdjustAccountBalanceOnDebtSettled(
         if (account is null) return;
 
         await accountRepository.UpdateBalanceAsync(
-            account.Id, account.Balance.Amount + notification.Amount, ct);
+            account.UserId, account.Id, account.Balance.Amount + notification.Amount, ct);
     }
 }

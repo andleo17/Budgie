@@ -17,6 +17,8 @@ using Budgie.Modules.Finances.Application.Goals.CreateGoal;
 using Budgie.Modules.Finances.Application.Goals.DeleteGoal;
 using Budgie.Modules.Finances.Application.Goals.GetGoals;
 using Budgie.Modules.Finances.Application.Goals.UpdateGoal;
+using Budgie.Modules.Finances.Application.Import.CommitMoneyManagerImport;
+using Budgie.Modules.Finances.Application.Import.PreviewMoneyManagerImport;
 using Budgie.Modules.Finances.Application.Persons.GetPersonSummary;
 using Budgie.Modules.Finances.Application.RecurringTransactions.ApplyAllDueRecurringTransactions;
 using Budgie.Modules.Finances.Application.RecurringTransactions.ApplyRecurringTransaction;
@@ -148,6 +150,22 @@ namespace Budgie.Api;
 [JsonSerializable(typeof(List<GoalStatus>))]
 [JsonSerializable(typeof(GoalStatus))]
 [JsonSerializable(typeof(ExportTransactionsQuery))]
+[JsonSerializable(typeof(PreviewMoneyManagerImportCommand))]
+[JsonSerializable(typeof(CommitMoneyManagerImportCommand))]
+[JsonSerializable(typeof(PreviewMoneyManagerImportResponse))]
+[JsonSerializable(typeof(List<PreviewCurrency>))]
+[JsonSerializable(typeof(PreviewCurrency))]
+[JsonSerializable(typeof(List<PreviewAccount>))]
+[JsonSerializable(typeof(PreviewAccount))]
+[JsonSerializable(typeof(List<PreviewCategory>))]
+[JsonSerializable(typeof(PreviewCategory))]
+[JsonSerializable(typeof(PreviewTransactionsSummary))]
+[JsonSerializable(typeof(List<PreviewBudget>))]
+[JsonSerializable(typeof(PreviewBudget))]
+[JsonSerializable(typeof(List<PreviewRecurring>))]
+[JsonSerializable(typeof(PreviewRecurring))]
+[JsonSerializable(typeof(CommitMoneyManagerImportResponse))]
+[JsonSerializable(typeof(ImportRunCounts))]
 [JsonSerializable(typeof(RestoreSnapshotCommand))]
 [JsonSerializable(typeof(SnapshotData))]
 [JsonSerializable(typeof(List<SnapshotAccount>))]

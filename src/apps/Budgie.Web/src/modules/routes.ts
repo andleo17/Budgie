@@ -13,6 +13,7 @@ export const TagManagement = lazy(() => import('@/modules/persons/pages/TagManag
 export const Settings = lazy(() => import('@/modules/settings/pages/Settings'));
 export const Templates = lazy(() => import('@/modules/transactions/pages/Templates'));
 export const Profile = lazy(() => import('@/modules/profile/pages/Profile'));
+export const Import = lazy(() => import('@/modules/import/pages/ImportPage'));
 
 const lazyModules = [
   () => import('@/modules/auth/pages/Login'),
@@ -28,6 +29,7 @@ const lazyModules = [
   () => import('@/modules/settings/pages/Settings'),
   () => import('@/modules/transactions/pages/Templates'),
   () => import('@/modules/profile/pages/Profile'),
+  () => import('@/modules/import/pages/ImportPage'),
 ];
 
 let preloaded = false;

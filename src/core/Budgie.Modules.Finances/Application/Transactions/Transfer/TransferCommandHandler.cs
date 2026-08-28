@@ -59,8 +59,8 @@ internal sealed class TransferCommandHandler(
                 request.ExchangeRate, 1, TransactionType.Expense);
         }
 
-        await accountRepository.UpdateBalanceAsync(fromAccount.Id, fromAccount.Balance.Amount, ct);
-        await accountRepository.UpdateBalanceAsync(toAccount.Id, toAccount.Balance.Amount, ct);
+        await accountRepository.UpdateBalanceAsync(fromAccount.UserId, fromAccount.Id, fromAccount.Balance.Amount, ct);
+        await accountRepository.UpdateBalanceAsync(toAccount.UserId, toAccount.Id, toAccount.Balance.Amount, ct);
 
         return transferId;
     }

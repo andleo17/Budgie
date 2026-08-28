@@ -44,7 +44,7 @@ internal sealed class RecordInitialBalanceOnAccountCreated(
         {
             var account = await accountRepository.GetByIdRawAsync(notification.AccountId, ct);
             if (account is not null)
-                await accountRepository.UpdateBalanceAsync(account.Id, account.Balance.Amount + balanceDelta, ct);
+                await accountRepository.UpdateBalanceAsync(account.UserId, account.Id, account.Balance.Amount + balanceDelta, ct);
         }
     }
 }

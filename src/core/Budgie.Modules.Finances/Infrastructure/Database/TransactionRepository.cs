@@ -1,3 +1,4 @@
+using System.Data;
 using Budgie.Modules.Finances.Application;
 using Budgie.Modules.Finances.Application.Transactions;
 using Budgie.Modules.Finances.Application.Transactions.CreateTransaction;
@@ -37,11 +38,50 @@ internal sealed class TransactionRepository(IDbConnectionFactory factory) : ITra
         => factory.ExecuteAsync(@"DELETE FROM ""TransactionParticipants"" WHERE ""TransactionId"" = @TxId AND ""PersonId"" = @PersonId",
             new { TxId = parentTxId, PersonId = personId }, ct);
 
-    public Task AddAsync(Transaction tx, CancellationToken ct)
-        => factory.ExecuteAsync(
-            @"INSERT INTO ""Transactions"" (""Id"",""UserId"",""AccountId"",""CategoryId"",""Amount"",""Currency"",""ExchangeRate"",""Date"",""Notes"",""Type"",""Installments"",""ParentTransactionId"",""IsInitialBalance"")
-              VALUES (@Id,@UserId,@AccountId,@CategoryId,@Amount,@Currency,@ExchangeRate,@Date,@Notes,@Type,@Installments,@ParentTransactionId,@IsInitialBalance)",
-            new { tx.Id, tx.UserId, tx.AccountId, tx.CategoryId, Amount = tx.Amount.Amount, Currency = tx.Amount.Currency.Code, tx.ExchangeRate, tx.Date, tx.Notes, Type = (int)tx.Type, tx.Installments, tx.ParentTransactionId, tx.IsInitialBalance }, ct);
+    public Task AddAsync(Transaction tx, CancellationToken ct, IDbTransaction? transaction = null)
+    {
+        const string sql =
+            @"INSERT INTO ""Transactions"" (""Id"",""UserId"",""AccountId"",""CategoryId"",""Amount"",""Currency"",""ExchangeRate"",""Date"",""Notes"",""Type"",""Installments"",""ParentTransactionId"",""IsInitialBalance"",""ExternalUid"")
+              VALUES (@Id,@UserId,@AccountId,@CategoryId,@Amount,@Currency,@ExchangeRate,@Date,@Notes,@Type,@Installments,@ParentTransactionId,@IsInitialBalance,@ExternalUid)";
+        var p = new
+        {
+            tx.Id, tx.UserId, tx.AccountId, tx.CategoryId, Amount = tx.Amount.Amount,
+            Currency = tx.Amount.Currency.Code, tx.ExchangeRate, tx.Date, tx.Notes,
+            Type = (int)tx.Type, tx.Installments, tx.ParentTransactionId, tx.IsInitialBalance, tx.ExternalUid
+        };
+        return transaction is not null
+            ? transaction.Connection!.ExecuteAsync(new CommandDefinition(sql, p, transaction: transaction, cancellationToken: ct))
+            : factory.ExecuteAsync(sql, p, ct);
+    }
+
+    public async Task AddRangeAsync(IEnumerable<Transaction> txs, CancellationToken ct, IDbTransaction? transaction = null)
+    {
+        const int batchSize = 500;
+        var batch = new List<Transaction>(batchSize);
+        foreach (var tx in txs)
+        {
+            batch.Add(tx);
+            if (batch.Count >= batchSize)
+            {
+                await InsertBatchAsync(batch, ct, transaction);
+                batch.Clear();
+            }
+        }
+
+        if (batch.Count > 0)
+            await InsertBatchAsync(batch, ct, transaction);
+    }
+
+    private async Task InsertBatchAsync(List<Transaction> batch, CancellationToken ct, IDbTransaction? transaction = null)
+    {
+        foreach (var tx in batch)
+            await AddAsync(tx, ct, transaction);
+    }
+
+    public Task<bool> ExistsByExternalUidAsync(Guid userId, string externalUid, CancellationToken ct)
+        => factory.ExecuteScalarAsync<bool>(
+            @"SELECT EXISTS(SELECT 1 FROM ""Transactions"" WHERE ""UserId"" = @UserId AND ""ExternalUid"" = @ExternalUid)",
+            new { UserId = userId, ExternalUid = externalUid }, ct);
 
     public Task UpdateAsync(Transaction tx, CancellationToken ct)
         => factory.ExecuteAsync(

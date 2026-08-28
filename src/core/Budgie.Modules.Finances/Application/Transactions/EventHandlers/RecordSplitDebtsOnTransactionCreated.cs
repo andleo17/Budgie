@@ -66,6 +66,7 @@ internal sealed class RecordSplitDebtsOnTransactionCreated(
                     await txRepository.AddParticipantAsync(childP, ct);
 
                     await accountRepository.UpdateBalanceAsync(
+                        destAccount.UserId,
                         destAccount.Id,
                         destAccount.Balance.Amount + p.ContributedAmount,
                         ct);

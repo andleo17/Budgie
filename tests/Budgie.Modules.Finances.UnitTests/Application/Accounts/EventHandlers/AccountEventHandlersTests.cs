@@ -40,7 +40,7 @@ public class RecordInitialBalanceOnAccountCreatedTests
         await _txRepository.Received(1).AddAsync(Arg.Is<Transaction>(t =>
             t.Type == TransactionType.Income && t.IsInitialBalance &&
             t.Date == controlDate.Date), Arg.Any<CancellationToken>());
-        await _accountRepository.Received(1).UpdateBalanceAsync(accountId, 1000m, Arg.Any<CancellationToken>());
+        await _accountRepository.Received(1).UpdateBalanceAsync(userId, accountId, 1000m, Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -85,7 +85,8 @@ public class AdjustAccountBalanceOnDebtSettledTests
     public async Task Handle_AddsSettlementAmountToDestinationAccount()
     {
         var accountId = Guid.NewGuid();
-        var account = Account.Create(Guid.NewGuid(), "Cash", "USD", 500m);
+        var userId = Guid.NewGuid();
+        var account = Account.Create(userId, "Cash", "USD", 500m);
         account.Id = accountId;
         _accountRepository.GetByIdRawAsync(accountId, Arg.Any<CancellationToken>()).Returns(account);
 
@@ -95,6 +96,6 @@ public class AdjustAccountBalanceOnDebtSettledTests
 
         await _handler.Handle(notification, CancellationToken.None);
 
-        await _accountRepository.Received(1).UpdateBalanceAsync(accountId, 540m, Arg.Any<CancellationToken>());
+        await _accountRepository.Received(1).UpdateBalanceAsync(userId, accountId, 540m, Arg.Any<CancellationToken>());
     }
 }

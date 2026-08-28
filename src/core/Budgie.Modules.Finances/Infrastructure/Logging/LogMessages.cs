@@ -53,4 +53,25 @@ public static partial class LogMessages
 
     [LoggerMessage(EventId = 17, Level = LogLevel.Warning, Message = "Category '{CategoryName}' exceeded its {MonthlyBudget:C} monthly budget with {Spent:C} spent.")]
     public static partial void BudgetExceeded(ILogger logger, string categoryName, decimal spent, decimal monthlyBudget);
+
+    [LoggerMessage(EventId = 18, Level = LogLevel.Information, Message = "Money Manager preview started for user {UserId}, file {FileName}")]
+    public static partial void MoneyManagerPreviewStarted(ILogger logger, Guid userId, string fileName);
+
+    [LoggerMessage(EventId = 19, Level = LogLevel.Information, Message = "Money Manager preview completed for user {UserId}, file {FileName}, hash {Hash}")]
+    public static partial void MoneyManagerPreviewCompleted(ILogger logger, Guid userId, string fileName, string hash);
+
+    [LoggerMessage(EventId = 20, Level = LogLevel.Information, Message = "Money Manager commit started for user {UserId}, file {FileName}, overwrite {Overwrite}")]
+    public static partial void MoneyManagerCommitStarted(ILogger logger, Guid userId, string fileName, bool overwrite);
+
+    [LoggerMessage(EventId = 21, Level = LogLevel.Information, Message = "Money Manager commit completed for user {UserId}, file {FileName}, hash {Hash}")]
+    public static partial void MoneyManagerCommitCompleted(ILogger logger, Guid userId, string fileName, string hash);
+
+    [LoggerMessage(EventId = 22, Level = LogLevel.Error, Message = "Money Manager commit failed for user {UserId}, file {FileName}")]
+    public static partial void MoneyManagerCommitFailed(ILogger logger, Exception exception, Guid userId, string fileName);
+
+    [LoggerMessage(EventId = 23, Level = LogLevel.Warning, Message = "Money Manager import validation failed for user {UserId}, file {FileName}: {ErrorCode}")]
+    public static partial void MoneyManagerValidationFailed(ILogger logger, Guid userId, string fileName, string errorCode);
+
+    [LoggerMessage(EventId = 24, Level = LogLevel.Information, Message = "Money Manager parse completed: {AssetGroups} groups, {Assets} assets, {Categories} categories, {Transactions} transactions")]
+    public static partial void MoneyManagerParseCompleted(ILogger logger, int assetGroups, int assets, int categories, int transactions);
 }

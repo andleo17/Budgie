@@ -12,7 +12,7 @@ import { preloadRoutes } from '@/modules/routes';
 import '@/i18n/config';
 
 import { Toaster } from '@/components/ui/sonner';
-import { Login, Register, Setup, Dashboard, Accounts, Transactions, Goals, Categories, Persons, TagManagement, Settings, Templates, Profile } from '@/modules/routes';
+import { Login, Register, Setup, Dashboard, Accounts, Transactions, Goals, Categories, Persons, TagManagement, Settings, Templates, Profile, Import } from '@/modules/routes';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -55,6 +55,7 @@ function App() {
                 <Route path="/persons/tags" element={<TagManagement />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/profile" element={<Profile />} />
+                <Route path="/import" element={<Import />} />
               </Route>
 
               <Route path="/" element={<Navigate to="/dashboard" replace />} />

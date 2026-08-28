@@ -51,7 +51,7 @@ internal sealed class ApplyAllDueRecurringTransactionsCommandHandler(
 
             template.Apply();
             await recurringTransactionRepository.UpdateApplyStateAsync(template, ct);
-            await accountRepository.UpdateBalanceAsync(account.Id, account.Balance.Amount, ct);
+            await accountRepository.UpdateBalanceAsync(account.UserId, account.Id, account.Balance.Amount, ct);
 
             createdIds.Add(tx.Id);
         }

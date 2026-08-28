@@ -19,6 +19,7 @@ public class Category : Entity
     public Guid? ParentId { get; internal set; }
     public Category? Parent { get; internal set; }
     public ICollection<Category> Children { get; internal set; } = [];
+    public string? ExternalUid { get; internal set; }
 
     public Category() { }
 

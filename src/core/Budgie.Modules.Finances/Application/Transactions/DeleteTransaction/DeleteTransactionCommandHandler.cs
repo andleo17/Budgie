@@ -49,7 +49,7 @@ internal sealed class DeleteTransactionCommandHandler(
         await txRepository.DeleteParticipantAsync(tx.Id, ct);
         await txRepository.DeleteTransactionAsync(tx.Id, ct);
 
-        await accountRepository.UpdateBalanceAsync(account.Id, account.Balance.Amount, ct);
+        await accountRepository.UpdateBalanceAsync(account.UserId, account.Id, account.Balance.Amount, ct);
 
         return Result.Success;
     }

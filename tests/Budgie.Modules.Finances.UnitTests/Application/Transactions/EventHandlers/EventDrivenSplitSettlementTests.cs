@@ -49,8 +49,9 @@ public class RecordSplitDebtsOnTransactionCreatedTests
         var personId = Guid.NewGuid();
         var sourceAccountId = Guid.NewGuid();
         var destAccountId = Guid.NewGuid();
+        var destUserId = Guid.NewGuid();
 
-        var destAccount = Account.Create(Guid.NewGuid(), "Cash", "USD", 500m);
+        var destAccount = Account.Create(destUserId, "Cash", "USD", 500m);
         destAccount.Id = destAccountId;
         _accountRepository.GetByIdRawAsync(destAccountId, Arg.Any<CancellationToken>()).Returns(destAccount);
 
@@ -64,7 +65,7 @@ public class RecordSplitDebtsOnTransactionCreatedTests
 
         await _txRepository.Received(1).AddAsync(Arg.Is<Transaction>(t =>
             t.Type == TransactionType.Income && t.AccountId == destAccountId && t.ParentTransactionId == parentTxId), Arg.Any<CancellationToken>());
-        await _accountRepository.Received(1).UpdateBalanceAsync(destAccountId, 530m, Arg.Any<CancellationToken>());
+        await _accountRepository.Received(1).UpdateBalanceAsync(destUserId, destAccountId, 530m, Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -95,7 +96,8 @@ public class UpdateAccountBalanceOnTransactionCreatedTests
     public async Task Handle_Expense_DeductsAmountFromBalance()
     {
         var accountId = Guid.NewGuid();
-        var account = Account.Create(Guid.NewGuid(), "Checking", "USD", 1000m);
+        var userId = Guid.NewGuid();
+        var account = Account.Create(userId, "Checking", "USD", 1000m);
         _accountRepository.GetByIdRawAsync(accountId, Arg.Any<CancellationToken>()).Returns(account);
 
         var notification = new TransactionCreatedEvent(
@@ -105,14 +107,15 @@ public class UpdateAccountBalanceOnTransactionCreatedTests
 
         await _handler.Handle(notification, CancellationToken.None);
 
-        await _accountRepository.Received(1).UpdateBalanceAsync(accountId, 950m, Arg.Any<CancellationToken>());
+        await _accountRepository.Received(1).UpdateBalanceAsync(userId, accountId, 950m, Arg.Any<CancellationToken>());
     }
 
     [Fact]
     public async Task Handle_Income_AddsAmountToBalance()
     {
         var accountId = Guid.NewGuid();
-        var account = Account.Create(Guid.NewGuid(), "Checking", "USD", 1000m);
+        var userId = Guid.NewGuid();
+        var account = Account.Create(userId, "Checking", "USD", 1000m);
         _accountRepository.GetByIdRawAsync(accountId, Arg.Any<CancellationToken>()).Returns(account);
 
         var notification = new TransactionCreatedEvent(
@@ -122,6 +125,6 @@ public class UpdateAccountBalanceOnTransactionCreatedTests
 
         await _handler.Handle(notification, CancellationToken.None);
 
-        await _accountRepository.Received(1).UpdateBalanceAsync(accountId, 1200m, Arg.Any<CancellationToken>());
+        await _accountRepository.Received(1).UpdateBalanceAsync(userId, accountId, 1200m, Arg.Any<CancellationToken>());
     }
 }

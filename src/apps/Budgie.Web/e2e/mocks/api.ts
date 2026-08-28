@@ -60,7 +60,14 @@ export class ApiMock {
 
   private install(): void {
     this.installed = true
-    this.page.route("**/api/**", (route) => this.route(route))
+    this.page.route("**/api/**", (route) => {
+      const url = new URL(route.request().url())
+      // Solo interceptar rutas de API reales. El glob `**/api/**` también
+      // matchearía módulos fuente que contengan "/api/" en su path
+      // (p.ej. src/modules/import/api/importClient.ts) y los abortaría.
+      if (!url.pathname.startsWith("/api/")) return route.fallback()
+      return this.route(route)
+    })
   }
 
   private async route(route: Route): Promise<void> {

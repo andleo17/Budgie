@@ -64,6 +64,46 @@ export const mockTransactions = {
   total: 1,
 }
 
+export const mockImportPreview = {
+  currencies: [
+    { iso: "USD", rate: 1, isMain: true },
+    { iso: "EUR", rate: 0.9, isMain: false },
+  ],
+  accounts: [
+    { name: "Main Checking", type: "Checking", currency: "USD", externalUid: "1" },
+    { name: "Savings", type: "Savings", currency: "USD", externalUid: "2" },
+  ],
+  categories: [{ name: "Food", type: "Expense", parentUid: null, externalUid: "10", monthlyBudget: 300 }],
+  summary: {
+    income: 12,
+    expense: 200,
+    transfer: 15,
+    initialBalance: 2,
+    total: 229,
+    dedupedTransfers: 3,
+    dateRange: "2020-01-01 — 2024-12-31",
+  },
+  budgets: [{ categoryUid: "10", amount: 300 }],
+  recurrings: [{ frequency: "Monthly", notes: null }],
+  warnings: ["3 duplicated transfers omitted"],
+  errors: [],
+  skippedPlaceholders: 4,
+  fileHash: "abc123def456",
+  alreadyImported: false,
+}
+
+export const mockImportCommit = {
+  createdAccounts: 17,
+  skippedAccounts: 0,
+  createdCategories: 80,
+  skippedCategories: 0,
+  createdTransactions: 2099,
+  skippedTransactions: 0,
+  createdRecurring: 5,
+  warnings: [],
+  fileHash: "abc123def456",
+}
+
 export async function seedLoggedIn(page: Page): Promise<void> {
   await page.addInitScript(
     ({ token, refreshToken }) => {

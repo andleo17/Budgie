@@ -33,6 +33,6 @@ internal sealed class UpdateAccountBalanceOnTransactionCreated(
         }
 
         var newBalance = account.Balance.Amount + delta + participantImmediateDelta;
-        await accountRepository.UpdateBalanceAsync(notification.AccountId, newBalance, ct);
+        await accountRepository.UpdateBalanceAsync(account.UserId, notification.AccountId, newBalance, ct);
     }
 }

@@ -103,7 +103,7 @@ internal sealed class UpdateTransactionCommandHandler(
         account.ApplyTransaction(tx.Amount, tx.ExchangeRate, tx.Installments, tx.Type);
         if (participantDelta != 0)
             account.Balance = Money.FromAny(account.Balance.Amount + participantDelta, account.Balance.Currency);
-        await accountRepository.UpdateBalanceAsync(account.Id, account.Balance.Amount, ct);
+        await accountRepository.UpdateBalanceAsync(account.UserId, account.Id, account.Balance.Amount, ct);
 
         return Result.Success;
     }

@@ -32,6 +32,7 @@ public class RecurringTransaction : Entity
     public int TimesApplied { get; internal set; }
     public DateTime? LastAppliedDate { get; internal set; }
     public bool IsActive { get; internal set; } = true;
+    public string? ExternalUid { get; internal set; }
 
     private readonly List<RecurringTransactionParticipant> _participants = new();
     public IReadOnlyCollection<RecurringTransactionParticipant> Participants => _participants.AsReadOnly();

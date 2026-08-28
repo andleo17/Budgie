@@ -1,10 +1,13 @@
 using Budgie.Modules.Finances.Application;
+using Budgie.Modules.Finances.Application.Import;
 using Budgie.Modules.Finances.Infrastructure;
 using Budgie.Modules.Finances.Infrastructure.Database;
+using Budgie.Modules.Finances.Infrastructure.Import;
 using Budgie.Modules.Finances.Presentation.Accounts;
 using Budgie.Modules.Finances.Presentation.Categories;
 using Budgie.Modules.Finances.Presentation.Export;
 using Budgie.Modules.Finances.Presentation.Goals;
+using Budgie.Modules.Finances.Presentation.Import;
 using Budgie.Modules.Finances.Presentation.Persons;
 using Budgie.Modules.Finances.Presentation.RecurringTransactions;
 using Budgie.Modules.Finances.Presentation.Reports;
@@ -28,6 +31,8 @@ public static class FinancesModule
         services.AddScoped<IGoalRepository, GoalRepository>();
         services.AddScoped<IReportRepository, ReportRepository>();
         services.AddScoped<IExportRepository, ExportRepository>();
+        services.AddScoped<IMoneyManagerParser, MoneyManagerSqliteParser>();
+        services.AddScoped<IImportRunRepository, ImportRunRepository>();
         return services;
     }
 
@@ -46,6 +51,7 @@ public static class FinancesModule
         ReportsEndpoints.MapEndpoints(group);
         RecurringTransactionEndpoints.MapEndpoints(group);
         ExportEndpoints.MapEndpoints(group);
+        ImportEndpoints.MapImportEndpoints(app);
         return app;
     }
 }

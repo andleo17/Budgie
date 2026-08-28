@@ -49,7 +49,7 @@ internal sealed class ApplyRecurringTransactionCommandHandler(
 
         template.Apply();
         await recurringTransactionRepository.UpdateApplyStateAsync(template, ct);
-        await accountRepository.UpdateBalanceAsync(account.Id, account.Balance.Amount, ct);
+        await accountRepository.UpdateBalanceAsync(account.UserId, account.Id, account.Balance.Amount, ct);
 
         return tx.Id;
     }

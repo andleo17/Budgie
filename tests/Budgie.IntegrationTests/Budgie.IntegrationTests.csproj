@@ -26,6 +26,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Include="Fixtures\mm-import-test.mmbak" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\apps\Budgie.Api\Budgie.Api.csproj" />
     <ProjectReference Include="..\..\src\core\Budgie.Modules.Finances\Budgie.Modules.Finances.csproj" />
     <ProjectReference Include="..\..\src\core\Budgie.Modules.Users\Budgie.Modules.Users.csproj" />

@@ -1,3 +1,4 @@
+using System.Data;
 using System.Text.Json;
 using Budgie.Modules.Finances.Application;
 using Budgie.Modules.Finances.Application.Accounts;
@@ -5,6 +6,7 @@ using Budgie.Modules.Finances.Domain.Accounts;
 using Budgie.Shared.Domain.ValueObjects;
 using Budgie.Shared.Enums;
 using Budgie.Shared.Infrastructure;
+using Dapper;
 
 namespace Budgie.Modules.Finances.Infrastructure.Database;
 
@@ -15,7 +17,7 @@ internal sealed class AccountRepository(IDbConnectionFactory factory) : IAccount
         var row = await factory.QuerySingleOrDefaultAsync<AccountRow>(
             @"SELECT ""Id"",""UserId"",""Name"",""Balance"",""Currency"",""Type"",
               ""CreditLimit"",""CreditLimitCurrency"",""CreditConsumptionMode"",""AnnualInterestRate"",
-              ""BillingCycleDayInclusive"",""ControlStartDate"",""CreatedAt""
+              ""BillingCycleDayInclusive"",""ControlStartDate"",""CreatedAt"",""ExternalUid""
               FROM ""Accounts"" WHERE ""Id"" = @Id AND ""UserId"" = @UserId",
             new { Id = id, UserId = userId }, ct);
         return row is null ? null : Map(row);
@@ -26,10 +28,18 @@ internal sealed class AccountRepository(IDbConnectionFactory factory) : IAccount
         var row = await factory.QuerySingleOrDefaultAsync<AccountRow>(
             @"SELECT ""Id"",""UserId"",""Name"",""Balance"",""Currency"",""Type"",
               ""CreditLimit"",""CreditLimitCurrency"",""CreditConsumptionMode"",""AnnualInterestRate"",
-              ""BillingCycleDayInclusive"",""ControlStartDate"",""CreatedAt""
+              ""BillingCycleDayInclusive"",""ControlStartDate"",""CreatedAt"",""ExternalUid""
               FROM ""Accounts"" WHERE ""Id"" = @Id",
             new { Id = id }, ct);
         return row is null ? null : Map(row);
+    }
+
+    public async Task<Dictionary<string, Guid>> GetExternalUidMapAsync(Guid userId, CancellationToken ct)
+    {
+        var rows = await factory.QueryListAsync<ExternalUidRow>(
+            @"SELECT ""ExternalUid"", ""Id"" FROM ""Accounts"" WHERE ""UserId"" = @UserId AND ""ExternalUid"" IS NOT NULL",
+            new { UserId = userId }, ct);
+        return rows.Where(r => r.ExternalUid is not null).ToDictionary(r => r.ExternalUid!, r => r.Id);
     }
 
     public async Task<List<AccountResponse>> GetByUserIdAsync(Guid userId, CancellationToken ct)
@@ -47,29 +57,33 @@ internal sealed class AccountRepository(IDbConnectionFactory factory) : IAccount
             r.BillingCycleDay, r.PaymentDueDay, r.InterestCalculationMethod)).ToList();
     }
 
-    public async Task AddAsync(Account account, CancellationToken ct)
+    public Task AddAsync(Account account, CancellationToken ct, IDbTransaction? tx = null)
     {
-        await factory.ExecuteAsync(
+        const string sql =
             @"INSERT INTO ""Accounts"" (""Id"",""UserId"",""Name"",""Balance"",""Currency"",""Type"",
               ""CreditLimit"",""CreditLimitCurrency"",""CreditConsumptionMode"",
-              ""AnnualInterestRate"",""BillingCycleDayInclusive"",""ControlStartDate"",""CreatedAt"")
+              ""AnnualInterestRate"",""BillingCycleDayInclusive"",""ControlStartDate"",""CreatedAt"",""ExternalUid"")
               VALUES (@Id,@UserId,@Name,@Balance,@Currency,@Type,
               @CreditLimit,@CreditLimitCurrency,@CreditConsumptionMode,
-              @AnnualInterestRate,@BillingCycleDayInclusive,@ControlStartDate,@CreatedAt)",
-            new
-            {
-                account.Id, account.UserId, Name = account.Name.Value,
-                Balance = account.Balance.Amount, Currency = account.Balance.Currency.Code,
-                Type = (int)account.Type,
-                CreditLimit = (decimal?)account.CreditCardSettings?.CreditLimit.Amount,
-                CreditLimitCurrency = account.CreditCardSettings?.CreditLimit.Currency?.Code,
-                CreditConsumptionMode = (int)(account.CreditCardSettings?.CreditConsumptionMode ?? 0),
-                AnnualInterestRate = account.CreditCardSettings is not null
-                    ? (decimal?)account.CreditCardSettings.AnnualInterestRate.Value : null,
-                BillingCycleDayInclusive = account.CreditCardSettings?.BillingCycleDayInclusive ?? true,
-                ControlStartDate = account.ControlStartDate,
-                account.CreatedAt
-            }, ct);
+              @AnnualInterestRate,@BillingCycleDayInclusive,@ControlStartDate,@CreatedAt,@ExternalUid)";
+        var p = new
+        {
+            account.Id, account.UserId, Name = account.Name.Value,
+            Balance = account.Balance.Amount, Currency = account.Balance.Currency.Code,
+            Type = (int)account.Type,
+            CreditLimit = (decimal?)account.CreditCardSettings?.CreditLimit.Amount,
+            CreditLimitCurrency = account.CreditCardSettings?.CreditLimit.Currency?.Code,
+            CreditConsumptionMode = (int)(account.CreditCardSettings?.CreditConsumptionMode ?? 0),
+            AnnualInterestRate = account.CreditCardSettings is not null
+                ? (decimal?)account.CreditCardSettings.AnnualInterestRate.Value : null,
+            BillingCycleDayInclusive = account.CreditCardSettings?.BillingCycleDayInclusive ?? true,
+            ControlStartDate = account.ControlStartDate,
+            account.CreatedAt,
+            account.ExternalUid
+        };
+        return tx is not null
+            ? tx.Connection!.ExecuteAsync(new CommandDefinition(sql, p, transaction: tx, cancellationToken: ct))
+            : factory.ExecuteAsync(sql, p, ct);
     }
 
     public Task UpdateAsync(Account account, CancellationToken ct)
@@ -96,10 +110,14 @@ internal sealed class AccountRepository(IDbConnectionFactory factory) : IAccount
         => factory.ExecuteAsync(@"DELETE FROM ""Accounts"" WHERE ""Id"" = @Id AND ""UserId"" = @UserId",
             new { Id = id, UserId = userId }, ct);
 
-    public Task UpdateBalanceAsync(Guid id, decimal newBalance, CancellationToken ct)
-        => factory.ExecuteAsync(
-            @"UPDATE ""Accounts"" SET ""Balance"" = @Balance WHERE ""Id"" = @Id",
-            new { Balance = newBalance, Id = id }, ct);
+    public Task UpdateBalanceAsync(Guid userId, Guid id, decimal newBalance, CancellationToken ct, IDbTransaction? tx = null)
+    {
+        const string sql = @"UPDATE ""Accounts"" SET ""Balance"" = @Balance WHERE ""Id"" = @Id AND ""UserId"" = @UserId";
+        var p = new { Balance = newBalance, Id = id, UserId = userId };
+        return tx is not null
+            ? tx.Connection!.ExecuteAsync(new CommandDefinition(sql, p, transaction: tx, cancellationToken: ct))
+            : factory.ExecuteAsync(sql, p, ct);
+    }
 
     private static Account Map(AccountRow row)
     {
@@ -111,7 +129,8 @@ internal sealed class AccountRepository(IDbConnectionFactory factory) : IAccount
             Balance = Money.FromAny(row.Balance, CurrencyCode.From(row.Currency)),
             Type = (AccountType)row.Type,
             CreatedAt = row.CreatedAt,
-            ControlStartDate = row.ControlStartDate ?? row.CreatedAt.Date
+            ControlStartDate = row.ControlStartDate ?? row.CreatedAt.Date,
+            ExternalUid = row.ExternalUid
         };
         if (row.CreditLimit.HasValue)
         {
@@ -127,7 +146,9 @@ internal sealed class AccountRepository(IDbConnectionFactory factory) : IAccount
 
     private record AccountRow(Guid Id, Guid UserId, string Name, decimal Balance, string Currency,
         int Type, decimal? CreditLimit, string? CreditLimitCurrency, int CreditConsumptionMode,
-        decimal? AnnualInterestRate, bool BillingCycleDayInclusive, DateTime? ControlStartDate, DateTime CreatedAt);
+        decimal? AnnualInterestRate, bool BillingCycleDayInclusive, DateTime? ControlStartDate, DateTime CreatedAt, string? ExternalUid);
+
+    private record ExternalUidRow(string? ExternalUid, Guid Id);
 
     private record AccountResponseRow(Guid Id, string Name, decimal Balance, string Currency,
         int Type, decimal? CreditLimit, string? CreditLimitCurrency, int CreditConsumptionMode,

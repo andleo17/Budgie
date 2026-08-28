@@ -1,3 +1,4 @@
+using System.Data;
 using Budgie.Modules.Finances.Domain.Transactions;
 
 namespace Budgie.Modules.Finances.Application;
@@ -9,7 +10,9 @@ public interface ITransactionRepository
     Task<List<TransactionInfo>> GetChildTransactionsForDeleteAsync(Guid parentId, CancellationToken ct);
     Task<Guid?> GetFirstParticipantPersonIdAsync(Guid txId, CancellationToken ct);
     Task DeleteParentParticipantAsync(Guid parentTxId, Guid personId, CancellationToken ct);
-    Task AddAsync(Transaction tx, CancellationToken ct);
+    Task AddAsync(Transaction tx, CancellationToken ct, IDbTransaction? transaction = null);
+    Task AddRangeAsync(IEnumerable<Transaction> txs, CancellationToken ct, IDbTransaction? transaction = null);
+    Task<bool> ExistsByExternalUidAsync(Guid userId, string externalUid, CancellationToken ct);
     Task UpdateAsync(Transaction tx, CancellationToken ct);
     Task AddParticipantAsync(TransactionParticipant p, CancellationToken ct);
     Task<decimal?> GetParticipantRemainingAsync(Guid participantId, Guid userId, CancellationToken ct);
