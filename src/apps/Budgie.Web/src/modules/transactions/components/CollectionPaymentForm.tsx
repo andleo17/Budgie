@@ -26,11 +26,12 @@ import { usePersonDebts } from "@/lib/hooks/usePersonDebts";
 
 interface CollectionPaymentFormProps {
   defaultAccountId?: string;
+  initialDate?: string;
   onSuccess: () => void;
   onCancel: () => void;
 }
 
-export function CollectionPaymentForm({ defaultAccountId, onSuccess, onCancel }: CollectionPaymentFormProps) {
+export function CollectionPaymentForm({ defaultAccountId, initialDate, onSuccess, onCancel }: CollectionPaymentFormProps) {
   const { t, i18n } = useTranslation();
   const dateLocale = getDateLocale(i18n.language);
   const queryClient = useQueryClient();
@@ -202,7 +203,7 @@ export function CollectionPaymentForm({ defaultAccountId, onSuccess, onCancel }:
       amount: distAmount,
       currency: accountCurrency,
       exchangeRate: parseFloat(exchangeRate) || 1,
-      date: formatLocal(new Date()),
+      date: initialDate ?? formatLocal(new Date()),
       notes: null,
       debts: debtPayments,
     });

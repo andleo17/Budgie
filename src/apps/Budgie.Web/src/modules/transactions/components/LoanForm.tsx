@@ -33,12 +33,13 @@ type TransactionResponse = components["schemas"]["TransactionResponse"];
 interface LoanFormProps {
   transaction?: TransactionResponse | null;
   defaultAccountId?: string;
+  initialDate?: string;
   onSuccess: () => void;
   onCancel: () => void;
   onDelete?: (tx: TransactionResponse) => void;
 }
 
-export function LoanForm({ transaction, defaultAccountId, onSuccess, onCancel, onDelete }: LoanFormProps) {
+export function LoanForm({ transaction, defaultAccountId, initialDate, onSuccess, onCancel, onDelete }: LoanFormProps) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const isEdit = !!transaction;
@@ -98,7 +99,7 @@ export function LoanForm({ transaction, defaultAccountId, onSuccess, onCancel, o
         currency: settings?.mainCurrency ?? "USD",
         exchangeRate: "1",
         convertedAmount: "",
-        date: formatLocal(new Date()),
+        date: initialDate ?? formatLocal(new Date()),
         dueDate: "",
         notes: "",
       };
@@ -113,6 +114,12 @@ export function LoanForm({ transaction, defaultAccountId, onSuccess, onCancel, o
       form.setValue("currency", settings.mainCurrency);
     }
   }, [isEdit, settings, accounts, defaultAccountId, form]);
+
+  useEffect(() => {
+    if (!isEdit && initialDate) {
+      form.setValue("date", initialDate);
+    }
+  }, [isEdit, initialDate, form]);
 
   const createMutation = useMutation({
     mutationFn: async (body: components["schemas"]["CreateTransactionCommand"]) => {

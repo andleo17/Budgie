@@ -48,13 +48,14 @@ interface IncomeExpenseFormProps {
   template?: RecurringTransactionResponse | null;
   copySource?: TransactionResponse | null;
   defaultAccountId?: string;
+  initialDate?: string;
   onSuccess: () => void;
   onCancel: () => void;
   onDelete?: (tx: TransactionResponse) => void;
   onCopy?: (tx: TransactionResponse) => void;
 }
 
-export function IncomeExpenseForm({ transaction, template, copySource, defaultAccountId, onSuccess, onCancel, onDelete, onCopy }: IncomeExpenseFormProps) {
+export function IncomeExpenseForm({ transaction, template, copySource, defaultAccountId, initialDate, onSuccess, onCancel, onDelete, onCopy }: IncomeExpenseFormProps) {
   const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
   const isEdit = !!transaction;
@@ -103,7 +104,7 @@ export function IncomeExpenseForm({ transaction, template, copySource, defaultAc
     resolver: zodResolver(incomeExpenseSchema),
     defaultValues: {
       type: "1",
-      date: formatLocal(new Date()),
+      date: initialDate ?? formatLocal(new Date()),
       accountId: "",
       amount: "",
       currency: "",
@@ -188,7 +189,7 @@ export function IncomeExpenseForm({ transaction, template, copySource, defaultAc
       const defaultAccount = accounts?.find((a) => a.id === defaultAccountId);
       form.reset({
         type: "1",
-        date: formatLocal(new Date()),
+        date: initialDate ?? formatLocal(new Date()),
         accountId: defaultAccount?.id ?? "",
         amount: "",
         currency: defaultAccount?.currency ?? settings.mainCurrency,
@@ -200,7 +201,7 @@ export function IncomeExpenseForm({ transaction, template, copySource, defaultAc
         isInterestFree: true,
       });
     }
-  }, [transaction, template, copySource, settings, form, accounts, defaultAccountId]);
+  }, [transaction, template, copySource, settings, form, accounts, defaultAccountId, initialDate]);
 
   const createMutation = useMutation({
     mutationFn: async (body: components["schemas"]["CreateTransactionCommand"]) => {
@@ -282,6 +283,7 @@ export function IncomeExpenseForm({ transaction, template, copySource, defaultAc
     const amount = parseFloat(values.amount);
     const type = parseInt(values.type, 10) as components["schemas"]["TransactionType"];
     const installments = parseInt(values.installments ?? "1", 10) || 1;
+    const isInterestFree = values.isInterestFree ?? true;
 
     if (isEdit && transaction) {
       updateMutation.mutate({
@@ -311,7 +313,8 @@ export function IncomeExpenseForm({ transaction, template, copySource, defaultAc
         installments,
         participants: participantsPayload,
         isInitialBalance: false,
-      });
+        isInterestFree,
+      } as components["schemas"]["CreateTransactionCommand"]);
     }
   };
 

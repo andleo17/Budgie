@@ -455,6 +455,7 @@ export default function Transactions() {
         onDelete={handleDelete}
         onCopy={handleCopy}
         template={dialogTx ? undefined : selectedTemplate}
+        initialDate={dateRange.from ? `${dateRange.from}T00:00:00` : undefined}
       />
 
       <DeleteTransactionDialog

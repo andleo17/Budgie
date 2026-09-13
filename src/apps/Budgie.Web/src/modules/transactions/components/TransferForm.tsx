@@ -26,11 +26,12 @@ import { Loader2 } from "lucide-react";
 
 interface TransferFormProps {
   defaultAccountId?: string;
+  initialDate?: string;
   onSuccess: () => void;
   onCancel: () => void;
 }
 
-export function TransferForm({ defaultAccountId, onSuccess, onCancel }: TransferFormProps) {
+export function TransferForm({ defaultAccountId, initialDate, onSuccess, onCancel }: TransferFormProps) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
 
@@ -52,7 +53,7 @@ export function TransferForm({ defaultAccountId, onSuccess, onCancel }: Transfer
       currency: "USD",
       exchangeRate: "1",
       convertedAmount: "",
-      date: formatLocal(new Date()),
+      date: initialDate ?? formatLocal(new Date()),
       notes: "",
     },
   });
@@ -66,6 +67,12 @@ export function TransferForm({ defaultAccountId, onSuccess, onCancel }: Transfer
       }
     }
   }, [accounts, defaultAccountId, form]);
+
+  useEffect(() => {
+    if (initialDate) {
+      form.setValue("date", initialDate);
+    }
+  }, [initialDate, form]);
 
   const createMutation = useMutation({
     mutationFn: async (body: components["schemas"]["TransferCommand"]) => {

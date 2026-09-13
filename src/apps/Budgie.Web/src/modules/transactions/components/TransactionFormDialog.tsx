@@ -42,6 +42,7 @@ interface TransactionFormDialogProps {
   formType?: FormType;
   onDelete?: (tx: TransactionResponse) => void;
   onCopy?: (tx: TransactionResponse) => void;
+  initialDate?: string;
 }
 
 function getFormType(transaction?: TransactionResponse | null): FormType {
@@ -54,7 +55,7 @@ function getFormType(transaction?: TransactionResponse | null): FormType {
   }
 }
 
-export function TransactionFormDialog({ open, onOpenChange, transaction, template, copySource, defaultAccountId, formType, onDelete, onCopy }: TransactionFormDialogProps) {
+export function TransactionFormDialog({ open, onOpenChange, transaction, template, copySource, defaultAccountId, formType, onDelete, onCopy, initialDate }: TransactionFormDialogProps) {
   const { t, i18n } = useTranslation();
   const dateLocale = getDateLocale(i18n.language);
   const type = formType ?? getFormType(transaction) ?? (template ? templateToFormType(template) : "income-expense");
@@ -99,6 +100,7 @@ export function TransactionFormDialog({ open, onOpenChange, transaction, templat
             template={template}
             copySource={copySource}
             defaultAccountId={defaultAccountId}
+            initialDate={initialDate}
             onSuccess={handleSuccess}
             onCancel={handleCancel}
             onDelete={onDelete}
@@ -120,6 +122,7 @@ export function TransactionFormDialog({ open, onOpenChange, transaction, templat
           ) : (
             <TransferForm
               defaultAccountId={defaultAccountId}
+              initialDate={initialDate}
               onSuccess={handleSuccess}
               onCancel={handleCancel}
             />
@@ -129,6 +132,7 @@ export function TransactionFormDialog({ open, onOpenChange, transaction, templat
           <LoanForm
             transaction={transaction}
             defaultAccountId={defaultAccountId}
+            initialDate={initialDate}
             onSuccess={handleSuccess}
             onCancel={handleCancel}
             onDelete={onDelete}
@@ -164,6 +168,7 @@ export function TransactionFormDialog({ open, onOpenChange, transaction, templat
           ) : (
             <CollectionPaymentForm
               defaultAccountId={defaultAccountId}
+              initialDate={initialDate}
               onSuccess={handleSuccess}
               onCancel={handleCancel}
             />
