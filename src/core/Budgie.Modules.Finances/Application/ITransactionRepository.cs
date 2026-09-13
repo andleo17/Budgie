@@ -41,4 +41,6 @@ public record TransactionInfo(Guid Id, Shared.Enums.TransactionType Type, bool I
     Guid AccountId, Guid? ParentTransactionId);
 public record TransactionForUpdate(Guid Id, Shared.Enums.TransactionType Type, bool IsInitialBalance,
     decimal Amount, string Currency, decimal ExchangeRate, int Installments,
-    Guid AccountId, Guid? ParentTransactionId, DateTime Date);
+    Guid AccountId, Guid? ParentTransactionId, DateTime Date,
+    Guid? InstallmentGroupId = null, int InstallmentNumber = 1, int TotalInstallments = 1,
+    decimal InterestRate = 0);

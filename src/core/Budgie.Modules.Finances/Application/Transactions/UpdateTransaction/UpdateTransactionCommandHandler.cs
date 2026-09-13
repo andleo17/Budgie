@@ -62,7 +62,11 @@ internal sealed class UpdateTransactionCommandHandler(
             request.Amount, request.Currency, request.ExchangeRate, normalizedDate,
             request.Notes, request.Type, request.Installments,
             parentTransactionId: request.ParentTransactionId,
-            isInitialBalance: existing.IsInitialBalance);
+            isInitialBalance: existing.IsInitialBalance,
+            installmentGroupId: existing.InstallmentGroupId,
+            installmentNumber: existing.InstallmentNumber,
+            totalInstallments: existing.TotalInstallments,
+            interestRate: existing.InterestRate);
         tx.Id = existing.Id;
 
         await txRepository.UpdateAsync(tx, ct);

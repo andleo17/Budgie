@@ -167,6 +167,54 @@ public class InstallmentTransactionsTests : IClassFixture<BudgieWebApplicationFa
         tx.Amount.Should().Be(50m);
     }
 
+    [Fact]
+    public async Task UpdateInstallment_ShouldPreserveGroupReference()
+    {
+        var accountId = await AuthHelper.CreateAccountAsync(_client, $"CuotasEdit_{Guid.NewGuid():N}", "USD", 0m);
+
+        var create = await _client.PostAsJsonAsync("/api/finances/transactions", new
+        {
+            AccountId = accountId,
+            Amount = 120m,
+            Currency = "USD",
+            ExchangeRate = 1m,
+            Date = DateTime.UtcNow,
+            Type = 1,
+            Notes = "Compra en 3 cuotas",
+            Installments = 3,
+            IsInterestFree = true
+        });
+        create.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var before = await _client.GetFromJsonAsync<PagedTransactions>($"/api/finances/transactions?accountIds={accountId}&pageSize=100");
+        var second = before!.Items.OrderBy(t => t.InstallmentNumber).ElementAt(1);
+        second.InstallmentGroupId.Should().NotBeNull();
+        second.InstallmentNumber.Should().Be(2);
+        second.TotalInstallments.Should().Be(3);
+
+        // Ajusta el monto de una sola cuota (el formulario de edición no envía datos de grupo)
+        var put = await _client.PutAsJsonAsync($"/api/finances/transactions/{second.Id}", new
+        {
+            CategoryId = (Guid?)null,
+            Amount = 45m,
+            Currency = "USD",
+            ExchangeRate = 1m,
+            Date = second.Date,
+            Notes = "Ajuste cuota 2",
+            Type = 1,
+            Installments = 1
+        });
+        put.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        var after = await _client.GetFromJsonAsync<PagedTransactions>($"/api/finances/transactions?accountIds={accountId}&pageSize=100");
+        var edited = after!.Items.First(t => t.Id == second.Id);
+        edited.Amount.Should().Be(45m);
+        edited.InstallmentGroupId.Should().Be(second.InstallmentGroupId);
+        edited.InstallmentNumber.Should().Be(2);
+        edited.TotalInstallments.Should().Be(3);
+        after.Items.Should().HaveCount(3);
+    }
+
     private record IdResponse(Guid Id);
     private record PagedTransactions(List<TransactionItem> Items, int TotalCount, int Page, int PageSize);
     private record TransactionItem(Guid Id, decimal Amount, Guid? InstallmentGroupId, int? InstallmentNumber, int? TotalInstallments, DateTime Date);

@@ -41,13 +41,14 @@ internal sealed class TransactionRepository(IDbConnectionFactory factory) : ITra
     public Task AddAsync(Transaction tx, CancellationToken ct, IDbTransaction? transaction = null)
     {
         const string sql =
-            @"INSERT INTO ""Transactions"" (""Id"",""UserId"",""AccountId"",""CategoryId"",""Amount"",""Currency"",""ExchangeRate"",""Date"",""Notes"",""Type"",""Installments"",""ParentTransactionId"",""IsInitialBalance"",""ExternalUid"")
-              VALUES (@Id,@UserId,@AccountId,@CategoryId,@Amount,@Currency,@ExchangeRate,@Date,@Notes,@Type,@Installments,@ParentTransactionId,@IsInitialBalance,@ExternalUid)";
+            @"INSERT INTO ""Transactions"" (""Id"",""UserId"",""AccountId"",""CategoryId"",""Amount"",""Currency"",""ExchangeRate"",""Date"",""Notes"",""Type"",""Installments"",""ParentTransactionId"",""IsInitialBalance"",""ExternalUid"",""LinkedTransactionId"",""InstallmentGroupId"",""InstallmentNumber"",""TotalInstallments"",""InterestRate"")
+              VALUES (@Id,@UserId,@AccountId,@CategoryId,@Amount,@Currency,@ExchangeRate,@Date,@Notes,@Type,@Installments,@ParentTransactionId,@IsInitialBalance,@ExternalUid,@LinkedTransactionId,@InstallmentGroupId,@InstallmentNumber,@TotalInstallments,@InterestRate)";
         var p = new
         {
             tx.Id, tx.UserId, tx.AccountId, tx.CategoryId, Amount = tx.Amount.Amount,
             Currency = tx.Amount.Currency.Code, tx.ExchangeRate, tx.Date, tx.Notes,
-            Type = (int)tx.Type, tx.Installments, tx.ParentTransactionId, tx.IsInitialBalance, tx.ExternalUid
+            Type = (int)tx.Type, tx.Installments, tx.ParentTransactionId, tx.IsInitialBalance, tx.ExternalUid,
+            tx.LinkedTransactionId, tx.InstallmentGroupId, tx.InstallmentNumber, tx.TotalInstallments, InterestRate = tx.InterestRate.Value
         };
         return transaction is not null
             ? transaction.Connection!.ExecuteAsync(new CommandDefinition(sql, p, transaction: transaction, cancellationToken: ct))
@@ -87,22 +88,25 @@ internal sealed class TransactionRepository(IDbConnectionFactory factory) : ITra
         => factory.ExecuteAsync(
             @"UPDATE ""Transactions"" SET ""CategoryId"" = @CategoryId, ""Amount"" = @Amount, ""Currency"" = @Currency,
               ""ExchangeRate"" = @ExchangeRate, ""Date"" = @Date, ""Notes"" = @Notes, ""Type"" = @Type,
-              ""Installments"" = @Installments, ""ParentTransactionId"" = @ParentTransactionId
+              ""Installments"" = @Installments, ""ParentTransactionId"" = @ParentTransactionId,
+              ""LinkedTransactionId"" = @LinkedTransactionId, ""InstallmentGroupId"" = @InstallmentGroupId,
+              ""InstallmentNumber"" = @InstallmentNumber, ""TotalInstallments"" = @TotalInstallments, ""InterestRate"" = @InterestRate
               WHERE ""Id"" = @Id",
             new
             {
                 tx.CategoryId, Amount = tx.Amount.Amount, Currency = tx.Amount.Currency.Code,
                 tx.ExchangeRate, tx.Date, tx.Notes, Type = (int)tx.Type, tx.Installments,
-                tx.ParentTransactionId, tx.Id
+                tx.ParentTransactionId, tx.LinkedTransactionId, tx.InstallmentGroupId, tx.InstallmentNumber, tx.TotalInstallments, InterestRate = tx.InterestRate.Value, tx.Id
             }, ct);
 
     public async Task<TransactionForUpdate?> GetByIdForUpdateAsync(Guid id, Guid userId, CancellationToken ct)
     {
-        var row = await factory.QuerySingleOrDefaultAsync<TxRow>(
-            @"SELECT ""Id"",""Type"",""IsInitialBalance"",""Amount"",""Currency"",""ExchangeRate"",""Installments"",""AccountId"",""ParentTransactionId"",""Date"" FROM ""Transactions"" WHERE ""Id"" = @Id AND ""UserId"" = @UserId",
+        var row = await factory.QuerySingleOrDefaultAsync<TxUpdateRow>(
+            @"SELECT ""Id"",""Type"",""IsInitialBalance"",""Amount"",""Currency"",""ExchangeRate"",""Installments"",""AccountId"",""ParentTransactionId"",""Date"",""InstallmentGroupId"",""InstallmentNumber"",""TotalInstallments"",""InterestRate"" FROM ""Transactions"" WHERE ""Id"" = @Id AND ""UserId"" = @UserId",
             new { Id = id, UserId = userId }, ct);
         return row is null ? null : new TransactionForUpdate(row.Id, (TransactionType)row.Type, row.IsInitialBalance,
-            row.Amount, row.Currency, row.ExchangeRate, row.Installments, row.AccountId, row.ParentTransactionId, row.Date);
+            row.Amount, row.Currency, row.ExchangeRate, row.Installments, row.AccountId, row.ParentTransactionId, row.Date,
+            row.InstallmentGroupId, row.InstallmentNumber, row.TotalInstallments, row.InterestRate);
     }
 
     public Task AddParticipantAsync(TransactionParticipant p, CancellationToken ct)
@@ -352,6 +356,10 @@ internal sealed class TransactionRepository(IDbConnectionFactory factory) : ITra
 
     private record TxRow(Guid Id, int Type, bool IsInitialBalance, decimal Amount,
         string Currency, decimal ExchangeRate, int Installments, Guid AccountId, Guid? ParentTransactionId, DateTime Date);
+
+    private record TxUpdateRow(Guid Id, int Type, bool IsInitialBalance, decimal Amount,
+        string Currency, decimal ExchangeRate, int Installments, Guid AccountId, Guid? ParentTransactionId, DateTime Date,
+        Guid? InstallmentGroupId, int InstallmentNumber, int TotalInstallments, decimal InterestRate);
 
     private record TxQueryRow(Guid Id, Guid AccountId, string AccountName, Guid? CategoryId,
         string? CategoryName, decimal Amount, string Currency, decimal ExchangeRate,
