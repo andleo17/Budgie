@@ -2,11 +2,39 @@
 description: Experto en E2E frontend con Playwright. Escribe y ejecuta tests E2E en src/apps/Budgie.Web/e2e/ contra una API mockeada (MSW) generada desde OpenAPI.
 mode: subagent
 permission:
+  read: allow
+  glob: allow
+  grep: allow
+  list: allow
+  skill: allow
+  edit:
+    "tests/**": allow
+    "test/**": allow
+    "e2e/**": allow
+    "__tests__/**": allow
+    "**/*.test.*": allow
+    "**/*.spec.*": allow
+    "*": deny
   bash:
+    "*": deny
+    "ls*": allow
+    "cat*": allow
+    "pwd*": allow
+    "head*": allow
+    "grep*": allow
+    "tail*": allow
+    "wc*": allow
+    "rg*": allow
     "bunx playwright*": allow
     "bun run typecheck*": allow
     "bun run lint*": allow
     "bun install*": allow
+    "bun *": allow
+    "bunx *": allow
+    "npm *": allow
+    "npx *": allow
+    "git*": allow
+    "bash -c*": allow
 ---
 
 # Frontend E2E Author (Playwright)

@@ -3,14 +3,27 @@ description: Corre las gates de calidad del repo (build/test backend + tsc/lint/
 mode: subagent
 permission:
   bash:
+    "*": ask
+    "ls*": allow
+    "cat*": allow
+    "pwd*": allow
+    "head*": allow
+    "grep*": allow
+    "tail*": allow
+    "wc*": allow
+    "rg*": allow
     "dotnet build*": allow
     "dotnet test*": allow
     "dotnet restore*": allow
+    "dotnet *": allow
     "bun run typecheck*": allow
     "bun run lint*": allow
     "bun run build*": allow
     "bunx playwright*": allow
-    "*": ask
+    "bun *": allow
+    "bunx *": allow
+    "bash -c *": allow
+    "git*": allow
 ---
 
 # Verify

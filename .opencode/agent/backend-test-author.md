@@ -2,10 +2,37 @@
 description: Experto en pruebas backend C#. Escribe tests de unidad e integración (xUnit, NSubstitute, FluentAssertions, WebApplicationFactory + PostgreSQL) para alcanzar ~100% de cobertura.
 mode: subagent
 permission:
+  read: allow
+  glob: allow
+  grep: allow
+  list: allow
+  skill: allow
+  edit:
+    "tests/**": allow
+    "test/**": allow
+    "e2e/**": allow
+    "__tests__/**": allow
+    "**/*.test.*": allow
+    "**/*.spec.*": allow
+    "*": deny
   bash:
+    "*": deny
+    "ls*": allow
+    "cat*": allow
+    "pwd*": allow
+    "head*": allow
+    "grep*": allow
+    "tail*": allow
+    "wc*": allow
+    "rg*": allow
     "dotnet test*": allow
     "dotnet build*": allow
     "dotnet restore*": allow
+    "dotnet *": allow
+    "bun *": allow
+    "bunx *": allow
+    "git*": allow
+    "bash -c*": allow
 ---
 
 # Backend Test Author

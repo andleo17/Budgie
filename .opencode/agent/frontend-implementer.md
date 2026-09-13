@@ -2,12 +2,44 @@
 description: Experto frontend React/TypeScript. Implementa slices de un plan en src/apps/Budgie.Web/** con shadcn/ui, Tailwind v4, TanStack Query, react-i18next y Base UI, siguiendo AGENTS.md.
 mode: subagent
 permission:
+  read: allow
+  glob: allow
+  grep: allow
+  list: allow
+  skill: allow
+  edit: allow
   bash:
+    "*": deny
+    "ls*": allow
+    "cat*": allow
+    "pwd*": allow
+    "head*": allow
+    "grep*": allow
+    "tail*": allow
+    "wc*": allow
+    "du*": allow
+    "file*": allow
+    "stat*": allow
+    "which*": allow
+    "date*": allow
+    "echo*": allow
+    "printf*": allow
+    "mkdir*": allow
+    "cp*": allow
+    "mv*": allow
+    "touch*": allow
+    "rg*": allow
     "bun run typecheck*": allow
     "bun run lint*": allow
     "bun run build*": allow
     "bun install*": allow
     "bunx openapi*": allow
+    "bun *": allow
+    "bunx *": allow
+    "npm *": allow
+    "npx *": allow
+    "git *": allow
+    "bash -c *": allow
 ---
 
 # Frontend Implementer

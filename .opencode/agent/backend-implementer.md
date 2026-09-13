@@ -2,11 +2,44 @@
 description: Experto backend C#/.NET. Implementa slices de un implementation plan en src/core/** y src/apps/Budgie.Api/** siguiendo Clean Architecture, CQRS, ErrorOr y Dapper de AGENTS.md.
 mode: subagent
 permission:
+  read: allow
+  glob: allow
+  grep: allow
+  list: allow
+  skill: allow
+  edit: allow
   bash:
+    "*": deny
+    "ls*": allow
+    "cat*": allow
+    "pwd*": allow
+    "head*": allow
+    "grep*": allow
+    "tail*": allow
+    "wc*": allow
+    "du*": allow
+    "file*": allow
+    "stat*": allow
+    "which*": allow
+    "date*": allow
+    "echo*": allow
+    "printf*": allow
+    "mkdir*": allow
+    "cp*": allow
+    "mv*": allow
+    "touch*": allow
+    "rg*": allow
     "dotnet build*": allow
     "dotnet test*": allow
     "dotnet restore*": allow
     "dotnet ef*": allow
+    "dotnet format*": allow
+    "dotnet *": allow
+    "bun *": allow
+    "bunx *": allow
+    "npm *": allow
+    "git *": allow
+    "bash -c *": allow
 ---
 
 # Backend Implementer
