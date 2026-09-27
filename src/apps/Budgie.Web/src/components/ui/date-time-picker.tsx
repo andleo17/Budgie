@@ -83,6 +83,7 @@ export function DateTimePicker({ value, onChange, disabled }: DateTimePickerProp
           mode="single"
           locale={dateLocale}
           selected={selectedDate}
+          defaultMonth={selectedDate}
           onSelect={handleDateSelect}
           onMonthChange={handleMonthChange}
           captionLayout="dropdown"

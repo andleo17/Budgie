@@ -628,6 +628,7 @@ export function TransactionFilters() {
                   from: from ? parseLocalDate(from) : undefined,
                   to: to ? parseLocalDate(to) : undefined,
                 }}
+                defaultMonth={from ? parseLocalDate(from) : to ? parseLocalDate(to) : undefined}
                 onSelect={(range) => {
                   const next = new URLSearchParams(searchParams);
                   if (range?.from) {
