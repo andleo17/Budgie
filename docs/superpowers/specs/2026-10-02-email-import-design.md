@@ -55,20 +55,24 @@ Budgie.Modules.EmailImport/
     Inbox/                                   # GetPending, ApprovePending, DismissPending, SyncNow
     Abstractions/IEmailProviderClient.cs
     Abstractions/ISecretProtector.cs
+    Abstractions/IMessageTextExtractor.cs   # puerto: mensaje → texto plano
     Parsing/IBankAdapter.cs
+    Parsing/EmailParser.cs
     Parsing/Adapters/GenericRegexAdapter.cs
     Parsing/ConfidenceScorer.cs
+    Parsing/ConfidenceWeights.cs
+    Parsing/Normalization/AmountNormalizer.cs
+    Parsing/Normalization/DateNormalizer.cs
     Repositories.cs                          # interfaces
   Infrastructure/
     Email/
       Gmail/GmailEmailProvider.cs
       Gmail/GmailMessageMapper.cs
     Security/AesSecretProtector.cs
-    Parsing/RawEmailReader.cs
-    Parsing/HtmlToTextConverter.cs
-    Parsing/AmountNormalizer.cs
-    Parsing/DateNormalizer.cs
+    Parsing/RawEmailReader.cs               # MIME → cuerpo
+    Parsing/HtmlToTextConverter.cs           # cuerpo → texto plano
     Database/                                # implementaciones Dapper
+    Worker/EmailSyncWorker.cs                # BackgroundService (timer)
     Logging/LogMessages.cs
   Presentation/
     Connections/                             # endpoints OAuth
@@ -281,6 +285,20 @@ mecanismo de crash-safety, y una transacción solo ocultaría los bugs.
 
 ### 4.1 Del correo al texto
 
+El parseo de MIME vive en Infrastructure, pero el adaptador lo consume desde Application. Para no
+invertir la capa, el cruce es un puerto:
+
+```csharp
+public interface IMessageTextExtractor   // Application/Abstractions
+{
+    string ExtractPlainText(EmailMessage message);
+}
+```
+
+`RawEmailReader` + `HtmlToTextConverter` lo implementan en Infrastructure. Los **normalizadores**
+(`AmountNormalizer`, `DateNormalizer`) sí van en Application, porque es lógica pura que consume el
+adaptador directamente y no depende de ningún formato de correo.
+
 `RawEmailReader` acepta tanto un cuerpo suelto como el **fuente original** del mensaje tal y
 como lo exporta el cliente de correo. Hace falta porque eso es exactamente lo que el usuario
 pegará en el probador, y porque el cuerpo viene en base64 o quoted-printable con cabeceras MIME.
@@ -302,7 +320,8 @@ Sin esto, las regex del usuario serían imposibles de escribir.
 
 El parseo es *language-aware* porque el idioma del usuario determina el formato numérico y de
 fecha, y los dos están intercambiados entre español e inglés. `AmountNormalizer` y
-`DateNormalizer` reciben el idioma de `ILanguageProvider`:
+`DateNormalizer` (en `Application/Parsing/Normalization/`) reciben el idioma de
+`ILanguageProvider`:
 
 - es: `1.234,56` → `1234.56`
 - en: `1,234.56` → `1234.56`
