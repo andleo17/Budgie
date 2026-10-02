@@ -29,7 +29,7 @@ public class MoneyManagerMappingsTests
     [InlineData(0, TransactionType.Income)]
     [InlineData(1, TransactionType.Expense)]
     [InlineData(3, TransactionType.Transfer)]
-    [InlineData(7, TransactionType.Income)] // Income + IsInitialBalance
+    [InlineData(7, TransactionType.Income)] // Income + IsInitialBalance (en Debt el handler re-mapea a Loan)
     public void MapTransactionType_ValidDoTypes_ReturnsType(int doType, TransactionType expected)
     {
         MoneyManagerMappings.MapTransactionType(doType).Should().Be(expected);
@@ -137,7 +137,7 @@ public class MoneyManagerMappingsTests
         date.Should().Be(default);
     }
 
-    // --- MapAmount ---
+    // --- MapAmount (BUG 4: AMOUNT_ACCOUNT ya está en la moneda de la cuenta; sin doble conversión) ---
     [Fact]
     public void MapAmount_PrefersAmountAccount_ReturnsAbsolute()
     {
@@ -159,36 +159,22 @@ public class MoneyManagerMappingsTests
         MoneyManagerMappings.MapAmount(tx).Should().Be(0m);
     }
 
-    // --- GetExchangeRate ---
+    // --- TryMapAccountAmount (solo AMOUNT_ACCOUNT, para la pata de entrada de transferencias) ---
     [Fact]
-    public void GetExchangeRate_SameCurrency_ReturnsOne()
+    public void TryMapAccountAmount_Present_ReturnsAbsolute()
     {
-        var tx = Tx(amountAccount: "100", zMoney: "100", currencyUid: "PEN_PEN");
-        MoneyManagerMappings.GetExchangeRate(tx, "PEN").Should().Be(1m);
+        var tx = Tx(amountAccount: "-200.25", zMoney: "999");
+        MoneyManagerMappings.TryMapAccountAmount(tx).Should().Be(200.25m);
     }
 
-    [Fact]
-    public void GetExchangeRate_MissingIso_ReturnsOne()
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("0")]
+    public void TryMapAccountAmount_MissingOrZero_ReturnsNull(string? amountAccount)
     {
-        var tx = Tx(amountAccount: "100", zMoney: "100", currencyUid: null);
-        MoneyManagerMappings.GetExchangeRate(tx, "PEN").Should().Be(1m);
-    }
-
-    [Fact]
-    public void GetExchangeRate_DifferentCurrency_DerivesRate()
-    {
-        // AMOUNT_ACCOUNT 1.32 / ZMONEY 4.87925592 => rate ~0.27
-        var tx = Tx(amountAccount: "1.32", zMoney: "4.87925592", currencyUid: "PEN_USD");
-        var rate = MoneyManagerMappings.GetExchangeRate(tx, "PEN");
-        rate.Should().BeGreaterThan(0.2m);
-        rate.Should().BeLessThan(0.3m);
-    }
-
-    [Fact]
-    public void GetExchangeRate_DifferentCurrency_NonDerivable_ReturnsOne()
-    {
-        var tx = Tx(amountAccount: "0", zMoney: "0", currencyUid: "PEN_USD");
-        MoneyManagerMappings.GetExchangeRate(tx, "PEN").Should().Be(1m);
+        var tx = Tx(amountAccount: amountAccount);
+        MoneyManagerMappings.TryMapAccountAmount(tx).Should().BeNull();
     }
 
     // --- ExtractIso ---
@@ -211,7 +197,7 @@ public class MoneyManagerMappingsTests
         MoneyManagerMappings.ExtractIso(uid).Should().BeNull();
     }
 
-    // --- ShouldSkipAsset ---
+    // --- ShouldSkipAsset (BUG 2: el discriminante es ZDATA, no la lista de nombres) ---
     [Fact]
     public void ShouldSkipAsset_ZDataNonZero_ReturnsTrue()
     {
@@ -227,22 +213,23 @@ public class MoneyManagerMappingsTests
     }
 
     [Theory]
-    [InlineData("Cuentas")]
-    [InlineData("Tarjetas")]
-    [InlineData("Efectivo")]
-    [InlineData("11,Cuentas,2 Tarjetas")]
-    [InlineData("11")]
-    public void ShouldSkipAsset_PlaceholderName_ReturnsTrue(string name)
+    [InlineData("Cuentas", 1)]      // placeholder contenedor (ZDATA=1)
+    [InlineData("Tarjetas", 1)]
+    [InlineData("11,Cuentas,2 Tarjetas", 1)]
+    public void ShouldSkipAsset_PlaceholderNameWithZData1_ReturnsTrue(string name, int zData)
     {
-        var asset = new MmAsset("a", "1", 1, "PEN_PEN", name, 0, null);
+        var asset = new MmAsset("a", "1", 1, "PEN_PEN", name, zData, null);
         MoneyManagerMappings.ShouldSkipAsset(asset).Should().BeTrue();
     }
 
-    [Fact]
-    public void ShouldSkipAsset_ShortNumericName_ReturnsTrue()
+    [Theory]
+    [InlineData("Efectivo")]   // cuenta REAL (uid '11' en MM): ZDATA=0 → se importa
+    [InlineData("Cuentas")]    // nombre de placeholder pero ZDATA=0 → cuenta real
+    [InlineData("11")]         // nombre numérico pero ZDATA=0 → cuenta real
+    public void ShouldSkipAsset_RealAccountWithZData0_ReturnsFalse(string name)
     {
-        var asset = new MmAsset("a", "1", 1, "PEN_PEN", "2", 0, null);
-        MoneyManagerMappings.ShouldSkipAsset(asset).Should().BeTrue();
+        var asset = new MmAsset("a", "1", 11, "PEN_PEN", name, 0, null);
+        MoneyManagerMappings.ShouldSkipAsset(asset).Should().BeFalse();
     }
 
     [Fact]
@@ -252,7 +239,7 @@ public class MoneyManagerMappingsTests
         MoneyManagerMappings.ShouldSkipAsset(asset).Should().BeFalse();
     }
 
-    // --- ShouldSkipCategory ---
+    // --- ShouldSkipCategory (BUG 3: NULL/0 = activa, solo 1 = borrada) ---
     [Fact]
     public void ShouldSkipCategory_Deleted_ReturnsTrue()
     {
@@ -261,16 +248,45 @@ public class MoneyManagerMappingsTests
     }
 
     [Fact]
-    public void ShouldSkipCategory_Active_ReturnsFalse()
+    public void ShouldSkipCategory_ActiveZero_ReturnsFalse()
     {
         var cat = new MmCategory("c", "X", 1, null, 0, 0);
         MoneyManagerMappings.ShouldSkipCategory(cat).Should().BeFalse();
+    }
+
+    [Fact]
+    public void ShouldSkipCategory_ActiveNull_ReturnsFalse()
+    {
+        // Money Manager guarda C_IS_DEL = NULL para categorías activas
+        var cat = new MmCategory("c", "X", 1, null, null, 0);
+        MoneyManagerMappings.ShouldSkipCategory(cat).Should().BeFalse();
+    }
+
+    // --- IsRootCategory (BUG 3: '' / '0' / '-4' / null son raíz) ---
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("0")]
+    [InlineData("-4")]
+    public void IsRootCategory_RootValues_ReturnsTrue(string? pUid)
+    {
+        MoneyManagerMappings.IsRootCategory(pUid).Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData("cat2")]
+    [InlineData("  cat2  ")]
+    public void IsRootCategory_ChildParentUid_ReturnsFalse(string pUid)
+    {
+        MoneyManagerMappings.IsRootCategory(pUid).Should().BeFalse();
     }
 
     // --- ShouldSkipTransaction ---
     [Fact]
     public void ShouldSkipTransaction_DoType4_ReturnsTrue()
     {
+        // El espejo no es fila independiente: su AMOUNT_ACCOUNT alimenta la pata de entrada
         var tx = Tx(doType: 4);
         MoneyManagerMappings.ShouldSkipTransaction(tx).Should().BeTrue();
     }
@@ -286,9 +302,108 @@ public class MoneyManagerMappingsTests
         MoneyManagerMappings.ShouldSkipTransaction(tx).Should().BeFalse();
     }
 
+    // --- FindTransferMirror (BUG 1: emparejar DO_TYPE 3 con su espejo DO_TYPE 4) ---
+    [Fact]
+    public void FindTransferMirror_MirrorPointsToOutgoing_ByTxUidTrans()
+    {
+        var outgoing = Tx(doType: 3, assetUid: "acc1", toAssetUid: "acc2", wDate: "2025-01-10", amountAccount: "200");
+        var mirror = Tx(uid: "m1", doType: 4, assetUid: "acc2", toAssetUid: "acc1", wDate: "2025-01-10", amountAccount: "200", txUidTrans: "uid");
+        var other = Tx(uid: "noise", doType: 1, assetUid: "acc9", toAssetUid: "-4");
+
+        var found = MoneyManagerMappings.FindTransferMirror(outgoing, [mirror, other]);
+
+        found.Should().Be(mirror);
+    }
+
+    [Fact]
+    public void FindTransferMirror_SharedTxUidTrans_Matches()
+    {
+        var outgoing = Tx(doType: 3, assetUid: "acc1", toAssetUid: "acc2", wDate: "2025-01-10", amountAccount: "200", txUidTrans: "pair-1");
+        var mirror = Tx(uid: "m1", doType: 4, assetUid: "acc2", toAssetUid: "acc1", wDate: "2025-01-10", amountAccount: "350", txUidTrans: "pair-1");
+
+        var found = MoneyManagerMappings.FindTransferMirror(outgoing, [mirror]);
+
+        found.Should().Be(mirror);
+    }
+
+    [Fact]
+    public void FindTransferMirror_HeuristicFallback_MatchesInvertedPair()
+    {
+        // Backups antiguos sin TX_UID_TRANS: misma fecha, mismo importe y cuentas invertidas
+        var outgoing = Tx(doType: 3, assetUid: "acc1", toAssetUid: "acc2", wDate: "2025-01-10", amountAccount: "200");
+        var mirror = Tx(uid: "m1", doType: 4, assetUid: "acc2", toAssetUid: "acc1", wDate: "2025-01-10", amountAccount: "200");
+
+        var found = MoneyManagerMappings.FindTransferMirror(outgoing, [mirror]);
+
+        found.Should().Be(mirror);
+    }
+
+    [Fact]
+    public void FindTransferMirror_NoCandidate_ReturnsNull()
+    {
+        var outgoing = Tx(doType: 3, assetUid: "acc1", toAssetUid: "acc2", wDate: "2025-01-10", amountAccount: "200");
+
+        MoneyManagerMappings.FindTransferMirror(outgoing, []).Should().BeNull();
+    }
+
+    // --- MapCreditCardDay (BUG 6: CARD_DAY_FIN / CARD_DAY_PAY → CreditCardSettings 1..31) ---
+    [Theory]
+    [InlineData(20, 20)]
+    [InlineData(1, 1)]
+    [InlineData(31, 31)]
+    public void MapCreditCardDay_ValidDays_ReturnsDay(int day, int expected)
+    {
+        MoneyManagerMappings.MapCreditCardDay(day).Should().Be(expected);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData(0)]
+    [InlineData(-1)]
+    [InlineData(32)]
+    public void MapCreditCardDay_InvalidDays_ReturnsNull(int? day)
+    {
+        MoneyManagerMappings.MapCreditCardDay(day).Should().BeNull();
+    }
+
+    // --- GetBalanceSign (BUG 4/5: cuentas normales vs cuentas Debt) ---
+    [Theory]
+    // Cuentas normales: Income/Repayment suman; Expense/Transfer/Loan restan
+    [InlineData(AccountType.Checking, TransactionType.Income, false, 1)]
+    [InlineData(AccountType.Checking, TransactionType.Repayment, false, 1)]
+    [InlineData(AccountType.Checking, TransactionType.Expense, false, -1)]
+    [InlineData(AccountType.Checking, TransactionType.Transfer, false, -1)]
+    [InlineData(AccountType.Credit, TransactionType.Expense, false, -1)]
+    [InlineData(AccountType.Cash, TransactionType.Income, false, 1)]
+    // Saldo inicial (DO_TYPE 7) en cuenta normal: Income → suma
+    [InlineData(AccountType.Checking, TransactionType.Income, true, 1)]
+    // BUG 5: cuentas Debt — el signo se invierte (balance = "lo que se debe" en positivo):
+    // pago entrante (Repayment) REDUCE la deuda; Transfer de salida (tomar prestado) la aumenta;
+    // Income reduciría (MM: el ingreso acerca el saldo negativo a cero); Expense la aumentaría.
+    [InlineData(AccountType.Debt, TransactionType.Repayment, false, -1)]
+    [InlineData(AccountType.Debt, TransactionType.Income, false, -1)]
+    [InlineData(AccountType.Debt, TransactionType.Transfer, false, 1)]
+    [InlineData(AccountType.Debt, TransactionType.Expense, false, 1)]
+    // BUG 5: saldo inicial en cuenta Debt → "lo que se debe" siempre en positivo
+    [InlineData(AccountType.Debt, TransactionType.Loan, true, 1)]
+    [InlineData(AccountType.Debt, TransactionType.Income, true, 1)]
+    public void GetBalanceSign_AccountTypeAndType_ReturnsExpected(
+        AccountType accountType, TransactionType type, bool isInitialBalance, int expected)
+    {
+        MoneyManagerMappings.GetBalanceSign(accountType, type, isInitialBalance).Should().Be(expected);
+    }
+
     private static MmTransaction Tx(
-        string? amountAccount = "100", string? zMoney = "100", string? inZMoney = "100",
-        string? currencyUid = "PEN_PEN", int doType = 1)
-        => new("uid", "acc1", "-4", "-4", "1735689600000", "2025-01-01",
-            zMoney, inZMoney, amountAccount, currencyUid, "notes", doType, "0");
+        string? uid = "uid",
+        int doType = 1,
+        string assetUid = "acc1",
+        string toAssetUid = "-4",
+        string? wDate = "2025-01-01",
+        string? amountAccount = "100",
+        string? zMoney = "100",
+        string? inZMoney = "100",
+        string? currencyUid = "PEN_PEN",
+        string? txUidTrans = null)
+        => new(uid, assetUid, toAssetUid, "-4", "1735689600000", wDate,
+            zMoney, inZMoney, amountAccount, currencyUid, "notes", doType, "0", txUidTrans);
 }

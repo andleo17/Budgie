@@ -148,9 +148,14 @@ internal sealed class CommitMoneyManagerImportCommandHandler(
                 .OrderBy(a => ParseEpoch(a.A_Utime) ?? DateTime.MaxValue)
                 .ToList();
 
-            // Mapa ISO por uid para todas las cuentas (ExchangeRate de sus tx)
+            // Mapa ISO por uid para todas las cuentas (moneda de las transacciones) + tipo de
+            // cuenta (necesario para el signo de balance de cuentas Debt — BUG 5).
+            var assetTypeByUid = new Dictionary<string, AccountType>(StringComparer.OrdinalIgnoreCase);
             foreach (var asset in assets)
+            {
                 assetIsoByUid[asset.Uid] = MoneyManagerMappings.ExtractIso(asset.CurrencyUid) ?? "USD";
+                assetTypeByUid[asset.Uid] = MoneyManagerMappings.MapAssetGroupType(asset.GroupType);
+            }
 
             foreach (var asset in assets)
             {
@@ -162,12 +167,18 @@ internal sealed class CommitMoneyManagerImportCommandHandler(
 
                 var currencyIso = assetIsoByUid[asset.Uid];
 
-                var type = MoneyManagerMappings.MapAssetGroupType(asset.GroupType);
+                var type = assetTypeByUid[asset.Uid];
                 var createdAt = ParseEpoch(asset.A_Utime) ?? DateTime.UtcNow;
                 var controlStart = ComputeControlStartDate(asset.Uid, data, createdAt);
 
+                // BUG 6: los días de cierre/pago vienen en ASSETS.CARD_DAY_FIN / CARD_DAY_PAY
+                // (CMR Visa cierra 20/paga 30, iO Visa 25/31…). Si el backup no los trae o están
+                // fuera de rango (CreditCardSettings exige 1..31) se mantiene el default 1/1.
+                var billingCycleDay = MoneyManagerMappings.MapCreditCardDay(asset.CardDayFin) ?? 1;
+                var paymentDueDay = MoneyManagerMappings.MapCreditCardDay(asset.CardDayPay) ?? 1;
+
                 CreditCardSettings? creditSettings = type == AccountType.Credit
-                    ? new CreditCardSettings(0m, CreditConsumptionMode.Total, 1, 1, 0m, true, CurrencyCode.From(currencyIso))
+                    ? new CreditCardSettings(0m, CreditConsumptionMode.Total, billingCycleDay, paymentDueDay, 0m, true, CurrencyCode.From(currencyIso))
                     : null;
 
                 var account = Account.Create(
@@ -190,7 +201,7 @@ internal sealed class CommitMoneyManagerImportCommandHandler(
                 .Where(c => !MoneyManagerMappings.ShouldSkipCategory(c))
                 .ToList();
 
-            // Pasada 1: padres (pUid null / -4 / no presente en el lote)
+            // Pasada 1: padres (pUid raíz: null / '' / '0' / '-4' / no presente en el lote)
             foreach (var cat in activeCategories)
             {
                 if (categoryUidToId.ContainsKey(cat.Uid))
@@ -199,7 +210,7 @@ internal sealed class CommitMoneyManagerImportCommandHandler(
                     continue;
                 }
 
-                var isParent = string.IsNullOrWhiteSpace(cat.PUid) || cat.PUid == "-4"
+                var isParent = MoneyManagerMappings.IsRootCategory(cat.PUid)
                     || !activeCategories.Any(c => string.Equals(c.Uid, cat.PUid, StringComparison.OrdinalIgnoreCase));
                 if (!isParent)
                     continue; // se crea en la pasada 2
@@ -221,9 +232,9 @@ internal sealed class CommitMoneyManagerImportCommandHandler(
                     continue;
 
                 Guid? parentId = null;
-                if (!string.IsNullOrWhiteSpace(cat.PUid) && cat.PUid != "-4")
+                if (!MoneyManagerMappings.IsRootCategory(cat.PUid))
                 {
-                    if (categoryUidToId.TryGetValue(cat.PUid, out var pid))
+                    if (categoryUidToId.TryGetValue(cat.PUid!, out var pid))
                         parentId = pid;
                     else
                         warnings.Add($"Category '{cat.Name}' references missing parent '{cat.PUid}' — parent left empty.");
@@ -238,11 +249,15 @@ internal sealed class CommitMoneyManagerImportCommandHandler(
                 createdCategories++;
             }
 
-            // (d) Transactions (dedup DO_TYPE 4, resolver cuentas/categorías, IsInitialBalance, ExchangeRate)
+            // (d) Transactions — BUG 1: cada transferencia DO_TYPE 3 genera DOS transacciones
+            // enlazadas (salida Type=Transfer + entrada Type=Income con SystemCategoryIds.Transfer).
+            // Las filas DO_TYPE 4 son los espejos: no se importan como fila independiente, pero su
+            // AMOUNT_ACCOUNT (ya en la moneda de la cuenta destino) alimenta la pata de ENTRADA.
             var seenTxUids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var txsToInsert = new List<Transaction>();
+            var mirrors = data.Transactions.Where(t => t.DoType == 4).ToList();
             var ordered = data.Transactions
-                .Where(t => !MoneyManagerMappings.ShouldSkipTransaction(t)) // DO_TYPE 4 = espejo transfer
+                .Where(t => !MoneyManagerMappings.ShouldSkipTransaction(t))
                 .OrderBy(t => TryParseDateOrMax(t.WDate, t.ZDate))
                 .ThenBy(t => t.WDate)
                 .ToList();
@@ -303,27 +318,77 @@ internal sealed class CommitMoneyManagerImportCommandHandler(
                     continue;
                 }
 
-                var accountIso = assetIsoByUid.TryGetValue(mmTx.AssetUid, out var iso) ? iso : null;
-                var currency = MoneyManagerMappings.ExtractIso(mmTx.CurrencyUid) ?? accountIso ?? "USD";
-                var exchangeRate = accountIso is null
-                    ? 1m
-                    : MoneyManagerMappings.GetExchangeRate(mmTx, accountIso);
-
-                var notes = Truncate(mmTx.ZContent?.Trim(), MaxNotesLength);
+                // BUG 4: AMOUNT_ACCOUNT ya está expresado en la moneda de la cuenta → la
+                // transacción se importa SIEMPRE en la moneda de la cuenta con ExchangeRate=1
+                // (antes se aplicaba una tasa derivada de AMOUNT_ACCOUNT/ZMONEY: doble conversión).
+                var accountIso = assetIsoByUid[mmTx.AssetUid];
+                var accountType = assetTypeByUid.TryGetValue(mmTx.AssetUid, out var originType)
+                    ? originType
+                    : AccountType.Checking;
                 var isInitialBalance = MoneyManagerMappings.IsInitialBalance(mmTx.DoType);
+                var notes = Truncate(mmTx.ZContent?.Trim(), MaxNotesLength);
 
-                var txEntity = Transaction.Create(
-                    userId, accountId, categoryId, amount, currency, exchangeRate,
-                    date, notes, type, installments: 1, isInitialBalance: isInitialBalance);
-                txEntity.ExternalUid = mmTx.Uid;
+                // BUG 5: el saldo inicial (DO_TYPE 7) de una cuenta Debt viene NEGATIVO en MM
+                // (cuenta normal con saldo negativo); en Budgie la cuenta Debt guarda en positivo
+                // "lo que se debe" → se registra como Loan con importe positivo, no como ingreso.
+                if (isInitialBalance && accountType == AccountType.Debt)
+                    type = TransactionType.Loan;
 
-                txsToInsert.Add(txEntity);
-                seenTxUids.Add(mmTx.Uid);
+                if (type == TransactionType.Transfer)
+                {
+                    // Transferencia real: DOS patas enlazadas con el MISMO LinkedTransactionId.
+                    var linkedId = Guid.NewGuid();
 
-                // Balance provisional: Income/InitialBalance suma, Expense/Transfer resta (en moneda de cuenta)
-                var sign = type is TransactionType.Income ? +1m : -1m;
-                if (accountBalances.ContainsKey(accountId))
-                    accountBalances[accountId] += amount * sign;
+                    TrackTransaction(txsToInsert, seenTxUids, accountBalances,
+                        Transaction.Create(userId, accountId, SystemCategoryIds.Transfer, amount, accountIso, 1m,
+                            date, notes, TransactionType.Transfer, installments: 1, linkedTransactionId: linkedId),
+                        mmTx.Uid, accountType);
+
+                    if (accountUidToId.TryGetValue(mmTx.ToAssetUid, out var toAccountId))
+                    {
+                        var mirror = MoneyManagerMappings.FindTransferMirror(mmTx, mirrors);
+                        var toIso = assetIsoByUid[mmTx.ToAssetUid];
+                        var toType = assetTypeByUid.TryGetValue(mmTx.ToAssetUid, out var destinationType)
+                            ? destinationType
+                            : AccountType.Checking;
+
+                        // Importe de la ENTRADA: AMOUNT_ACCOUNT del espejo DO_TYPE=4 (ya en la
+                        // moneda de la cuenta destino), no IN_ZMONEY (va en la moneda de la
+                        // transacción). Sin espejo → importe de la salida como mejor esfuerzo.
+                        var incomingAmount = mirror is not null ? MoneyManagerMappings.TryMapAccountAmount(mirror) : null;
+                        if (incomingAmount is null)
+                        {
+                            incomingAmount = amount;
+                            warnings.Add($"Transfer '{mmTx.Uid}' has no usable mirror row — incoming leg uses the outgoing amount.");
+                        }
+
+                        // BUG 5: una transferencia ENTRANTE a una cuenta de deuda (pago de cuota)
+                        // debe REDUCIR el saldo de la deuda → Repayment (signo invertido en Debt),
+                        // no Income, que la crecería.
+                        var incomingType = toType == AccountType.Debt ? TransactionType.Repayment : TransactionType.Income;
+
+                        var incomingExternalUid = mirror is not null && !string.IsNullOrWhiteSpace(mirror.Uid)
+                            ? mirror.Uid
+                            : $"{mmTx.Uid}:in";
+
+                        TrackTransaction(txsToInsert, seenTxUids, accountBalances,
+                            Transaction.Create(userId, toAccountId, SystemCategoryIds.Transfer, incomingAmount.Value, toIso, 1m,
+                                date, notes, incomingType, installments: 1, linkedTransactionId: linkedId),
+                            incomingExternalUid, toType);
+                    }
+                    else
+                    {
+                        warnings.Add($"Transfer '{mmTx.Uid}' references missing account '{mmTx.ToAssetUid}' — incoming leg skipped.");
+                    }
+
+                    continue;
+                }
+
+                // Transacción única (income / expense / saldo inicial)
+                TrackTransaction(txsToInsert, seenTxUids, accountBalances,
+                    Transaction.Create(userId, accountId, categoryId, amount, accountIso, 1m,
+                        date, notes, type, installments: 1, isInitialBalance: isInitialBalance),
+                    mmTx.Uid, accountType);
             }
 
             createdTransactions = txsToInsert.Count;
@@ -541,6 +606,26 @@ internal sealed class CommitMoneyManagerImportCommandHandler(
         return false;
     }
 
+    // Añade una transacción importada al lote, registra su ExternalUid para idempotencia y
+    // aplica el signo de balance según el tipo de cuenta (cuentas Debt invierten el signo —
+    // BUG 5; saldo inicial en Debt siempre suma "lo que se debe").
+    private static void TrackTransaction(
+        List<Transaction> txsToInsert,
+        HashSet<string> seenTxUids,
+        Dictionary<Guid, decimal> accountBalances,
+        Transaction tx,
+        string externalUid,
+        AccountType accountType)
+    {
+        tx.ExternalUid = externalUid;
+        txsToInsert.Add(tx);
+        seenTxUids.Add(externalUid);
+
+        var sign = MoneyManagerMappings.GetBalanceSign(accountType, tx.Type, tx.IsInitialBalance);
+        if (accountBalances.ContainsKey(tx.AccountId))
+            accountBalances[tx.AccountId] += tx.Amount.Amount * sign;
+    }
+
     private static string? Truncate(string? value, int max)
         => value is null ? null : (value.Length <= max ? value : value[..max]);
 
@@ -554,7 +639,7 @@ internal sealed class CommitMoneyManagerImportCommandHandler(
         var amounts = new Dictionary<string, (decimal Max, int Count)>(StringComparer.OrdinalIgnoreCase);
         foreach (var ba in data.BudgetAmounts)
         {
-            if (!budgetTarget.TryGetValue(ba.BudgetUid, out var targetUid) || targetUid == "-4")
+            if (!budgetTarget.TryGetValue(ba.BudgetUid, out var targetUid) || MoneyManagerMappings.IsRootCategory(targetUid))
                 continue;
 
             if (!amounts.TryGetValue(targetUid, out var cur))

@@ -6,7 +6,9 @@ public sealed record MmCurrency(string Iso, decimal Rate, bool IsMain);
 // ASSETGROUP — grupos de cuenta (TYPE → AccountType)
 public sealed record MmAssetGroup(int Type, string Name);
 
-// ASSETS — cuentas reales (ZDATA=0) + placeholders (ZDATA=1) filtrados en mappings
+// ASSETS — cuentas reales (ZDATA=0) + placeholders/contenedores (ZDATA=1) filtrados en mappings.
+// CardDayFin/CardDayPay: ASSETS.CARD_DAY_FIN / CARD_DAY_PAY (solo cuentas de crédito; ausentes en
+// backups antiguos → null y el caller aplica el default).
 public sealed record MmAsset(
     string Uid,
     string GroupUid,
@@ -14,18 +16,25 @@ public sealed record MmAsset(
     string CurrencyUid,
     string NicName,
     int ZData,
-    string? A_Utime);
+    string? A_Utime,
+    int? CardDayFin = null,
+    int? CardDayPay = null);
 
-// ZCATEGORY — categorías jerárquicas
+// ZCATEGORY — categorías jerárquicas.
+// C_Is_Del es tri-estado como en Money Manager: NULL y 0 = categoría activa, 1 = borrada.
+// El parser preserva el NULL (no lo normaliza a 0) para que ShouldSkipCategory solo excluya
+// explícitamente las borradas.
 public sealed record MmCategory(
     string Uid,
     string Name,
     int Type,
     string? PUid,
-    int C_Is_Del,
+    int? C_Is_Del,
     int Status);
 
-// INOUTCOME — transacciones (DO_TYPE 0/1/3/4/7)
+// INOUTCOME — transacciones (DO_TYPE 0/1/3/4/7).
+// TxUidTrans: INOUTCOME.TX_UID_TRANS — enlaza el par de transferencia DO_TYPE=3 (salida) /
+// DO_TYPE=4 (espejo de entrada). Ausente en backups antiguos → null (matching heurístico).
 public sealed record MmTransaction(
     string Uid,
     string AssetUid,
@@ -39,7 +48,8 @@ public sealed record MmTransaction(
     string? CurrencyUid,
     string? ZContent,
     int DoType,
-    string? Mark);
+    string? Mark,
+    string? TxUidTrans = null);
 
 // BUDGET — cabecera (uid = "{targetUid}_1_0_0_6", PERIOD_TYPE=6 mensual)
 public sealed record MmBudget(string Uid, string TargetUid);

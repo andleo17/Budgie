@@ -174,4 +174,64 @@ public class MoneyManagerSqliteParserTests
             Directory.Delete(dir, recursive: true);
         }
     }
+
+    [Fact]
+    public async Task ParseAsync_BackupWithoutOptionalColumns_ParsesWithNullExtras()
+    {
+        // Backups antiguos/fabricados sin CARD_DAY_* ni TX_UID_TRANS: el parser no falla
+        var dir = TestData.CreateTempDir();
+        try
+        {
+            var path = TestData.CreateValidBackup(dir);
+
+            var data = await _parser.ParseAsync(path, CancellationToken.None);
+
+            data.Assets.Single().CardDayFin.Should().BeNull();
+            data.Assets.Single().CardDayPay.Should().BeNull();
+            data.Transactions.Single().TxUidTrans.Should().BeNull();
+            // C_IS_DEL = 0 en el backup legacy → activa (0 y NULL significan activa)
+            data.Categories.Single().C_Is_Del.Should().Be(0);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task ParseAsync_BackupWithMmColumns_ReadsCardDaysTxUidTransAndTriState()
+    {
+        var dir = TestData.CreateTempDir();
+        try
+        {
+            var path = TestData.CreateBackupWithMmColumns(dir);
+
+            var data = await _parser.ParseAsync(path, CancellationToken.None);
+
+            // ASSETS.CARD_DAY_FIN / CARD_DAY_PAY
+            var credit = data.Assets.Single(a => a.Uid == "acc2");
+            credit.CardDayFin.Should().Be(20);
+            credit.CardDayPay.Should().Be(30);
+            data.Assets.Single(a => a.Uid == "acc1").CardDayFin.Should().BeNull();
+
+            // ZDATA: '11' Efectivo y 'ph1' Cuentas se parsean; el filtro es en mappings
+            data.Assets.Should().HaveCount(4);
+
+            // INOUTCOME.TX_UID_TRANS empareja el par transfer 3/4
+            var outgoing = data.Transactions.Single(t => t.Uid == "tx-out");
+            var mirror = data.Transactions.Single(t => t.Uid == "tx-in");
+            outgoing.DoType.Should().Be(3);
+            outgoing.TxUidTrans.Should().Be("pair-1");
+            mirror.DoType.Should().Be(4);
+            mirror.TxUidTrans.Should().Be("pair-1");
+
+            // C_IS_DEL tri-estado: NULL = activa, 1 = borrada
+            data.Categories.Single(c => c.Uid == "cat1").C_Is_Del.Should().BeNull();
+            data.Categories.Single(c => c.Uid == "cat2").C_Is_Del.Should().Be(1);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
 }

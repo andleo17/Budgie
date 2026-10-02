@@ -180,7 +180,7 @@ internal sealed class PreviewMoneyManagerImportCommandHandler(
         foreach (var cat in activeCategories)
         {
             string? parentUid = cat.PUid;
-            if (!string.IsNullOrWhiteSpace(cat.PUid) && cat.PUid != "-4" && !categoryUidSet.Contains(cat.PUid))
+            if (!MoneyManagerMappings.IsRootCategory(cat.PUid) && !categoryUidSet.Contains(cat.PUid!))
             {
                 warnings.Add($"Category '{cat.Name}' references missing parent '{cat.PUid}' — parent left empty.");
                 parentUid = null; // pUid huérfano → ParentId null
@@ -242,20 +242,12 @@ internal sealed class PreviewMoneyManagerImportCommandHandler(
 
         var allAssetUids = new HashSet<string>(data.Assets.Select(a => a.Uid), StringComparer.OrdinalIgnoreCase);
 
-        // Espejos DO_TYPE 4: clave invertida (WDATE, ZMONEY, toAssetUid, assetUid)
-        var mirrorKeys = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var tx in data.Transactions)
-        {
-            if (tx.DoType != 4 || tx.ToAssetUid == "-4") continue;
-            var amount = MoneyManagerMappings.MapAmount(tx);
-            mirrorKeys.Add(BuildTransferKey(tx.WDate, amount, tx.ToAssetUid, tx.AssetUid));
-        }
-
         foreach (var tx in data.Transactions)
         {
             if (tx.DoType == 4)
             {
-                // Espejo de transfer → se deduplica (solo si es un transfer real)
+                // Espejo de transfer → se deduplica (el DO_TYPE 3 canónico crea la pareja
+                // salida+entrada; el espejo solo aporta el importe de la entrada)
                 if (tx.ToAssetUid != "-4") dedupedTransfers++;
                 continue;
             }
@@ -275,14 +267,15 @@ internal sealed class PreviewMoneyManagerImportCommandHandler(
                     warnings.Add($"Transaction '{tx.Uid}' has future date {date:yyyy-MM-dd}.");
             }
 
-            // ExchangeRate fallback warning (currency mismatch sin rate derivable)
+            // Aviso de moneda: AMOUNT_ACCOUNT ya viene convertido a la moneda de la cuenta, así
+            // que la transacción se importa en la moneda de la cuenta (ExchangeRate=1); si la
+            // moneda de la transacción difiere de la de la cuenta, MM hizo la conversión.
             var accountIso = assetCurrencyByUid.TryGetValue(tx.AssetUid, out var iso) ? iso : null;
             var txIso = MoneyManagerMappings.ExtractIso(tx.CurrencyUid);
             if (!string.IsNullOrWhiteSpace(txIso) && !string.IsNullOrWhiteSpace(accountIso)
-                && !string.Equals(txIso, accountIso, StringComparison.OrdinalIgnoreCase)
-                && MoneyManagerMappings.GetExchangeRate(tx, accountIso) <= 1m)
+                && !string.Equals(txIso, accountIso, StringComparison.OrdinalIgnoreCase))
             {
-                warnings.Add($"Transaction '{tx.Uid}' uses currency {txIso} but its account is {accountIso} — exchange rate could not be derived, using 1.");
+                warnings.Add($"Transaction '{tx.Uid}' uses currency {txIso} but its account is {accountIso} — imported in the account currency.");
             }
 
             switch (type)
@@ -302,17 +295,9 @@ internal sealed class PreviewMoneyManagerImportCommandHandler(
                     }
                     else
                     {
-                        var amount = MoneyManagerMappings.MapAmount(tx);
-                        var key = BuildTransferKey(tx.WDate, amount, tx.AssetUid, tx.ToAssetUid);
-                        if (mirrorKeys.Contains(key))
-                        {
-                            // Par espejo encontrado → no duplicar (ya contado vía DO_TYPE 4 dedup)
-                            transfer++;
-                        }
-                        else
-                        {
-                            transfer++;
-                        }
+                        // Transferencia real: cuenta 1 (el commit crea la pareja salida+entrada
+                        // DO_TYPE 3/4 enlazadas por LinkedTransactionId)
+                        transfer++;
                     }
                     break;
             }
@@ -326,10 +311,6 @@ internal sealed class PreviewMoneyManagerImportCommandHandler(
         return new PreviewTransactionsSummary(income, expense, transfer, initialBalance, total, dedupedTransfers, dateRange);
     }
 
-    // Clave de agrupación de transfer (WDATE, ZMONEY, assetUid, toAssetUid)
-    private static string BuildTransferKey(string? wdate, decimal amount, string assetUid, string toAssetUid)
-        => $"{wdate?.Trim()}|{amount.ToString(CultureInfo.InvariantCulture)}|{assetUid}|{toAssetUid}";
-
     // BUDGET_AMOUNT join BUDGET.targetUid → MonthlyBudget max por categoría (warning si múltiple)
     private static Dictionary<string, decimal> BuildMonthlyBudgets(MmImportData data, List<string> warnings)
     {
@@ -340,7 +321,7 @@ internal sealed class PreviewMoneyManagerImportCommandHandler(
         var amounts = new Dictionary<string, (decimal Max, int Count)>(StringComparer.OrdinalIgnoreCase);
         foreach (var ba in data.BudgetAmounts)
         {
-            if (!budgetTarget.TryGetValue(ba.BudgetUid, out var targetUid) || targetUid == "-4")
+            if (!budgetTarget.TryGetValue(ba.BudgetUid, out var targetUid) || MoneyManagerMappings.IsRootCategory(targetUid))
                 continue;
 
             if (!amounts.TryGetValue(targetUid, out var cur))

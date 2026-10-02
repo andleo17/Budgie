@@ -67,6 +67,51 @@ internal static class TestData
         return path;
     }
 
+    /// <summary>
+    /// Creates a backup shaped like a real Money Manager export: optional columns
+    /// CARD_DAY_FIN / CARD_DAY_PAY (ASSETS) and TX_UID_TRANS (INOUTCOME), C_IS_DEL = NULL
+    /// for active categories and a transfer pair DO_TYPE 3/4 linked by TX_UID_TRANS.
+    /// </summary>
+    public static string CreateBackupWithMmColumns(string dir, string name = "mm-extras.mmbak")
+    {
+        var path = Path.Combine(dir, name);
+        var cs = new SqliteConnectionStringBuilder { DataSource = path }.ToString();
+
+        using var conn = new SqliteConnection(cs);
+        conn.Open();
+
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = """
+                CREATE TABLE CURRENCY (ISO VARCHAR, RATE REAL, IS_MAIN_CURRENCY INTEGER, IS_DEL INTEGER);
+                CREATE TABLE ASSETGROUP (uid TEXT, ACC_GROUP_NAME VARCHAR, TYPE INTEGER, IS_DEL INTEGER);
+                CREATE TABLE ASSETS (uid TEXT, groupUid TEXT, currencyUid TEXT, NIC_NAME VARCHAR, ZDATA VARCHAR, A_UTIME INTEGER, CARD_DAY_FIN INTEGER, CARD_DAY_PAY INTEGER);
+                CREATE TABLE ZCATEGORY (uid TEXT, NAME VARCHAR, TYPE INTEGER, pUid TEXT, C_IS_DEL INTEGER, STATUS INTEGER);
+                CREATE TABLE INOUTCOME (uid TEXT, assetUid TEXT, toAssetUid TEXT, ctgUid TEXT, ZDATE VARCHAR, WDATE VARCHAR, ZMONEY VARCHAR, IN_ZMONEY VARCHAR, AMOUNT_ACCOUNT REAL, currencyUid TEXT, ZCONTENT VARCHAR, DO_TYPE VARCHAR, MARK INTEGER, IS_DEL INTEGER, TX_UID_TRANS VARCHAR);
+                CREATE TABLE BUDGET (uid TEXT, targetUid TEXT, IS_DEL INTEGER);
+                CREATE TABLE BUDGET_AMOUNT (budgetUid TEXT, AMOUNT REAL, IS_DEL INTEGER);
+                CREATE TABLE REPEATTRANSACTION (uid TEXT, assetUid TEXT, toAssetUid TEXT, ctgUid TEXT, currencyUid TEXT, AMOUNT_SUB REAL, DO_TYPE INTEGER, REPEAT_TYPE INTEGER, NEXT_DATE INTEGER, MEMO VARCHAR, IS_DEL INTEGER);
+                INSERT INTO CURRENCY (ISO, RATE, IS_MAIN_CURRENCY, IS_DEL) VALUES ('PEN_PEN', 1.0, 1, 0);
+                INSERT INTO ASSETGROUP (uid, ACC_GROUP_NAME, TYPE, IS_DEL) VALUES ('1', 'Cuentas', 1, 0), ('2', 'Tarjetas de crédito', 2, 0);
+                INSERT INTO ASSETS (uid, groupUid, currencyUid, NIC_NAME, ZDATA, A_UTIME, CARD_DAY_FIN, CARD_DAY_PAY) VALUES
+                    ('acc1', '1', 'PEN_PEN', 'Cuenta Corriente', '0', 1735689600000, NULL, NULL),
+                    ('acc2', '2', 'PEN_PEN', 'CMR Visa', '0', 1735690000000, 20, 30),
+                    ('11', '1', 'PEN_PEN', 'Efectivo', '0', 1735680000000, NULL, NULL),
+                    ('ph1', '1', 'PEN_PEN', 'Cuentas', '1', 1735680000000, NULL, NULL);
+                INSERT INTO ZCATEGORY (uid, NAME, TYPE, pUid, C_IS_DEL, STATUS) VALUES
+                    ('cat1', 'Ingresos', 0, '', NULL, 0),
+                    ('cat2', 'Comida', 1, '0', 1, 0);
+                INSERT INTO INOUTCOME (uid, assetUid, toAssetUid, ctgUid, ZDATE, WDATE, ZMONEY, IN_ZMONEY, AMOUNT_ACCOUNT, currencyUid, ZCONTENT, DO_TYPE, MARK, IS_DEL, TX_UID_TRANS) VALUES
+                    ('tx-out', 'acc1', 'acc2', '-4', '1736467200000', '2025-01-10', '200', '200', 200, 'PEN_PEN', 'Transfer', '3', 0, 0, 'pair-1'),
+                    ('tx-in', 'acc2', 'acc1', '-4', '1736467200000', '2025-01-10', '200', '200', 200, 'PEN_PEN', 'Transfer', '4', 0, 0, 'pair-1');
+                """;
+            cmd.ExecuteNonQuery();
+        }
+
+        conn.Close();
+        return path;
+    }
+
     /// <summary>SQLite header magic "SQLite format 3\0".</summary>
     public static byte[] SqliteMagic => "SQLite format 3\0"u8.ToArray();
 }

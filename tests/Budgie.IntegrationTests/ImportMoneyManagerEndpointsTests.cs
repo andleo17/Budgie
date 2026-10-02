@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using Budgie.Modules.Finances.Domain.Categories;
 using Dapper;
 using FluentAssertions;
 using Npgsql;
@@ -14,6 +15,8 @@ namespace Budgie.IntegrationTests;
 //   2 accounts (acc1 Checking PEN, acc2 Credit PEN) + 1 placeholder skipped
 //   5 active categories (3 parents + 2 children) + 1 deleted skipped
 //   10 transactions: 3 income (1 initial balance), 5 expense, 1 transfer pair (3+4)
+//   → el commit crea 10 filas: 8 sueltas + la pareja de transferencia (salida Transfer
+//     en acc1 + entrada Income en acc2, enlazadas por LinkedTransactionId)
 //   1 budget (cat4 = 300) and 1 monthly recurring income.
 public class ImportMoneyManagerEndpointsTests : IClassFixture<BudgieWebApplicationFactory>
 {
@@ -93,7 +96,8 @@ public class ImportMoneyManagerEndpointsTests : IClassFixture<BudgieWebApplicati
         first!.CreatedAccounts.Should().Be(2);
         first.SkippedAccounts.Should().Be(0);
         first.CreatedCategories.Should().Be(5);
-        first.CreatedTransactions.Should().Be(9);
+        // 8 transacciones sueltas + 2 patas de la transferencia (salida + entrada enlazadas)
+        first.CreatedTransactions.Should().Be(10);
         first.SkippedTransactions.Should().Be(0);
         first.CreatedRecurring.Should().Be(1);
         first.FileHash.Should().NotBeNullOrWhiteSpace();
@@ -114,6 +118,7 @@ public class ImportMoneyManagerEndpointsTests : IClassFixture<BudgieWebApplicati
         second.CreatedCategories.Should().Be(0);
         second.SkippedCategories.Should().Be(5);
         second.CreatedTransactions.Should().Be(0);
+        // 9 filas MM procesadas (8 sueltas + DO_TYPE 3); el espejo DO_TYPE 4 no es fila independiente
         second.SkippedTransactions.Should().Be(9);
         second.CreatedRecurring.Should().Be(0); // recurrencias idempotentes por ExternalUid
 
@@ -187,7 +192,8 @@ public class ImportMoneyManagerEndpointsTests : IClassFixture<BudgieWebApplicati
         await using var conn = new NpgsqlConnection(_factory.GetContainerConnectionString());
         await conn.OpenAsync();
 
-        // Accounts: 2 with ExternalUid, balances 1320 (acc1) and -45 (acc2)
+        // Accounts: 2 with ExternalUid. acc1 = 1000+500-50-20-200-10+100 = 1320;
+        // acc2 = -30-15+200 (pata de ENTRADA de la transferencia, BUG 1) = 155
         var accounts = (await conn.QueryAsync<AccountRow>(
             @"SELECT ""Id"",""ExternalUid"",""Balance"",""Type"" FROM ""Accounts"" WHERE ""UserId"" = @UserId ORDER BY ""ExternalUid""",
             new { UserId = userId })).ToList();
@@ -196,7 +202,7 @@ public class ImportMoneyManagerEndpointsTests : IClassFixture<BudgieWebApplicati
         accounts[0].Balance.Should().Be(1320m);
         accounts[0].Type.Should().Be(0); // Checking
         accounts[1].ExternalUid.Should().Be("acc2");
-        accounts[1].Balance.Should().Be(-45m);
+        accounts[1].Balance.Should().Be(155m);
         accounts[1].Type.Should().Be(2); // Credit
 
         // Categories: 5, children resolve ParentId, MonthlyBudget for cat4
@@ -212,14 +218,32 @@ public class ImportMoneyManagerEndpointsTests : IClassFixture<BudgieWebApplicati
         cat5.ParentId.Should().Be(cat4.Id);
         cat4.MonthlyBudget.Should().Be(300m);
 
-        // Transactions: 9 created, 1 initial balance, 1 transfer, orphan category null
+        // Transactions: 10 created (8 sueltas + pareja transfer), 1 initial balance,
+        // 1 Transfer (salida), 1 Income de entrada enlazada, orphan category null
         var txs = (await conn.QueryAsync<TransactionRow>(
-            @"SELECT ""Id"",""ExternalUid"",""CategoryId"",""IsInitialBalance"",""Type"" FROM ""Transactions"" WHERE ""UserId"" = @UserId",
+            @"SELECT ""Id"",""ExternalUid"",""CategoryId"",""IsInitialBalance"",""Type"",""LinkedTransactionId"",""AccountId"",""Amount"" FROM ""Transactions"" WHERE ""UserId"" = @UserId",
             new { UserId = userId })).ToList();
-        txs.Should().HaveCount(9);
+        txs.Should().HaveCount(10);
         txs.Count(t => t.IsInitialBalance).Should().Be(1);
-        txs.Count(t => t.Type == 2).Should().Be(1); // Transfer
+        txs.Count(t => t.Type == 2).Should().Be(1); // Transfer (salida)
         txs.Single(t => t.ExternalUid == "tx9").CategoryId.Should().BeNull(); // orphan category
+
+        // BUG 1: la transferencia DO_TYPE 3/4 genera DOS transacciones enlazadas con el mismo
+        // LinkedTransactionId — salida (Transfer, acc1) + entrada (Income, acc2) con la
+        // categoría de sistema Transfer y el importe del espejo (AMOUNT_ACCOUNT).
+        var acc1Id = accounts.Single(a => a.ExternalUid == "acc1").Id;
+        var acc2Id = accounts.Single(a => a.ExternalUid == "acc2").Id;
+        var outgoing = txs.Single(t => t.ExternalUid == "tx7");
+        var incoming = txs.Single(t => t.ExternalUid == "tx8");
+        outgoing.Type.Should().Be(2);
+        outgoing.AccountId.Should().Be(acc1Id);
+        outgoing.Amount.Should().Be(200m);
+        incoming.Type.Should().Be(0); // Income en la cuenta destino (TransactionType.Income = 0)
+        incoming.AccountId.Should().Be(acc2Id);
+        incoming.Amount.Should().Be(200m);
+        incoming.CategoryId.Should().Be(SystemCategoryIds.Transfer);
+        outgoing.LinkedTransactionId.Should().NotBeNull();
+        incoming.LinkedTransactionId.Should().Be(outgoing.LinkedTransactionId);
 
         // ImportRuns: exactly 1 for this hash (ImportRun.Create stores the hash lowercase)
         var runs = (await conn.QueryAsync<Guid>(
@@ -252,5 +276,7 @@ public class ImportMoneyManagerEndpointsTests : IClassFixture<BudgieWebApplicati
     private record AccountDto(Guid Id, string Name, decimal Balance, string Currency);
     private record AccountRow(Guid Id, string ExternalUid, decimal Balance, int Type);
     private record CategoryRow(Guid Id, string ExternalUid, Guid? ParentId, decimal? MonthlyBudget);
-    private record TransactionRow(Guid Id, string ExternalUid, Guid? CategoryId, bool IsInitialBalance, int Type);
+    private record TransactionRow(
+        Guid Id, string ExternalUid, Guid? CategoryId, bool IsInitialBalance, int Type,
+        Guid? LinkedTransactionId, Guid AccountId, decimal Amount);
 }

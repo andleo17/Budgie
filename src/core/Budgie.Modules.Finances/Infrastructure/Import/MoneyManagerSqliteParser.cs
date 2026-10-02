@@ -270,9 +270,21 @@ internal sealed class MoneyManagerSqliteParser(ILogger<MoneyManagerSqliteParser>
             // Leave map empty, will default to Checking (0)
         }
 
+        // CARD_DAY_FIN / CARD_DAY_PAY solo existen en backups de Money Manager con tarjetas de
+        // crédito; en backups antiguos/fabricados la columna no está → se leen como null.
+        var columns = await GetColumnsAsync(connection, "ASSETS", ct);
+        var cardFinColumn = FindColumn(columns, "CARD_DAY_FIN", "CARDDAYFIN");
+        var cardPayColumn = FindColumn(columns, "CARD_DAY_PAY", "CARDDAYPAY");
+
         var result = new List<MmAsset>();
         await using var cmd = connection.CreateCommand();
-        cmd.CommandText = "SELECT \"uid\", \"groupUid\", \"currencyUid\", \"NIC_NAME\", \"ZDATA\", \"A_UTIME\" FROM \"ASSETS\"";
+        cmd.CommandText = "SELECT \"uid\", \"groupUid\", \"currencyUid\", \"NIC_NAME\", \"ZDATA\", \"A_UTIME\""
+            + (cardFinColumn is null ? string.Empty : $", \"{cardFinColumn}\"")
+            + (cardPayColumn is null ? string.Empty : $", \"{cardPayColumn}\"")
+            + " FROM \"ASSETS\"";
+
+        var cardFinOrdinal = cardFinColumn is null ? -1 : 6;
+        var cardPayOrdinal = cardPayColumn is null ? -1 : cardFinColumn is null ? 6 : 7;
 
         await using var reader = await cmd.ExecuteReaderAsync(ct);
         while (await reader.ReadAsync(ct))
@@ -286,6 +298,8 @@ internal sealed class MoneyManagerSqliteParser(ILogger<MoneyManagerSqliteParser>
             var nicName = SafeGetString(reader, 3) ?? string.Empty;
             var zdataRaw = SafeGetString(reader, 4);
             var aUtimeRaw = reader.IsDBNull(5) ? null : Convert.ToString(reader.GetValue(5), CultureInfo.InvariantCulture);
+            var cardFin = cardFinOrdinal >= 0 && !reader.IsDBNull(cardFinOrdinal) ? SafeGetInt(reader, cardFinOrdinal) : (int?)null;
+            var cardPay = cardPayOrdinal >= 0 && !reader.IsDBNull(cardPayOrdinal) ? SafeGetInt(reader, cardPayOrdinal) : (int?)null;
 
             var zdata = 0;
             if (!string.IsNullOrWhiteSpace(zdataRaw) && int.TryParse(zdataRaw.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var zd))
@@ -301,7 +315,7 @@ internal sealed class MoneyManagerSqliteParser(ILogger<MoneyManagerSqliteParser>
 
             var groupType = groupTypeMap.TryGetValue(groupUid, out var gt) ? gt : 0;
 
-            result.Add(new MmAsset(uid, groupUid, groupType, currencyUid, nicName, zdata, aUtimeRaw));
+            result.Add(new MmAsset(uid, groupUid, groupType, currencyUid, nicName, zdata, aUtimeRaw, cardFin, cardPay));
         }
 
         return result;
@@ -325,7 +339,9 @@ internal sealed class MoneyManagerSqliteParser(ILogger<MoneyManagerSqliteParser>
             var pUid = SafeGetString(reader, 3);
             if (string.IsNullOrWhiteSpace(pUid))
                 pUid = null;
-            var cIsDel = SafeGetInt(reader, 4);
+            // Tri-estado C_IS_DEL: NULL = activa (Money Manager lo guarda NULL para categorías
+            // activas), 0 = activa, 1 = borrada. Se preserva el NULL (no se normaliza a 0).
+            var cIsDel = reader.IsDBNull(4) ? (int?)null : SafeGetInt(reader, 4);
             var status = SafeGetInt(reader, 5);
 
             result.Add(new MmCategory(uid, name, type, pUid, cIsDel, status));
@@ -336,9 +352,16 @@ internal sealed class MoneyManagerSqliteParser(ILogger<MoneyManagerSqliteParser>
 
     private static async Task<IReadOnlyList<MmTransaction>> ReadTransactionsAsync(SqliteConnection connection, CancellationToken ct)
     {
+        // TX_UID_TRANS enlaza el par de transferencia DO_TYPE 3/4; opcional en backups antiguos.
+        var columns = await GetColumnsAsync(connection, "INOUTCOME", ct);
+        var txUidTransColumn = FindColumn(columns, "TX_UID_TRANS", "TXUIDTRANS");
+        var txUidTransOrdinal = txUidTransColumn is null ? -1 : 14;
+
         var result = new List<MmTransaction>();
         await using var cmd = connection.CreateCommand();
-        cmd.CommandText = "SELECT \"uid\", \"assetUid\", \"toAssetUid\", \"ctgUid\", \"ZDATE\", \"WDATE\", \"ZMONEY\", \"IN_ZMONEY\", \"AMOUNT_ACCOUNT\", \"currencyUid\", \"ZCONTENT\", \"DO_TYPE\", \"IS_DEL\", \"MARK\" FROM \"INOUTCOME\" WHERE \"IS_DEL\" = 0";
+        cmd.CommandText = "SELECT \"uid\", \"assetUid\", \"toAssetUid\", \"ctgUid\", \"ZDATE\", \"WDATE\", \"ZMONEY\", \"IN_ZMONEY\", \"AMOUNT_ACCOUNT\", \"currencyUid\", \"ZCONTENT\", \"DO_TYPE\", \"IS_DEL\", \"MARK\""
+            + (txUidTransColumn is null ? string.Empty : $", \"{txUidTransColumn}\"")
+            + " FROM \"INOUTCOME\" WHERE \"IS_DEL\" = 0";
 
         await using var reader = await cmd.ExecuteReaderAsync(ct);
         while (await reader.ReadAsync(ct))
@@ -369,12 +392,40 @@ internal sealed class MoneyManagerSqliteParser(ILogger<MoneyManagerSqliteParser>
             }
 
             var mark = SafeGetString(reader, 13);
+            var txUidTrans = txUidTransOrdinal >= 0 ? SafeGetString(reader, txUidTransOrdinal) : null;
 
-            result.Add(new MmTransaction(uid, assetUid, toAssetUid, ctgUid, zdate, wdate, zmoney, inZMoney, amountAccount, currencyUid, zcontent, doType, mark));
+            result.Add(new MmTransaction(uid, assetUid, toAssetUid, ctgUid, zdate, wdate, zmoney, inZMoney, amountAccount, currencyUid, zcontent, doType, mark, txUidTrans));
         }
 
         return result;
     }
+
+    // PRAGMA table_info → nombres de columna reales (case-insensitive). Si falla (tabla ausente
+    // o PRAGMA no soportado) devuelve conjunto vacío y las columnas opcionales se tratan como null.
+    private static async Task<HashSet<string>> GetColumnsAsync(SqliteConnection connection, string table, CancellationToken ct)
+    {
+        var columns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            await using var cmd = connection.CreateCommand();
+            cmd.CommandText = $"PRAGMA table_info(\"{table}\")";
+            await using var reader = await cmd.ExecuteReaderAsync(ct);
+            while (await reader.ReadAsync(ct))
+            {
+                if (!reader.IsDBNull(1))
+                    columns.Add(reader.GetString(1));
+            }
+        }
+        catch (SqliteException)
+        {
+            // Columnas opcionales no disponibles
+        }
+
+        return columns;
+    }
+
+    private static string? FindColumn(HashSet<string> columns, params string[] candidates)
+        => candidates.FirstOrDefault(columns.Contains);
 
     private static async Task<IReadOnlyList<MmBudget>> ReadBudgetsAsync(SqliteConnection connection, CancellationToken ct)
     {
