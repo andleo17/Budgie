@@ -500,6 +500,12 @@ src/apps/Budgie.Web/src/lib/api-types.ts
 # Docker compose env file (sensitive variables)
 .env
 !.env.example
+# The devcontainer compose reads the root .env through this symlink (no secrets)
+!.devcontainer/.env
+
+# Personal Money Manager backups: real bank transactions and balances. Never commit.
+docs/*.mmbak
+*.mmbak
 
 # Agent instructions
 AGENTS.md

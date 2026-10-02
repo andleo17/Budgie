@@ -36,7 +36,6 @@ test.describe("navegación autenticada", () => {
 
     // Intenta abrir el menú de usuario. El trigger está en el footer del sidebar
     // y puede estar colapsado; usa el botón del footer y si no, el trigger del header.
-    let opened = false
     for (const locator of [
       page.locator('[data-sidebar="footer"] button').first(),
       page.getByRole("button", { name: /E2 User/i }).first(),
@@ -47,7 +46,6 @@ test.describe("navegación autenticada", () => {
         // Espera a que el menú aparezca
         const item = page.getByRole("menuitem", { name: /cerrar sesi|logout/i })
         if (await item.isVisible({ timeout: 2000 }).catch(() => false)) {
-          opened = true
           break
         }
       }
