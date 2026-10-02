@@ -1,13 +1,17 @@
 using System.Data;
 using Budgie.Modules.Finances.Application;
+using Budgie.Modules.Finances.Application.Categories;
 using Budgie.Modules.Finances.Domain.Categories;
+using Budgie.Shared.Abstractions;
 using Budgie.Shared.Domain.ValueObjects;
 using Budgie.Shared.Infrastructure;
 using Dapper;
 
 namespace Budgie.Modules.Finances.Infrastructure.Database;
 
-internal sealed class CategoryRepository(IDbConnectionFactory factory) : ICategoryRepository
+internal sealed class CategoryRepository(
+    IDbConnectionFactory factory,
+    IUserSettingsProvider userSettingsProvider) : ICategoryRepository
 {
     public async Task<Category?> GetByIdAsync(Guid id, Guid userId, CancellationToken ct)
     {
@@ -41,7 +45,18 @@ internal sealed class CategoryRepository(IDbConnectionFactory factory) : ICatego
                 FROM ""Categories"" WHERE NOT ""IsSystem"" AND ""UserId"" = @UserId ORDER BY ""Name""";
 
         var rows = await factory.QueryListAsync<CategoryResponseRow>(sql, new { UserId = userId }, ct);
-        return rows.Select(r => new CategoryResponse(r.Id, r.Name, r.Color, r.Icon, r.Type, r.IsSystem, r.ParentId, r.MonthlyBudget)).ToList();
+        if (rows.Count == 0) return [];
+
+        // Traduce los nombres de categorías de sistema según el idioma del usuario
+        // (solo consulta UserSettings si hay categorías de sistema en la lista).
+        var language = rows.Any(r => SystemCategoryNames.IsSystemCategory(r.Id))
+            ? await userSettingsProvider.GetLanguageAsync()
+            : null;
+
+        return rows.Select(r => new CategoryResponse(
+            r.Id,
+            SystemCategoryNames.Resolve(r.Id, r.Name, language) ?? r.Name,
+            r.Color, r.Icon, r.Type, r.IsSystem, r.ParentId, r.MonthlyBudget)).ToList();
     }
 
     public Task AddAsync(Category category, CancellationToken ct, IDbTransaction? tx = null)

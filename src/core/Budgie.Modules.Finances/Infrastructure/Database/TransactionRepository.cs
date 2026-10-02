@@ -1,16 +1,20 @@
 using System.Data;
 using Budgie.Modules.Finances.Application;
+using Budgie.Modules.Finances.Application.Categories;
 using Budgie.Modules.Finances.Application.Transactions;
 using Budgie.Modules.Finances.Application.Transactions.CreateTransaction;
 using Budgie.Modules.Finances.Application.Transactions.GetTransactions;
 using Budgie.Modules.Finances.Domain.Transactions;
+using Budgie.Shared.Abstractions;
 using Budgie.Shared.Enums;
 using Budgie.Shared.Infrastructure;
 using Dapper;
 
 namespace Budgie.Modules.Finances.Infrastructure.Database;
 
-internal sealed class TransactionRepository(IDbConnectionFactory factory) : ITransactionRepository
+internal sealed class TransactionRepository(
+    IDbConnectionFactory factory,
+    IUserSettingsProvider userSettingsProvider) : ITransactionRepository
 {
     public async Task<TransactionInfo?> GetByIdForDeleteAsync(Guid id, Guid userId, CancellationToken ct)
     {
@@ -275,6 +279,12 @@ internal sealed class TransactionRepository(IDbConnectionFactory factory) : ITra
         var destByLinked = destRows.GroupBy(x => x.LinkedTransactionId!.Value)
             .ToDictionary(g => g.Key, g => g.First());
 
+        // Traduce los nombres de categorías de sistema según el idioma del usuario
+        // (solo consulta UserSettings si la página contiene categorías de sistema).
+        var language = items.Any(i => SystemCategoryNames.IsSystemCategory(i.CategoryId))
+            ? await userSettingsProvider.GetLanguageAsync()
+            : null;
+
         return items.Select(item =>
         {
             Guid? destId = null;
@@ -288,6 +298,7 @@ internal sealed class TransactionRepository(IDbConnectionFactory factory) : ITra
 
             return item with
             {
+                CategoryName = SystemCategoryNames.Resolve(item.CategoryId, item.CategoryName, language),
                 TransferDestinationAccountId = destId,
                 TransferDestinationAccountName = destName,
                 Participants = participantsByTx.TryGetValue(item.Id, out var ps) ? ps : null
