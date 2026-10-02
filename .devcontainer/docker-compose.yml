@@ -1,3 +1,10 @@
+# Devcontainer stack.
+#
+# Configuration is read from the project root `.env` (the `.env` symlink in this
+# folder points to `../.env`), so the devcontainer uses the SAME variables as the
+# production compose (POSTGRES_*, JWT_*, DB_HOST, REGISTRATION_MODE) with
+# development overrides: `Development` environment and ports 5057 (API) / 5173 (web).
+# When the root `.env` does not exist, dev-only defaults are used instead.
 services:
   app:
     build:
@@ -12,28 +19,58 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_URLS: http://0.0.0.0:5057
-      ConnectionStrings__BudgieDb: Host=db;Database=budgie;Username=postgres;Password=postgres
-    network_mode: service:db
+      ConnectionStrings__BudgieDb: Host=db;Database=${POSTGRES_DB:-budgie};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-postgres}
+      Jwt__Secret: ${JWT_SECRET:-a-very-long-and-secure-secret-key-123456789}
+      Jwt__Issuer: ${JWT_ISSUER:-Budgie}
+      Jwt__Audience: ${JWT_AUDIENCE:-Budgie}
+      Registration__Mode: ${REGISTRATION_MODE:-Auto}
     depends_on:
       db:
         condition: service_healthy
+
+  web:
+    # Same image family as the production frontend build stage.
+    image: oven/bun:1
+    # uid 1000 == the `vscode` user of the app container, so node_modules is the
+    # one installed in the workspace (no duplicated copy inside the container).
+    user: "1000:1000"
+    working_dir: /workspace/src/apps/Budgie.Web
+    command:
+      - sh
+      - -c
+      - |
+        # Wait for postCreateCommand to install node_modules; install here only if
+        # the workspace was never prepared.
+        for i in $$(seq 1 90); do [ -d node_modules ] && break; sleep 2; done
+        [ -d node_modules ] || bun install
+        exec bun run dev --host 0.0.0.0 --port 5173
+    environment:
+      HOME: /home/bun
+      # The API runs in the `app` container: Vite proxies /api and /uploads to it.
+      VITE_API_PROXY_TARGET: http://app:5057
+      # Port forwarding reaches Vite under hostnames other than localhost.
+      VITE_ALLOWED_HOSTS: "true"
+    volumes:
+      - ..:/workspace:cached
+    restart: unless-stopped
 
   db:
     image: postgres:18-alpine
     restart: unless-stopped
     volumes:
-      - postgres-data:/var/lib/postgresql
+      - budgie-dev-postgres-data:/var/lib/postgresql
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: budgie
+      POSTGRES_DB: ${POSTGRES_DB:-budgie}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      PGDATA: /var/lib/postgresql/18/docker
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d budgie"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-budgie}"]
       interval: 5s
       timeout: 5s
       retries: 5
     ports:
-      - "5432:5432"
+      - "${DB_PORT:-5432}:5432"
 
   pgadmin:
     image: dpage/pgadmin4:latest
@@ -51,5 +88,5 @@ services:
         condition: service_healthy
 
 volumes:
-  postgres-data:
+  budgie-dev-postgres-data:
   pgadmin-data:

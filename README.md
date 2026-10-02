@@ -21,6 +21,26 @@ Personal finance manager — track accounts, transactions, budgets, and goals wi
 
 ## Development
 
+Two ways to run it locally:
+
+- **Devcontainer (recommended)** — `Dev Containers: Reopen in Container` from VS Code. Brings up PostgreSQL, pgAdmin and the Vite dev server automatically, configured from the same root `.env` as production.
+- **Local toolchain** — the steps below.
+
+### 0. Devcontainer
+
+| Service | Port | Description |
+|---------|------|-------------|
+| `app` | 5057 | Workspace + API (`dotnet run`, or F5). Started by you. |
+| `web` | 5173 | Vite dev server with HMR, running in a `oven/bun` container. Started automatically. |
+| `db` | 5432 | PostgreSQL 18, credentials from `.env`. |
+| `pgadmin` | 5051 | pgAdmin. |
+
+Open `http://localhost:5173` from the Ports panel. Requests to `/api` and `/uploads` are proxied by Vite to the API in the `app` container.
+
+The compose file reads the project root `.env` through the `.devcontainer/.env` symlink, so dev and production share the same `POSTGRES_*`, `JWT_*` and `REGISTRATION_MODE` values; only the environment (`Development`) and ports differ. If `.env` is missing, dev-only defaults are used. The dev database lives in its own volume (`budgie-dev-postgres-data`) so it is separate from any other stack on the machine.
+
+If Vite is started manually inside the `app` container instead, it proxies to `http://localhost:5057` by default; override with `VITE_API_PROXY_TARGET`. Set `VITE_ALLOWED_HOSTS=true` (or a comma-separated list) if you access the dev server through a hostname other than `localhost`.
+
 ### 1. Database
 
 ```bash
@@ -53,7 +73,7 @@ bun install
 bun run dev
 ```
 
-The dev server starts at `http://localhost:5173` and proxies `/api` requests to the backend.
+The dev server starts at `http://localhost:5173` and proxies `/api` requests to the backend. Port 5173 must be free if you also run the devcontainer `web` service.
 
 ### 4. Updating API Types
 
@@ -107,7 +127,9 @@ The application is served at `http://localhost:80` (port configurable via `BUDGI
 | Volume | Purpose |
 |--------|---------|
 | `budgie_postgres_data` | Persistent database storage (mounted at `/var/lib/postgresql` — see PostgreSQL 18 layout note below) |
-| `budgie_dp_keys` | ASP.NET Data Protection keys (encrypted with auto-generated certificate) |
+| `budgie_uploads` | Person photos (mounted at `/app/wwwroot/uploads`), so they survive rebuilds |
+
+Person photos are written to `wwwroot/uploads` at runtime. They used to live only in the image layer, which meant a rebuild lost every photo uploaded since the last build while the database kept pointing at the missing files. They now live in the `budgie_uploads` volume. On the first start with the volume mounted, `entrypoint.sh` copies any photos found in the image into the volume (a marker file makes this happen once, and existing files are never overwritten), so upgrading an existing deployment keeps its photos.
 
 ### Configuration
 

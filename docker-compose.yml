@@ -5,6 +5,9 @@ services:
       dockerfile: src/apps/Budgie.Api/Dockerfile
     ports:
       - "${BUDGIE_PORT:-80}:80"
+    volumes:
+      # Person photos: kept out of the image layer so they survive rebuilds.
+      - budgie_uploads:/app/wwwroot/uploads
     environment:
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Production}
       - ASPNETCORE_URLS=http://0.0.0.0:80
@@ -42,3 +45,4 @@ services:
 
 volumes:
   budgie_postgres_data:
+  budgie_uploads:
