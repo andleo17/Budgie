@@ -24,6 +24,11 @@ public static class FinancesModule
     public static IServiceCollection AddFinancesModule(this IServiceCollection services)
     {
         services.AddScoped<ICurrencyUsageChecker, CurrencyUsageChecker>();
+        // LanguageProvider was previously constructed directly by its unit tests but never
+        // registered: EmailSyncService (EmailImport) requires ILanguageProvider to resolve,
+        // and without this registration the first sync fails at DI resolution. Registered
+        // here because LanguageProvider is Finances' internal implementation.
+        services.AddScoped<ILanguageProvider, LanguageProvider>();
         services.AddScoped<IAccountRepository, AccountRepository>();
         services.AddScoped<ITransactionRepository, TransactionRepository>();
         services.AddScoped<ICategoryRepository, CategoryRepository>();

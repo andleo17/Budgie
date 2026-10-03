@@ -3,6 +3,7 @@
     <Project Path="src/apps/Budgie.Api/Budgie.Api.csproj" />
   </Folder>
   <Folder Name="/core/">
+    <Project Path="src/core/Budgie.Modules.EmailImport/Budgie.Modules.EmailImport.csproj" />
     <Project Path="src/core/Budgie.Modules.Finances/Budgie.Modules.Finances.csproj" />
     <Project Path="src/core/Budgie.Modules.Relationships/Budgie.Modules.Relationships.csproj" />
     <Project Path="src/core/Budgie.Modules.Users/Budgie.Modules.Users.csproj" />
@@ -10,6 +11,7 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Budgie.IntegrationTests/Budgie.IntegrationTests.csproj" />
+    <Project Path="tests/Budgie.Modules.EmailImport.UnitTests/Budgie.Modules.EmailImport.UnitTests.csproj" />
     <Project Path="tests/Budgie.Modules.Finances.UnitTests/Budgie.Modules.Finances.UnitTests.csproj" />
     <Project Path="tests/Budgie.Modules.Relationships.UnitTests/Budgie.Modules.Relationships.UnitTests.csproj" />
     <Project Path="tests/Budgie.Modules.Users.UnitTests/Budgie.Modules.Users.UnitTests.csproj" />

@@ -16,6 +16,17 @@ services:
       - Jwt__Issuer=${JWT_ISSUER:-Budgie}
       - Jwt__Audience=${JWT_AUDIENCE:-Budgie}
       - Registration__Mode=${REGISTRATION_MODE:-Auto}
+      # EmailImport: el worker solo se registra con EMAILIMPORT_ENABLED=true.
+      # ClientId/ClientSecret salen de un OAuth client de Google Cloud Console; el redirect
+      # URI a registrar es https://<dominio>/api/email-import/connections/gmail/callback
+      - EmailImport__Enabled=${EMAILIMPORT_ENABLED:-false}
+      - EmailImport__SyncIntervalMinutes=${EMAILIMPORT_SYNCINTERVALMINUTES:-10}
+      - EmailImport__EncryptionKey=${EMAILIMPORT_ENCRYPTIONKEY:-}
+      # Doble guion bajo por nivel de configuración ('__' -> ':' en IConfiguration).
+      # Un ':' literal en el nombre de la variable no es POSIX-legal y confunde a
+      # cualquier herramienta que lea el entorno.
+      - EmailImport__Providers__gmail__ClientId=${EMAILIMPORT_PROVIDERS_GMAIL_CLIENTID:-}
+      - EmailImport__Providers__gmail__ClientSecret=${EMAILIMPORT_PROVIDERS_GMAIL_CLIENTSECRET:-}
     depends_on:
       db:
         condition: service_healthy

@@ -1,0 +1,7 @@
+{
+  "amount": "Importe:\\s*(?<amount>[\\d.,]+)",
+  "date": "Fecha:\\s*(?<date>\\d{2}/\\d{2}/\\d{4})",
+  "merchant": "Comercio:\\s*(?<merchant>.+)",
+  "direction": "abono|ingreso",
+  "symbol": "(?<symbol>\\u20AC|EUR)"
+}

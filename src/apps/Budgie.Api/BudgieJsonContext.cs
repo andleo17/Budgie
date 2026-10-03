@@ -1,4 +1,15 @@
 using System.Text.Json.Serialization;
+using Budgie.Modules.EmailImport.Application;
+using Budgie.Modules.EmailImport.Application.Connections;
+using Budgie.Modules.EmailImport.Application.Connections.GetConnectionStatus;
+using Budgie.Modules.EmailImport.Application.Inbox;
+using Budgie.Modules.EmailImport.Application.Inbox.ApproveBatch;
+using Budgie.Modules.EmailImport.Application.Inbox.GetPending;
+using Budgie.Modules.EmailImport.Application.Rules;
+using Budgie.Modules.EmailImport.Application.Rules.PreviewRule;
+using Budgie.Modules.EmailImport.Presentation.Connections;
+using Budgie.Modules.EmailImport.Presentation.Inbox;
+using Budgie.Modules.EmailImport.Presentation.Rules;
 using Budgie.Modules.Finances.Application;
 using Budgie.Modules.Finances.Application.Accounts;
 using Budgie.Modules.Finances.Application.Accounts.CreateAccount;
@@ -197,6 +208,25 @@ namespace Budgie.Api;
 [JsonSerializable(typeof(TagResponse))]
 [JsonSerializable(typeof(Dictionary<string, string[]>))]
 [JsonSerializable(typeof(List<Guid>))]
+
+// ── EmailImport (slice 13): response DTOs that cross HTTP + the request DTOs bound from
+// the same endpoints. Registered so serialization stays reflection-free when AOT is on.
+[JsonSerializable(typeof(Budgie.Modules.EmailImport.Application.Connections.EmailAuthorizationUri))]
+[JsonSerializable(typeof(Budgie.Modules.EmailImport.Application.Connections.GetConnectionStatus.EmailConnectionStatusResponse))]
+[JsonSerializable(typeof(List<Budgie.Modules.EmailImport.Application.Connections.GetConnectionStatus.EmailConnectionStatusResponse>))]
+[JsonSerializable(typeof(Budgie.Modules.EmailImport.Application.Rules.EmailImportRuleResponse))]
+[JsonSerializable(typeof(List<Budgie.Modules.EmailImport.Application.Rules.EmailImportRuleResponse>))]
+[JsonSerializable(typeof(Budgie.Modules.EmailImport.Application.Rules.PreviewRule.PreviewRuleResponse))]
+[JsonSerializable(typeof(Budgie.Modules.EmailImport.Application.Inbox.EmailSyncResult))]
+[JsonSerializable(typeof(Budgie.Modules.EmailImport.Application.Inbox.GetPending.PendingEmailTransactionResponse))]
+[JsonSerializable(typeof(Budgie.Modules.EmailImport.Application.PagedResult<Budgie.Modules.EmailImport.Application.Inbox.GetPending.PendingEmailTransactionResponse>))]
+[JsonSerializable(typeof(Budgie.Modules.EmailImport.Application.Inbox.ApproveBatch.ApproveBatchResponse))]
+[JsonSerializable(typeof(Budgie.Modules.EmailImport.Presentation.Rules.CreateRuleRequest))]
+[JsonSerializable(typeof(Budgie.Modules.EmailImport.Presentation.Rules.UpdateRuleRequest))]
+[JsonSerializable(typeof(Budgie.Modules.EmailImport.Presentation.Rules.PreviewRuleRequest))]
+[JsonSerializable(typeof(Budgie.Modules.EmailImport.Presentation.Rules.RuleDraftRequest))]
+[JsonSerializable(typeof(Budgie.Modules.EmailImport.Presentation.Inbox.ApprovePendingRequest))]
+[JsonSerializable(typeof(Budgie.Modules.EmailImport.Presentation.Inbox.ApproveBatchRequest))]
 internal partial class BudgieJsonContext : JsonSerializerContext
 {
 }

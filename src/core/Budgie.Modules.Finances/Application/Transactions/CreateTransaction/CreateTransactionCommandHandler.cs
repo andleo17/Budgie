@@ -32,7 +32,8 @@ public record CreateTransactionCommand(
     int Installments = 1,
     Guid? ParentTransactionId = null,
     bool IsInitialBalance = false,
-    bool IsInterestFree = true) : IRequest<ErrorOr<Guid>>;
+    bool IsInterestFree = true,
+    string? ExternalUid = null) : IRequest<ErrorOr<Guid>>;
 
 internal sealed class CreateTransactionCommandHandler(
     IAccountRepository accountRepository,
@@ -76,7 +77,7 @@ internal sealed class CreateTransactionCommandHandler(
         var tx = Transaction.Create(userId, request.AccountId, request.CategoryId,
             request.Amount, request.Currency, request.ExchangeRate, request.Date, request.Notes,
             request.Type, request.Installments, parentTransactionId: request.ParentTransactionId,
-            isInitialBalance: request.IsInitialBalance);
+            isInitialBalance: request.IsInitialBalance, externalUid: request.ExternalUid);
 
         await txRepository.AddAsync(tx, ct);
 
@@ -179,13 +180,18 @@ internal sealed class CreateTransactionCommandHandler(
             var amt = installmentAmounts[i];
             var date = request.Date.AddMonths(i);
 
+            // ExternalUid SOLO en la primera cuota (i == 0). Es la segunda barrera de
+            // idempotencia del importador de correo; el índice único
+            // IX_Transactions_UserId_ExternalUid rechazaría una segunda cuota con el mismo
+            // ExternalUid y el insert de todas las cuotas fallaría.
             var tx = Transaction.Create(
                 userId, request.AccountId, categoryId,
                 amt, request.Currency, request.ExchangeRate,
                 date, request.Notes, request.Type,
                 1, installmentGroupId: installmentGroupId,
                 installmentNumber: installmentNumber, totalInstallments: n,
-                interestRate: monthlyRate);
+                interestRate: monthlyRate,
+                externalUid: i == 0 ? request.ExternalUid : null);
 
             await txRepository.AddAsync(tx, ct);
             installmentList.Add(tx);

@@ -1,6 +1,6 @@
 using Budgie.Api;
-using Budgie.Api.Infrastructure;
 using Budgie.Api.Infrastructure.Middlewares;
+using Budgie.Modules.EmailImport;
 using Budgie.Modules.Finances;
 using Budgie.Modules.Finances.Infrastructure.Database;
 using Budgie.Modules.Relationships;
@@ -8,6 +8,8 @@ using Budgie.Modules.Users;
 using Budgie.Shared.Abstractions;
 using Budgie.Shared.Infrastructure;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
+using System.Net;
 using Microsoft.IdentityModel.Tokens;
 using Npgsql;
 using OpenTelemetry.Trace;
@@ -44,12 +46,17 @@ builder.Services.AddSingleton<IDbConnectionFactory, NpgsqlConnectionFactory>();
 builder.Services
     .AddUsersModule()
     .AddFinancesModule()
-    .AddRelationshipsModule();
+    .AddRelationshipsModule()
+    .AddEmailImportModule(builder.Configuration);
 
 builder.Services.AddMediator(options => options.ServiceLifetime = ServiceLifetime.Scoped);
 
 builder.Services.AddHttpContextAccessor();
-builder.Services.AddScoped<ICurrentUserProvider, CurrentUserProvider>();
+// ICurrentUserProvider is registered by AddEmailImportModule as ScopedCurrentUserProvider:
+// an explicitly pushed user (EmailImport sync worker, manual review dispatch) wins, and a
+// normal HTTP request falls back to the JWT claim, resolving the owner exactly like the
+// previous Budgie.Api.Infrastructure.CurrentUserProvider did. See
+// Budgie.Modules.EmailImport/Infrastructure/Identity/ScopedCurrentUserProvider.cs.
 
 // OpenTelemetry
 builder.Services.AddOpenTelemetry()
@@ -106,7 +113,27 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddAuthorization();
 
+// The production deployment runs behind a TLS-terminating reverse proxy (AGENTS.md), so the
+// request arriving here has Scheme=http even though the browser used https. Without this,
+// anything deriving an absolute URL — notably the OAuth redirect_uri of the email import —
+// would be built as http:// and the provider would reject it with redirect_uri_mismatch.
+// It must be registered BEFORE UseRouting/auth so the scheme is already corrected.
+// Unknown proxies are ignored: only KnownProxies/KnownNetworks are trusted.
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
+    options.KnownIPNetworks.Clear();
+    // .NET 10 exposes KnownIPNetworks as System.Net.IPNetwork (the ASP.NET type is obsolete).
+    options.KnownIPNetworks.Add(new System.Net.IPNetwork(IPAddress.Parse("0.0.0.0"), 0));
+    options.KnownIPNetworks.Add(new System.Net.IPNetwork(IPAddress.Parse("::"), 0));
+});
+
 var app = builder.Build();
+
+// Must precede UseExceptionHandler so redirects and logging see the corrected scheme.
+app.UseForwardedHeaders();
 
 app.UseExceptionHandler();
 app.UseStatusCodePages();
@@ -129,6 +156,7 @@ app.MapGet("/health", () => Results.Ok(new { status = "healthy" }));
 app.MapFinancesEndpoints();
 app.MapRelationshipsEndpoints();
 app.MapUsersEndpoints();
+app.MapEmailImportEndpoints();
 
 // Apply schema on startup
 if (!app.Configuration.GetValue<bool>("UseInMemoryDatabase"))

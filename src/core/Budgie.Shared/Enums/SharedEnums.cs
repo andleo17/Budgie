@@ -59,3 +59,14 @@ public enum RecurringEndType
     AfterCount,
     OnDate
 }
+
+/// <summary>
+/// Email providers Budgie can read transaction notifications from.
+/// Persisted and shared by Infrastructure, Presentation and configuration, so it lives here
+/// rather than next to its only use. Adding a member is additive and needs no migration:
+/// the provider implementation resolves through <c>IEmailProviderResolver</c>.
+/// </summary>
+public enum EmailProvider
+{
+    Gmail = 0
+}

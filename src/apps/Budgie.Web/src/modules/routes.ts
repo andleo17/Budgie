@@ -14,6 +14,7 @@ export const Settings = lazy(() => import('@/modules/settings/pages/Settings'));
 export const Templates = lazy(() => import('@/modules/transactions/pages/Templates'));
 export const Profile = lazy(() => import('@/modules/profile/pages/Profile'));
 export const Import = lazy(() => import('@/modules/import/pages/ImportPage'));
+export const EmailImportInbox = lazy(() => import('@/modules/email-import/pages/EmailImportInbox'));
 
 const lazyModules = [
   () => import('@/modules/auth/pages/Login'),
@@ -30,6 +31,7 @@ const lazyModules = [
   () => import('@/modules/transactions/pages/Templates'),
   () => import('@/modules/profile/pages/Profile'),
   () => import('@/modules/import/pages/ImportPage'),
+  () => import('@/modules/email-import/pages/EmailImportInbox'),
 ];
 
 let preloaded = false;

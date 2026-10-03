@@ -88,6 +88,16 @@ internal sealed class TransactionRepository(
             @"SELECT EXISTS(SELECT 1 FROM ""Transactions"" WHERE ""UserId"" = @UserId AND ""ExternalUid"" = @ExternalUid)",
             new { UserId = userId, ExternalUid = externalUid }, ct);
 
+    // EmailImport's second idempotency barrier (spec §3.5): on a 23505 conflict the sync
+    // service needs the id of the transaction that already exists to link its staging row.
+    // LIMIT 1 for the same defensive reason as EmailConnectionRepository.GetByProviderAsync:
+    // the unique index should make a duplicate impossible, but a SELECT that can throw is
+    // worse than one that cannot.
+    public Task<Guid?> GetIdByExternalUidAsync(Guid userId, string externalUid, CancellationToken ct)
+        => factory.QuerySingleOrDefaultAsync<Guid?>(
+            @"SELECT ""Id"" FROM ""Transactions"" WHERE ""UserId"" = @UserId AND ""ExternalUid"" = @ExternalUid LIMIT 1",
+            new { UserId = userId, ExternalUid = externalUid }, ct);
+
     public Task UpdateAsync(Transaction tx, CancellationToken ct)
         => factory.ExecuteAsync(
             @"UPDATE ""Transactions"" SET ""CategoryId"" = @CategoryId, ""Amount"" = @Amount, ""Currency"" = @Currency,

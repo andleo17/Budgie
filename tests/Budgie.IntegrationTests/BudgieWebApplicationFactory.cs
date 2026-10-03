@@ -30,6 +30,12 @@ public class BudgieWebApplicationFactory : WebApplicationFactory<Program>, IAsyn
         builder.UseSetting("UseInMemoryDatabase", "false");
         builder.UseSetting("ConnectionStrings:BudgieDb", _container.GetConnectionString());
         builder.UseSetting("Registration:Mode", "Open");
+
+        // Explicit, not inherited from appsettings.json: the EmailImport sync worker is a
+        // BackgroundService and a timer racing these tests would duplicate work over the
+        // same cursor. AddEmailImportModule only registers it when this is true. Set here so
+        // the tests do not silently depend on a configuration default changing.
+        builder.UseSetting("EmailImport:Enabled", "false");
     }
 
     public Task InitializeAsync()

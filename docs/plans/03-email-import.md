@@ -71,6 +71,9 @@ EmailSyncWorker (BackgroundService, timer N min)
       → IEmailProviderClient.ListNewAsync(connection)
           401            → SyncEnabled=false + LastError
           cursor inválido→ reset cursor + ventana 7d
+              ⚠ TRAMPA CONOCIDA (ver slice 11): messages.list NO devuelve historyId, así que
+                tras el reset el cursor queda null y la conexión releería 7 días en CADA tick.
+                El slice 11 debe recuperar el historyId actual vía users/profile tras el reset.
           429/5xx        → backoff, cursor NO se guarda
       → POR CADA mensaje:
           1. INSERT PendingEmailTransaction          (UNIQUE UserId+MessageId → duplicado, descartar)
@@ -89,6 +92,121 @@ EmailSyncWorker (BackgroundService, timer N min)
 
 ## Tareas
 
+> **Estado de avance** (actualizado durante `implementing`):
+> - ✅ **Slice 1** — hecho y verificado. `dotnet build` verde. DDL validado aplicando `001`→`002`→`003` sobre un PostgreSQL 18 real, y re-aplicado para confirmar idempotencia.
+> - ✅ **Slice 2** — hecho y verificado. Build verde. `MatchesFilters` con matching de dominio bidireccional.
+> - ✅ **Slice 3** — hecho y verificado. Build 0 errores, **319 tests unitarios de Finanzas en verde**. `ExternalUid` aplicado solo a la primera cuota del camino de cuotas, con el motivo documentado en el código.
+>   - **Ajuste respecto al plan**: `TransactionRepository.AddAsync` **ya insertaba** la columna `"ExternalUid"` (quedó del trabajo de Money Manager), así que el archivo no necesitó cambio. El slice se quedó en 2 archivos modificados de 3. El grep de los demás `INSERT INTO "Transactions"` del módulo confirma que solo queda `ExportRepository.cs`, que inserta `NULL` y por tanto sigue funcionando.
+> - ✅ **Slice 4** — hecho y verificado con **41 comprobaciones independientes** (no solo el reporte del implementador): 15 de `AmountNormalizer`, 19 de `DateNormalizer` y 7 de `HtmlToTextConverter`, todas en verde.
+>   - **Dos hallazgos en revisión, uno real:**
+>     - **Fallo real corregido**: `DateNormalizer` solo aceptaba fechas textuales **día-primero**, así que `"October 2, 2026"` no parseaba — justo la forma en que escribiría un banco en inglés. Añadida rama mes-primero (es/en, coma opcional, reutilizando el diccionario `Months` sin duplicarlo), verificada sin romper los casos día-primero ya buenos.
+>     - **No era bug, documentado**: `01/13/2026` no se rechaza, se reinterpreta como 13 de enero por el fallback mes-primero. Es una tensión irresoluble con `25/12/2026`/en (que sí es un caso real de banco español); **el fallback se queda** porque vale más, y queda escrito en el XML doc para que nadie lo lea como error.
+>   - Dos "fallos" más resultaron ser **aserciones mías equivocadas**, no defectos: (a) en una tabla de una sola fila el `\n` cae al final y `Trim()` lo quita — correcto; (b) `&lt;script&gt;` **debe** aparecer como texto literal en el plano, y que aparezca es precisamente lo que confirma que el orden "decodificar entidades después de quitar tags" es el correcto.
+> - ✅ **Slice 7** — hecho. SQL validado contra PostgreSQL 18 real: 63/63 comprobaciones del implementador, y **yo repetí las críticas por mi cuenta**.
+>   - **Verificado por mí**: el `TryAddAsync` deduplica de verdad — 1.er insert `affected=1`, 2.º con `Id` y `Amount` distintos `affected=0`, y la fila original conserva `Amount=10.00` (no se sobrescribe con 99). Esa es la primera barrera de idempotencia del sistema, y funciona.
+>   - **Hallazgo del implementador confirmado y corregido**: el DDL declara `UNIQUE("UserId","Provider","Email")`, o sea unicidad del **triple**, no del par. Comprobado que PostgreSQL **acepta** un segundo buzón del mismo proveedor con otro email, y entonces `QuerySingleOrDefaultAsync` de `GetByProviderAsync` **lanzaría**. Mitigado con `LIMIT 1` + `ORDER BY` (documentado por qué), y añadido `ExistsByProviderAsync` que usa `EXISTS` y no puede lanzar. El slice 10 debe usar ese método para el chequeo de "ya conectado".
+>   - **Otro hallazgo confirmado**: `jsonb` **normaliza al almacenar** (reordena claves y re-escapa). Medido: enviado `{"zz":"1","amount":"([0-9]+)","aa":"2"}` → leído `{"aa": "2", "zz": "1", "amount": "([0-9]+)"}`. Ningún consumidor puede comparar strings de JSON crudo; hay que comparar JSON parseado. Relevante para el slice 14, que edita las reglas y devuelve el JSON al formulario.
+> - ✅ **Slice 6** — hecho y verificado. Round-trip medido: acentos y símbolos correctos, nonce aleatorio (dos `Protect` del mismo texto dan ciphertext distinto), ciphertext manipulado **lanza** `CryptographicException` en vez de devolver basura, clave distinta lanza, y la derivación desde `Jwt:Secret` funciona con warning único.
+>   - **Defecto encontrado y corregido en revisión**: el warning de fallback a `Jwt:Secret` se emitía por instancia (estaba en el inicializador de campo) y el plan registraba el protector como `AddScoped`, así que en producción habría un warning por cada scope → spam de log. El test del implementador pasaba porque solo creaba una instancia. Corregido con un flag `Interlocked` estático (invariante local, no depende del lifetime del registro) **y** corrigiendo el plan a `AddSingleton`, que además es lo correcto porque el protector es stateless y recalculaba SHA-256 en cada scope.
+> - ✅ **Slice 9** — hecho y verificado: **14/14 comprobaciones**, y la crítica entre ellas: tras **6 previews** distintos (regla guardada, draft válido, sin `amount`, regex rota, cuenta ajena, regla inexistente) hubo **0 escrituras** en los tres repositorios. Un probador que persistiera cada intento llenaría la base de reglas de basura.
+> - ✅ **Slice 10** — hecho y verificado: **12/12 pruebas de seguridad**. El nonce se quema (2.º uso del mismo `state` → `false`), firma manipulada rechazada, `userId` alterado en el payload rechazado, caducidad de 10 min, credencial guardada **verbatim** sin doble cifrado, y el DTO de estado no expone credencial.
+>   - **Deuda técnica anotada**: `EmailCredentials` no trae la dirección de correo, así que la conexión se guarda con `Email = "connected"`. Consecuencia real: **la UI no puede mostrar qué buzón está conectado** (y `Email` está en el `UNIQUE` de la tabla). No lo arreglé aquí porque requiere tocar `GmailApiClient` (slice 8, ya cerrado y verificado). **Solución**: `users.getProfile` devuelve `emailAddress` + `historyId` y está cubierto por `gmail.readonly`, así que no requiere permisos extra. Resolver antes de dar el frontend por bueno.
+> - ✅ **Slice 11** — hecho y verificado: **16/16 comprobaciones**, incluidas las dos invariantes afirmadas **con orden** (`Received.InOrder`: `TryAdd → Send → MarkCommitted → … → UpdateAsync`, una sola persistencia del cursor al final).
+>   - **El subagente resolvió la trampa del `historyId`** que le señalé, en dos capas: nuevo puerto `GetCurrentCursorAsync` (neutro, sin vocabulario de proveedor) implementado con `users.getProfile`, y re-anclaje en dos puntos — en `GmailEmailProvider` **antes** de listar la ventana (la ventana es query-based e ignora el cursor, así que anclar antes no la encoge) y en el servicio **después** del reintento (orden invertido a propósito: si anclaras antes, el proveedor vería cursor no-null y el reintento no sería la ventana de 7 días). Sin ventana de solape: un mensaje que llegara entre perfil y listado queda cubierto por ambos caminos.
+>   - **Desviaciones que acepto, con motivo**: (a) `ParseOutcome` gana `MatchedRule` — sin él el servicio es imposible, porque `CreateTransactionCommand` necesita `AccountId`/`CategoryId`/`ExchangeRate`/`RuleId` y solo los tiene la regla que casó. (b) `GetIdByExternalUidAsync` añadido a Finanzas — `ExistsByExternalUidAsync` no sirve para marcar `Committed`, y con `Guid.Empty` se violaría el FK de `CreatedTransactionId`, rompiendo la barrera `23505` en producción.
+>   - **Desviación que el subagente descubrió y ajustó bien**: el orden "INSERT staging primero, luego parsear" es **imposible** — la fila exige importe (`Money.FromPositive`) y `"Amount" NOT NULL`, y un mensaje que no parsea no tiene importe. Reordenó a parse→Create→`TryAdd`, manteniendo `TryAdd` como **primer write** antes de cualquier intento de commit. Consecuencia aceptada: los duplicados se re-parsean (solo ocurre tras un crash con cursor no persistido). Por lo mismo, un mensaje que lanza al parsearse **no puede marcarse `Failed`** — se cuenta en `EmailSyncResult.Failed`, que es la misma decisión que ya tomaba el plan para los correos sin regla.
+> - ✅ **Slice 12** — hecho y verificado: **13/13 comprobaciones**.
+>   - **La garantía clave, verificada por comparación de strings**: la clave de idempotencia se construye **byte a byte igual** en las dos rutas — `EmailSyncService.cs:264` y `ApprovePendingCommandHandler.cs:161`, ambas `$"email:{...Provider.ToString().ToLowerInvariant()}:{messageId}"`. Un formato distinto habría permitido importar el mismo correo dos veces (una por el worker, otra por aprobación manual) porque el índice único nunca vería la colisión.
+>   - **Aprobación doble bloqueada**: la 2.ª devuelve `NotFound` por el guard de `Status == Pending`, y el mediator se envió **1 sola vez**.
+>   - `accessor.Push(userId)` confirmado como **obligatorio** en la ruta manual (sin él, `GetUserId()` lanza dentro del handler de Finanzas), con control negativo que demuestra el fallo.
+>   - Un solo camino de aprobación: `PendingApprovalHelper` compartido, usado también por el lote, para que no exista una copia divergente.
+>   - Un `Error` del comando marca la fila `Failed` **y** se devuelve al usuario, para que no vuelva a fallar en silencio.
+> - ✅ **Slice 13** — hecho y verificado con la **aplicación arrancada de verdad** (Kestrel real contra PostgreSQL, `EmailImport__Enabled` alternando), no solo compilada:
+>   - `GET /health` → 200. `GET /api/email-import/rules` sin token → **401**. `GET /connections/gmail/callback` sin token → **302** (no 401: la excepción deliberada). `POST /sync` con worker activo → 400 `EmailImport.SyncAlreadyScheduled`; con `Enabled=false` → 200 con el tally. `POST /authorize` → URL de Google con `access_type=offline` + `state`; sin ClientId configurado → **400** `EmailImport.ProviderNotConfigured` (no 500). DDL `003` aplicado exactamente 1 vez. Scalar expone las rutas. Y **`GET /api/finances/accounts` → 200**, que confirma que sustituir `ICurrentUserProvider` no rompió los módulos previos.
+>   - **Tres cosas que solo aparecieron al arrancar** (compilar no las detecta):
+>     1. `POST /authorize` devolvía **500** si el proveedor no estaba configurado: `GmailApiClient.ValidateConfigured` lanza `EmailProviderException(NotConfigured)` y el handler no la capturaba. Ahora 400 con código estable.
+>     2. **`ILanguageProvider` no estaba registrado en ningún sitio** y `EmailSyncService` lo exige por constructor → `POST /sync` y los ticks del worker fallarían en resolución de DI. Registrado en el módulo dueño (`FinancesModule`).
+>     3. Sustituir `ICurrentUserProvider` por `ScopedCurrentUserProvider` dejaba **todos** los endpoints de la app sin usuario → 500 en cada petición. Resuelto con fallback al claim JWT vía `IHttpContextAccessor`, idéntico al `CurrentUserProvider` anterior, con el `Push` del worker teniendo prioridad.
+> - ✅ **Slice 14** — hecho y verificado por mí: `tsc -b --noEmit` **0 errores**, `lint` **0 errores** con **0 warnings en el módulo nuevo** (los 4 restantes son preexistentes en `modules/transactions`, archivo no tocado), `vite build` **✓ built in 625 ms**. Claves i18n `emailImport.*` **idénticas en es y en** (8 de primer nivel, 0 discrepancias por script).
+>   - **Fallo de entorno, no de código**: `bun run build` falla al vaciar `src/apps/Budgie.Web/dist/assets`, que es de `root` y fecha del **10 de septiembre** (artefacto de la build Docker). Está en `.gitignore`, no entra en el diff. Verificado con `vite build --outDir /tmp/...` → build correcto. **Limpiar `dist/` antes del `release`.**
+>   - El subagente añadió 2 componentes shadcn (`collapsible`, `slider`) por CLI y corrigió un `import { cn } from "cn"` que la CLI había generado mal, además de retirar el paquete `cn` que había instalado: `package.json` y `bun.lock` quedan **sin diff**.
+>   - **Desviaciones que acepto**: (a) tipos locales en `types.ts` en vez de `api:gen` — la API no es alcanzable desde el entorno; mismo precedente que `modules/import/api/importClient.ts`, con comentario para sustituirlos. (b) `PUT /rules/{id}` devuelve **204**, no `{ id }` como decía el plan: el subagente siguió el código real. (c) `PostgresException`-style: los enums viajan como **números** en el wire (BudgieJsonContext no usa `JsonStringEnumConverter`), y el frontend lo tiene en cuenta.
+>   - **Slider del umbral en solo lectura**: el backend **no expone endpoint** para actualizar `AutoCommitMinConfidence` (solo GET/DELETE). El slider muestra el valor actual con descripción explícita. **Deuda a cerrar**: sin ese endpoint, el umbral solo se cambia por base de datos o `.env`.
+>   - La "explicación literal de por qué quedó pendiente" **no viene** en `PendingEmailTransactionResponse`: el frontend la pide *on-demand* con `POST /rules/preview` (ruleId + rawBody), por el mismo pipeline que el sync. Correcto y economiza el payload de la lista.
+> - ✅ **Slice 15** — hecho y verificado: **547 tests unitarios** + **40 de integración** (PostgreSQL real vía Testcontainers), los tres comandos en verde y los 6 proyectos de test de la solución entera pasando.
+>   - **Un bug REAL de producción encontrado y corregido** (el único cambio en `src/`): `RawEmailReader.ExtractMultipartBody` devolvía **las cabeceras MIME como si fueran el cuerpo** cuando una parte `text/plain` venía vacía. `FlushPart` hacía `TrimEnd()`, que se llevaba por delante la línea en blanco separadora; `CollectPart` caía entonces en su rama "no hay separador → todo el parte es el cuerpo" y devolvía `Content-Type: text/plain; charset=utf-8`. Peor: esa parte **ganaba** el `plain` y tapaba a la parte real que venía detrás. Los emisores reales sí emiten un `text/plain` vacío junto a un `text/html` completo, así que no era hipotético. Corregido con una guarda en `FlushPart` que descarta la parte cuando el separador existe pero no le queda cuerpo — sin tocar el resto del recorrido MIME.
+>   - **Tres números de la spec §4.5 que NO coinciden con el código** (afirmados contra el código real, con el desvío documentado en el propio test):
+>     - `0.98` es inalcanzable. La spec asumía un peso de `0.18` para `merchant`; el de `ConfidenceWeights` es `0.20`, así que un parse perfecto da exactamente `1.00`. Además `merchant` solo puede valer `1.0 / 0.3 / 0.0`, y `0.9` no existe en `GenericRegexAdapter` — ningún input produce `0.98`.
+>     - `0.72` es inalcanzable. Con `amount = 0.3` y el resto al máximo la suma real es `0.35*0.3 + 0.20 + 0.20 + 0.15 + 0.10 = 0.755`.
+>     - Una surprise útil: `merchant` en boilerplate con todo lo demás perfecto da `0.86`, **por encima** del umbral de `0.85`. Es el margen de auto-commit más estrecho del sistema y queda fijado con un test.
+>   - **La aritmética de coma flotante no es un problema** (todo es `decimal`): `0.1 + 0.2 == 0.30` exacto, afirmado.
+>   - **La idempotencia, afirmada con orden y no contando llamadas**: `Received.InOrder(TryAdd → Send → MarkCommitted → UpdateAsync)` y `Received.InOrder(TryAdd × 3 → UpdateAsync)`, que es la invariante nº 1 del `EmailSyncService` (el cursor se persiste una vez, al final, nunca dentro del bucle).
+>   - **La paridad del `ExternalUid` afirmada con las DOS implementaciones reales**: un solo test corre el `EmailSyncService` de verdad y el `ApprovePendingCommandHandler` de verdad y compara las dos claves capturadas. Si difirieran un byte, el índice único de `Transactions."ExternalUid"` no vería la colisión y el mismo correo se importaría dos veces.
+>   - **`PostgresException` no tiene constructor público**: se construye con `RuntimeHelpers.GetUninitializedObject` + el *backing field* de `SqlState` por reflexión, que además documenta por qué el servicio casa por `SqlState` y no por el mensaje.
+>   - **La trampa temporal del fixture se resolvió al revés de lo previsto** (documentado en el test): la fecha del fixture no se puede reescribir porque el cuerpo va en **base64** dentro del MIME, y una sustitución de texto no llega. Además "ayer" está **antes** de `ControlStartDate = today`, que es exactamente lo que rechaza `BeforeControlStartDate`. Lo correcto es fijar el `ControlStartDate` de la cuenta a la fecha del fixture (`CreateAccountForFixtureAsync`): el par queda coherente para siempre **y se sigue ejercitando la Ledger Rule real** en vez de esquivarla.
+>   - **Dos requisitos del prompt resultaron untrue y están fijados como comportamiento real**, no como lo que se suponía: (a) un fragmento que empieza por `Content-Transfer-Encoding:` **no** se reconoce como fuente MIME cruda (solo cuentan `From/Received/Return-Path/MIME-Version/Content-Type/Delivered-To`) y vuelve verbatim; (b) `&#X20AC;` (hex en mayúscula) no se decodifica, el regex de entidades solo acepta `#x` en minúscula.
+>   - **El callback OAuth se cubre entero sin proveedor real**: `POST /authorize` devuelve `{ uri, state }` y el `State` basta; con un `IEmailProviderClient` falso (singleton, `RemoveAll` + `AddScoped`) se prueba el nonce quemado, la firma manipulada, el `userId` alterado y el "state de A no conecta a B".
+>   - **Excepciones reales documentadas con tests en vez de "arregladas"**: `RawEmailReader` prefiere el primer `text/plain` aunque sea un adjunto (`Content-Disposition` no se inspecciona); `PendingEmailTransaction` recorta a `""` un `merchant` en blanco en vez de normalizarlo a `null` (el `TrimOrNull` a `null` es de `EmailImportRule`); `&#X20AC;` sin decodificar.
+>   - **Verificado por mí de forma independiente**: `dotnet test Budgie.slnx` → **1105 tests en 6 proyectos, 0 fallos** (Shared 101, Relationships 22, **Finances 319 intactos**, Users 24, **EmailImport 547**, Integration 92 con los 40 nuevos). Y confirmé el fix a ojo en `RawEmailReader.cs:154-172`: la guarda en `FlushPart` descarta la parte cuando el separador existe pero `separator.Index + separator.Length >= raw.TrimEnd().Length`, es decir cuando no queda cuerpo tras el separador.
+> - ✅ **Slice 15 (E2E)** — hecho y verificado por mí: **`e2e/email-import.spec.ts`, 10 tests en verde** (de un primer intento que fallaba 9/10).
+>   - **Tres trampas reales del harness de mocks, ninguna culpa del módulo**:
+>     1. `mockApi.handle()` exige que un handler **función** devuelva `{ body }`. Devolver el valor directamente hace que `result.body` sea `undefined` y la API responde **`null`** con status 200 — un fallo silencioso que deja la UI vacía sin error visible. Por eso los fixtures existentes usan objetos literales. Ningún handler existente lo documentaba.
+>     2. `mockAccounts[0].id` **no es un GUID válido** (`a1-1111-…`) y `EmailRuleForm` valida `GUID_RE` sobre `accountId`, así que con la fixture el guardado **nunca** pasa la validación. El test declara su propia cuenta con GUID real y sobrescribe el handler de `/api/finances/accounts`.
+>     3. El botón `Test` del probador solo se habilita con un origen de regla **elegido explícitamente** (`canRun` exige `selected`), y `selected` se inicializa una vez con `useState` cuando aún no hay borrador — abrir el formulario después no lo selecciona. El trigger sigue mostrando el placeholder hasta que se elige "Form draft" en el desplegable.
+>   - Selectores por rol y nombre accesible en los 10 escenarios; ninguna clase CSS.
+>   - **Dos fallos de entorno resueltos para poder ejecutar**: `node_modules/.vite/deps` es de `root` (como `dist/`) y Vite no puede arrancar; se levantó el dev server con una config temporal de `cacheDir` fuera del repo, ya eliminada. Playwright lo reutilizó vía `reuseExistingServer`. Todos los temporales y harness fuera del repo: **limpio**.
+> - ⬜ Nada pendiente en implementación. Los 15 slices están hechos.
+
+---
+
+## Revisión de código (`code-review`) — resultado
+
+**Veredicto del revisor: no apto para release.** Tres bloqueantes, todos del mismo género: el módulo se verificó contra *stubs* justo donde su contrato es con el mundo real.
+
+### Los 3 bloqueantes, corregidos
+
+**B1 — Las rutas REST de Gmail no funcionarían contra la API real.** `GmailApiClient` llamaba a `users/messages/list`, `users/history/list`, `users/getProfile`. Esos son **identificadores de método RPC**, no URLs: la REST es `gmail/v1/users/{userId}/<resource>` (confirmado en la documentación oficial: `https://gmail.googleapis.com/gmail/v1/users/{userId}/profile`). Toda lectura real habría devuelto **404**. El plan escribió los nombres RPC y la implementación los transcribió como rutas.
+Corregido con un helper `MePath(...)` (`users/me/...`) y **4 tests de regresión con un `HttpMessageHandler` de recording** — el tipo de test que faltaba (D1: no había ni un test de la capa HTTP).
+
+**B2 — Una conexión recién conectada nunca anclaba el cursor.** El anclaje al `historyId` solo existía en el `catch` de `CursorExpired`, que en Gmail solo se dispara con cursor **no-null**. Una conexión nueva releía la ventana de 7 días **en cada tick, para siempre**, descartando todo por el `UNIQUE`. El slice 11 afirmaba haberlo resuelto "en dos capas" — la segunda capa es inalcanzable contra Gmail.
+Corregido: la rama de cursor null ahora ancla antes de listar la ventana, con helper compartido. **4 tests nuevos**, incluido uno que afirma el orden `profile → list` con `Received.InOrder`. Para poder testearlo tuve que extraer `IGmailMailboxApi`: `GmailApiClient` era `sealed` y NSubstitute no podía proxarlo.
+
+**B3 — La caché de regex no se invalidaba al editar una regla.** Claveada por `rule.Id`, y `UpdateRule` persiste el **mismo Id** con patrones nuevos: un usuario que arreglaba una regex rota seguía recibiendo las 패턴 compiladas antiguas **hasta reiniciar el proceso**. Peor: el test existente "SameRuleTwice compiles once" **fijaba el comportamiento defectuoso**, porque nunca cambiaba los patrones.
+Corregido con clave `(RuleId, hash(patterns))` y tope de 256 entradas (los previews con draft creaban claves nuevas sin límite). **3 tests nuevos** que sí cambian los patrones.
+
+### Importantes aplicados
+
+- **I5** — el `catch (Exception)` del dispatch marcaba filas `Failed` con `"A task was canceled"` en **cada parada de contenedor**. Ahora filtra `OperationCanceledException` (en los tres catch del bucle).
+- **I6** — la doc decía que el índice único "reconcilia las filas tras cualquier crash". **Falso tal cual**: reconcilia *el dinero*, no *el estado de la fila*. Reescrito con precisión, incluyendo la consecuencia real (la fila queda `Pending` y el usuario la aprueba una vez, lo que vuelve a chocar con la barrera y la marca `Committed`).
+- **IMP3** — 7 `LogMessages` declarados y **nunca emitidos**. El peor: `catch (Exception ex) { failed++; _ = ex; }` **descartaba la excepción sin log**, mientras la doc del `IEmailProviderClient` afirmaba "is logged and counted". Los 7 cableados en sus sitios naturales.
+
+### Falsos positivos que el revisor detectó en mis comentarios
+
+- **`ON DELETE CASCADE` limpia "reglas y staging"**: falso. `EmailImportRules` **no tiene FK** a conexiones (cuelga de usuario y cuenta) — de hecho las reglas sobreviven al desconectar, lo cual es correcto. Corregido el comentario y documentada la consecuencia real: desconectar destruye el historial de staging.
+- **"Push obligatorio en la ruta HTTP"**: falso. El fallback al claim resuelve el mismo usuario; el `Push` solo es obligatorio fuera de una petición (el worker).
+- **`GetByProviderAsync` con `LIMIT 1`**: el revisor lothoqs más grave (leía que el DDL permite N buzones). Confirmé que ya tenía `LIMIT 1` + `ExistsByProviderAsync`.
+
+### No aplicado, con motivo
+
+- **IMP1** (`NpgsqlException` en Application): el revisor tiene razón en que viola AGENTS.md, y su alternativa (excepción neutra en `Budgie.Shared`) es mejor que la mía. **Pendiente de hacer**: es un refactor que toca Finanzas.
+- **IMP2** (`IOptions<EmailImportOptions>` en Application): también razón sólida. Mover el POCO de config a Application lo resuelve.
+- **I4** (la aprobación usa la moneda de la regla, no la de la fila revisada): **bug real**, no lo había visto. Si la regla se edita entre el staging y la aprobación, la transacción hereda la moneda nueva sobre un importe revisado con la vieja.
+- **I7** (`redirect_uri` sin `UseForwardedHeaders`): detrás del proxy TLS de Docker, `request.Scheme` es `http` → `redirect_uri_mismatch` en Google. **Bloqueante para despliegue real**, easy fix.
+- **sobre-ingeniería**: `ScopedCurrentUserProvider` reemplazando al del host para todo el árbol; la doble capa de cursor; `Providers` como diccionario nunca leído.
+
+---
+
+## Nota sobre pendientes acumulados (deuda consciente)
+
+Ninguno bloquea el uso, pero conviene resolverlos:
+
+| Deuda | Origen | Impacto |
+|---|---|---|
+| **No hay endpoint para cambiar `AutoCommitMinConfidence`** | El plan daba el umbral por configurable y no existe ruta de actualización; solo GET/DELETE de conexiones | Hoy el umbral solo se cambia por base de datos. El slider del frontend está en solo lectura |
+| **`EmailCredentials` no trae la dirección de correo** | El slice 8 no implementó `users.getProfile` para el email (sí para el `historyId`) | La UI muestra `Email = "connected"` en vez del buzón real; `Email` está en el `UNIQUE` de la tabla |
+| **Símbolo de moneda contradictorio da 0.90 → auto-commit** | Los pesos de la spec dan `currency = 0.0` solo una pérdida de 0.10, insuficiente para cruzar el umbral 0.85 | Un correo en `$` con regla EUR se importa asumiendo euros sin avisar. Fijado con test. Subir el peso de `currency` o bajar el umbral es decisión de producto |
+| **Los pesos de la spec §4.5 no cuadran** (`0.98`, `0.72` inalcanzables) | Error de aritmética al redactar la spec | Los tests afirman el código real (`1.00`, `0.755`) con el desvío documentado. La spec debería corregirse |
+
 ### 1. Bootstrap del módulo, enum y esquema (Shared + Infra/DB)
 
 - **Objetivo**: Que el módulo exista en la solución y las tablas estén en la base, sin una sola clase de comportamiento.
@@ -101,8 +219,16 @@ EmailSyncWorker (BackgroundService, timer N min)
   - `[MODIFY] src/apps/Budgie.Api/Budgie.Api.csproj` — añadir `<ProjectReference Include="..\..\src\core\Budgie.Modules.EmailImport\Budgie.Modules.EmailImport.csproj" />`.
 - **Pasos**:
   - `003_email_import.sql`: transcribir literalmente las tres tablas de la spec §3.1, §3.2 y §3.3, con sus dos índices. Todo con `IF NOT EXISTS` e identificadores entrecomillados, siguiendo `001_initial_schema.sql`.
-  - Cerrar el script con `INSERT INTO "_SchemaVersions" ("Version") VALUES ('003_email_import') ON CONFLICT DO NOTHING;`.
+  - Cerrar el script con el registro de versión. **Nota descubierta al implementar**: `"_SchemaVersions"."Version"` no tiene constraint `UNIQUE`, así que la forma `ON CONFLICT DO NOTHING` que usan `001` y `002` es un no-op que añade una fila nueva **en cada arranque**. Usar en su lugar la forma idempotente real:
+    ```sql
+    INSERT INTO "_SchemaVersions" ("Version")
+    SELECT '003_email_import'
+    WHERE NOT EXISTS (SELECT 1 FROM "_SchemaVersions" WHERE "Version" = '003_email_import');
+    ```
+    No se corrigen `001`/`002` (son inmutables y la tabla no se lee para lógica), pero el script nuevo no debe heredar el defecto.
+  - **Verificar el DDL contra un PostgreSQL real antes de dar el slice por bueno**, no solo compilar. Levantar `postgres:18-alpine` en un contenedor efímero, aplicar `001`→`002`→`003` con `ON_ERROR_STOP=1`, comprobar las tablas, índices y constraints creados, re-aplicar `003` para confirmar idempotencia, y **eliminar el contenedor al terminar**. Un `CREATE TABLE` que no se ha ejecutado nunca no es un DDL validado.
   - **No** tocar `001_initial_schema.sql` ni `002_import_runs.sql`: son inmutables una vez aplicados.
+  - `create-module` **no es la autoridad** en este repo: describe EF Core, `DbContext`, `MediatR` directo y `private set`, todo migrado ya a Dapper + `Mediator` + `internal set`. Usarlo solo para la estructura de carpetas y los nombres; seguir `AGENTS.md` para todo lo demás.
   - `Budgie.Modules.EmailImport.csproj`: copiar la estructura de `Budgie.Modules.Finances.csproj` con `TargetFramework net10.0`, `ImplicitUsings`, `Nullable enable`, `<FrameworkReference Include="Microsoft.AspNetCore.App" />`, `<PackageReference Include="Mediator.Abstractions" Version="3.0.2" />`, `<Using Include="Microsoft.Extensions.Logging" />`, y `ProjectReference` a `Budgie.Shared` **y** a `Budgie.Modules.Finances` (necesario para despachar `CreateTransactionCommand`).
   - `InternalsVisibleTo` para `Budgie.Modules.EmailImport.UnitTests`, `DynamicProxyGenAssembly2` (NSubstitute) y `Budgie.Api`.
   - La dependencia `EmailImport → Finances` es **unidireccional**. Si al compilar aparece un ciclo, significa que se ha metido una referencia de Finanzas a EmailImport: corregir, no romper el ciclo con un `InternalsVisibleTo`.
@@ -339,6 +465,7 @@ EmailSyncWorker (BackgroundService, timer N min)
   - `GetAuthorizationUri` — `userId` de `ICurrentUserProvider`; `redirectUri` derivada del esquema y host de la petición **inyectados en el handler por el endpoint** (Application no puede leer `HttpContext`); si el usuario ya tiene conexión para ese proveedor → `Error.Conflict("EmailImport.AlreadyConnected", ...)`.
   - `CompleteConnection` — `CompleteConnectionCommand(string State, string Code)` → `ErrorOr<Guid>` (el id de la conexión):
     - `TryConsume` el state. Si falla → `Error.Validation("EmailImport.InvalidState", ...)`.
+    - El chequeo de "ya hay un buzón para este proveedor" debe usar **`ExistsByProviderAsync`**, no `GetByProviderAsync`. El DDL declara `UNIQUE("UserId","Provider","Email")`: la unicidad es del **triple**, no del par, así que PostgreSQL permite un segundo buzón del mismo proveedor con otro email. `GetByProviderAsync` lleva `LIMIT 1` para no lanzar, pero `EXISTS` no lanza nunca y es lo que responde a "¿ya está conectado?".
     - Resolver `IEmailProviderResolver`, `ExchangeCodeAsync`, cifrar la credencial con `ISecretProtector`, y `AddAsync` de la conexión con `SyncCursor = null`.
   - `DisconnectEmail` — borra la conexión; `ON DELETE CASCADE` limpia reglas y staging asociados. `Results.NoContent`.
   - `GetConnectionStatus` — devuelve **solo** metadatos: `provider, email, syncEnabled, autoCommitMinConfidence, lastSyncAt, lastError, lastSkippedCount`. **Nunca** la credencial, ni cifrada.
@@ -427,6 +554,7 @@ EmailSyncWorker (BackgroundService, timer N min)
   - `[MODIFY] docker-compose.yml`
 - **Pasos**:
   - `EmailProviderException` va en **Application** (el servicio de sincronización lo captura y no debe conocer Infrastructure). Corregir la ruta del slice 8 si hace falta.
+  - `EmailCredentials.EncryptedRefreshToken` ya viene **cifrado** por el provider (es el envelope JSON `{accessToken, refreshToken, expiresAt}` protegido con `ISecretProtector`). `CompleteConnection` lo guarda **verbatim** en `EmailConnection.EncryptedCredentials` — **no lo cifra otra vez**.
   - `EmailImportOptions` — `Enabled` (bool, por defecto true), `SyncIntervalMinutes` (int, 10), `EncryptionKey` (string?), `Providers` (dictionary). Bindear con `services.Configure<EmailImportOptions>(configuration.GetSection("EmailImport"))` y `services.Configure<GmailOptions>(configuration.GetSection("EmailImport:Providers:gmail"))`.
   - `EmailImportModule.cs`:
     ```csharp
@@ -435,7 +563,7 @@ EmailSyncWorker (BackgroundService, timer N min)
         services.AddScoped<IEmailConnectionRepository, EmailConnectionRepository>();
         services.AddScoped<IEmailImportRuleRepository, EmailImportRuleRepository>();
         services.AddScoped<IPendingEmailTransactionRepository, PendingEmailTransactionRepository>();
-        services.AddScoped<ISecretProtector, AesSecretProtector>();
+        services.AddSingleton<ISecretProtector, AesSecretProtector>();
         services.AddScoped<IMessageTextExtractor, MessageTextExtractor>();
         services.AddScoped<IEmailParser, EmailParser>();
         services.AddSingleton<IBankAdapter, GenericRegexAdapter>();
@@ -444,12 +572,14 @@ EmailSyncWorker (BackgroundService, timer N min)
         services.AddSingleton<OAuthStateService>();
         services.AddHttpClient<GmailApiClient>();
         services.AddScoped<IEmailProviderClient, GmailEmailProvider>();
-        services.AddSingleton<IEmailProviderResolver, EmailProviderResolver>();
+        services.AddScoped<IEmailProviderResolver, EmailProviderResolver>();   // NO singleton — ver nota
         if (enabled) services.AddHostedService<EmailSyncWorker>();
         return services;
     }
     ```
-    `IBankAdapter` y el registro van **singleton** porque son stateless y el registro se construye una vez. El resto scoped.
+    **Singletons**: `ISecretProtector` (stateless: clave de solo lectura y un `AesGcm` por llamada; además evita recalcular SHA-256 en cada scope), `IBankAdapter`, `IBankAdapterRegistry`, `OAuthStateService`.
+    **Scoped**: los repositorios, los servicios por petición, `GmailEmailProvider` y **`IEmailProviderResolver`**.
+    > **Trampa que salió en el slice 8:** `EmailProviderResolver` recibe `IEnumerable<IEmailProviderClient>` por constructor, así que si fuera **singleton** resolvería los clientes desde el root y el arranque fallaría con `Cannot consume scoped service from singleton` bajo `ValidateScopes` (activo en Development). El plan original decía singleton: **cambiado a scoped**. El worker abre su propio scope por tick, así que también lo obtiene bien.
   - `MapEmailImportEndpoints` mapea el grupo `/api/email-import` con `RequireAuthorization()`, salvo el callback, que se mapea **fuera del grupo** y **sin** `RequireAuthorization`. Añadir un comentario en el endpoint que lo recuerde, porque es la excepción.
   - Endpoints: un `public static class` con `MapEndpoint()` por acción y un `internal static class` agrupando las de lectura/escritura, según `AGENTS.md`.
   - `Program.cs` — encadenar `builder.Services.AddUsersModule().AddFinancesModule().AddRelationshipsModule().AddEmailImportModule();` y añadir `app.MapEmailImportEndpoints();` junto a las demás. Leer `EmailImport:Enabled` antes de `AddEmailImportModule` para condicionar el `AddHostedService`.
@@ -675,7 +805,15 @@ bunx playwright test e2e/email-import.spec.ts
 ## Notas para los implementers
 
 - **No implementar hasta la aprobación del plan** (hard-gate SDD).
-- **La neutralidad de proveedor es revisable con un grep**: `grep -rn "Gmail\|gmail" src/core/Budgie.Modules.EmailImport/{Domain,Application,Presentation}/` debe devolver **cero**. Si devuelve algo, es un error de slice.
+- **La neutralidad de proveedor es revisable con un grep**, aimed at identifiers rather than prose:
+  ```bash
+  grep -rn "Gmail\|gmail" src/core/Budgie.Modules.EmailImport/{Domain,Application,Presentation}/ \
+    | grep -v ":[0-9]*:\s*///"
+  ```
+  Debe devolver **cero**. Mencionar el proveedor concreto en un comentario XML está bien y es
+  recomendable (explica por qué el tipo es neutro); lo que no puede aparecer es un **identificador**.
+  Lo mismo aplica al grep de capas: puede decir "Dapper materialization" en un comentario del
+  ctor paramless, pero nunca `using Npgsql...`.
 - **La dirección de capas también es revisable con un grep**: ningún archivo bajo `Application/` puede mencionar `NpgsqlConnection`, `Dapper` ni `Infrastructure`. Salvo el puerto `IMessageTextExtractor`, que es justamente la costura.
 - Respetar `AGENTS.md`: SQL solo en `Infrastructure/Database`, handlers `internal sealed` con primary constructor y dependencias de interfaces, `LoggerMessage` source-gen, `BudgieJsonContext` para AOT, y `ErrorOr` con mensajes es/en vía `CultureInfo.CurrentUICulture.TwoLetterISOLanguageName`.
 - Reutilizar patrones ya existentes en el repo: `CreateTransactionCommandHandler` para `ControlStartDate` e i18n, `MoneyManagerSqliteParser` para el estilo de un parser de infraestructura, `ImportMoneyManagerEndpointsTests.cs` para el estilo de los tests de integración, y `import.spec.ts` para el estilo de Playwright con MSW.

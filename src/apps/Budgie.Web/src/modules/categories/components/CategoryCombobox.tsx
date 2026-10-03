@@ -27,6 +27,8 @@ interface CategoryComboboxProps {
   type?: number;
   categories?: CategoryResponse[];
   showNoneOption?: boolean;
+  /** id del trigger, para asociar un Label externo (WCAG 1.3.1). */
+  id?: string;
 }
 
 export function CategoryCombobox({
@@ -38,6 +40,7 @@ export function CategoryCombobox({
   type,
   categories: propCategories,
   showNoneOption,
+  id,
 }: CategoryComboboxProps) {
   const { t } = useTranslation();
 
@@ -84,6 +87,7 @@ export function CategoryCombobox({
       <ComboboxTrigger
         render={
           <Button
+            id={id}
             variant="outline"
             className="w-full justify-between font-normal"
           />

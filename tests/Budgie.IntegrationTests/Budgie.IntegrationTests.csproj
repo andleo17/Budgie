@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -27,6 +27,8 @@
 
   <ItemGroup>
     <None Include="Fixtures\mm-import-test.mmbak" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Fixtures\email-sample.es.txt" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Fixtures\email-import-rules.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>
@@ -34,6 +36,7 @@
     <ProjectReference Include="..\..\src\core\Budgie.Modules.Finances\Budgie.Modules.Finances.csproj" />
     <ProjectReference Include="..\..\src\core\Budgie.Modules.Users\Budgie.Modules.Users.csproj" />
     <ProjectReference Include="..\..\src\core\Budgie.Modules.Relationships\Budgie.Modules.Relationships.csproj" />
+    <ProjectReference Include="..\..\src\core\Budgie.Modules.EmailImport\Budgie.Modules.EmailImport.csproj" />
   </ItemGroup>
 
 </Project>

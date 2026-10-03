@@ -5,6 +5,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\core\Budgie.Modules.EmailImport\Budgie.Modules.EmailImport.csproj" />
     <ProjectReference Include="..\..\core\Budgie.Modules.Finances\Budgie.Modules.Finances.csproj" />
     <ProjectReference Include="..\..\core\Budgie.Shared\Budgie.Shared.csproj" />
     <ProjectReference Include="..\..\core\Budgie.Modules.Relationships\Budgie.Modules.Relationships.csproj" />

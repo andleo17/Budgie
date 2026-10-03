@@ -57,7 +57,8 @@ public class Transaction : Entity
         Guid? installmentGroupId = null,
         int installmentNumber = 1,
         int totalInstallments = 1,
-        decimal interestRate = 0)
+        decimal interestRate = 0,
+        string? externalUid = null)
     {
         Guard.Positive(installments, nameof(installments));
         Guard.Positive(installmentNumber, nameof(installmentNumber));
@@ -87,7 +88,8 @@ public class Transaction : Entity
             InstallmentGroupId = installmentGroupId,
             InstallmentNumber = installmentNumber,
             TotalInstallments = totalInstallments,
-            InterestRate = Percentage.From(interestRate)
+            InterestRate = Percentage.From(interestRate),
+            ExternalUid = externalUid
         };
     }
 

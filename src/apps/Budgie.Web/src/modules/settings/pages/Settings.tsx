@@ -8,6 +8,7 @@ import { CurrencySettingsForm } from '@/modules/settings/components/CurrencySett
 import { TransactionSettingsCard } from '@/modules/settings/components/TransactionSettingsCard';
 import { RecurringSettingsCard } from '@/modules/settings/components/RecurringSettingsCard';
 import { BackupCard } from '@/modules/settings/components/BackupCard';
+import { EmailImportSettingsCard } from '@/modules/settings/components/EmailImportSettingsCard';
 
 export default function Settings() {
   const { t } = useTranslation();
@@ -52,6 +53,7 @@ export default function Settings() {
       <CurrencySettingsForm settingsData={settingsData} />
       <TransactionSettingsCard currentPageSize={pageSize} />
       <RecurringSettingsCard />
+      <EmailImportSettingsCard />
       <BackupCard />
     </div>
   );
