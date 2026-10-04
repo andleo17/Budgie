@@ -94,7 +94,12 @@ public interface IPendingEmailTransactionRepository
     /// <summary>Pending rows with <c>"Confidence" &gt;= minConfidence</c>, highest confidence first.</summary>
     Task<List<PendingEmailTransaction>> GetHighConfidenceAsync(Guid userId, decimal minConfidence, int take, CancellationToken ct);
 
-    /// <summary>Failed rows (parse or commit errors), newest first.</summary>
+    /// <summary>
+    /// Failed rows (parse or commit errors), newest first. Implementation note
+    /// (debt plan §6.6): materialises every failed row and pages in memory — a deliberate,
+    /// reviewed trade-off (the Failed filter is user-bounded, not an unbounded log); the
+    /// accepted risk is response size if that assumption ever breaks.
+    /// </summary>
     Task<List<PendingEmailTransaction>> GetFailedAsync(Guid userId, CancellationToken ct);
 
     Task<int> CountPendingAsync(Guid userId, CancellationToken ct);

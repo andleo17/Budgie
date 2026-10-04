@@ -1081,6 +1081,39 @@ public class EmailImportEndpointsTests : IClassFixture<BudgieWebApplicationFacto
         int TransactionType, decimal Confidence, string? FieldConfidenceJson,
         string? RawBody, string? FailureReason, DateTime CreatedAt);
 
+    // ── ?status= binding (debt plan §3.3: PendingEmailStatus moved to Budgie.Shared.Enums) ─
+    [Fact]
+    public async Task Inbox_UnknownStatusValue_IsRejectedWith400()
+    {
+        // The enum moved to Shared (slice 9) with its numeric values intact. This pins that
+        // binding accepts ONLY the documented members: any other integer is a 400, never a
+        // silent fall-through to Pending.
+        var (client, _) = await ClientWithUserAsync();
+
+        var response = await client.GetAsync("/api/email-import/inbox?status=99");
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Theory]
+    [InlineData("Pending")]
+    [InlineData("Committed")]
+    [InlineData("Dismissed")]
+    [InlineData("Failed")]
+    public async Task Inbox_DocumentedStatusValues_AreAcceptedByTheBinding(string status)
+    {
+        // Binding of the moved enum keeps working for every member, by name as the FE sends
+        // the numeric values and the API accepts both. A fresh user has no rows, so the page
+        // is empty — the point is the 200, not the data.
+        var (client, _) = await ClientWithUserAsync();
+
+        var page = await client.GetFromJsonAsync<InboxPageDto>(
+            $"/api/email-import/inbox?status={status}");
+
+        page.Should().NotBeNull();
+        page!.Total.Should().Be(0);
+    }
+
     // ── Manual approval ────────────────────────────────────────────────────────────────
     private async Task<Guid> StageOnePendingRowAsync(HttpClient client, Guid userId)
     {

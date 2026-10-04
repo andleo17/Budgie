@@ -130,6 +130,16 @@ internal sealed class PendingEmailTransactionRepository(IDbConnectionFactory fac
         return rows.Select(Map).ToList();
     }
 
+    /// <summary>
+    /// Failed rows (parse or commit errors), newest first. Deliberately materialises EVERY
+    /// failed row (<c>RawBody</c> included) and lets the caller paginate in memory —
+    /// a trade-off reviewed and kept, not an oversight (debt plan §6.6): the Failed filter
+    /// is a user-bounded subset (a parse or commit error per message that failed), NOT a log
+    /// that grows without limit, and the repository offers no paged SQL for this filter.
+    /// The accepted risk is RESPONSE SIZE: a mailbox that somehow accumulated a very large
+    /// number of failed rows would stream them all before paging. Revisit if that ever
+    /// becomes real.
+    /// </summary>
     public async Task<List<PendingEmailTransaction>> GetFailedAsync(Guid userId, CancellationToken ct)
     {
         var rows = await factory.QueryListAsync<PendingRow>(

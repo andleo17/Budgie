@@ -11,9 +11,9 @@ using Budgie.Modules.Finances.Application;
 using Budgie.Modules.Finances.Application.Transactions.CreateTransaction;
 using Budgie.Shared.Abstractions;
 using Budgie.Shared.Enums;
+using Budgie.Shared.Exceptions;
 using ErrorOr;
 using Mediator;
-using Npgsql;
 
 namespace Budgie.Modules.EmailImport.Application.Inbox;
 
@@ -34,7 +34,7 @@ namespace Budgie.Modules.EmailImport.Application.Inbox;
 /// cursor saved first, every unprocessed message would be lost forever.
 /// </item>
 /// <item>
-/// <c>NpgsqlException</c> with <c>SqlState 23505</c> from the auto-commit dispatch means
+/// <c>UniqueConstraintViolationException</c> from the auto-commit dispatch means
 /// "the transaction was ALREADY committed" (the unique index on
 /// <c>Transactions."ExternalUid"</c>), not an error: the staging row is marked
 /// <c>Committed</c> and the loop continues.
@@ -52,7 +52,7 @@ namespace Budgie.Modules.EmailImport.Application.Inbox;
 /// <b>not</b> reconcile the staging row itself. If the process dies between the two
 /// writes, the row is still <c>Pending</c> while its transaction already exists; the
 /// next tick sees <c>TryAddAsync == false</c> and moves on, so the row needs the user
-/// to approve it once — that approval hits the same barrier (23505) and marks it
+/// to approve it once — that approval hits the same barrier and marks it
 /// <c>Committed</c>. That is the only real crash window, and it is rare.
 /// </para>
 /// </remarks>
@@ -292,13 +292,16 @@ internal sealed class EmailSyncService(
                         ExternalUid: externalUid),
                     ct);
             }
-            catch (PostgresException ex) when (ex.SqlState == PostgresErrorCodes.UniqueViolation)
+            catch (UniqueConstraintViolationException)
             {
-                // SECOND idempotency barrier (spec §3.5): SqlState 23505 on the unique
-                // index IX_Transactions_UserId_ExternalUid means the transaction was
-                // ALREADY committed — most likely the process died between this dispatch
-                // and the staging update of a previous pass. That is a success, not an
+                // SECOND idempotency barrier (spec §3.5): the unique index
+                // IX_Transactions_UserId_ExternalUid rejected the INSERT, which means the
+                // transaction was ALREADY committed — most likely the process died between this
+                // dispatch and the staging update of a previous pass. That is a success, not an
                 // error: link the row to the existing transaction and continue.
+                //
+                // The exception is the neutral one TransactionRepository translates out of the
+                // driver's, so Application never references Npgsql (AGENTS.md).
                 var existingId = await transactionsRepository.GetIdByExternalUidAsync(
                     connection.UserId, externalUid, ct);
 

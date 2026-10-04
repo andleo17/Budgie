@@ -131,7 +131,10 @@ public static partial class HtmlToTextConverter
     [GeneratedRegex("<[^>]*>", RegexOptions.Multiline | RegexOptions.CultureInvariant)]
     private static partial Regex AnyTagRegex();
 
-    [GeneratedRegex("&(?<code>#[0-9]+|#x[0-9a-fA-F]+|[a-zA-Z]+);", RegexOptions.CultureInvariant)]
+    // 'x' is case-insensitive by spec (HTML5): "&#x20AC;" AND "&#X20AC;" are the same
+    // entity. The lowercase-only alternative was a defect (debt plan §6.5): the matching
+    // DecodeEntity already handled 'X', but the regex never let it see one.
+    [GeneratedRegex("&(?<code>#[0-9]+|#[xX][0-9a-fA-F]+|[a-zA-Z]+);", RegexOptions.CultureInvariant)]
     private static partial Regex EntityRegex();
 
     [GeneratedRegex("[ \\u00A0\\u202F]+", RegexOptions.CultureInvariant)]

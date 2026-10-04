@@ -1,5 +1,7 @@
+using System.Globalization;
 using Budgie.Modules.EmailImport.Domain.Staging;
 using Budgie.Shared.Abstractions;
+using Budgie.Shared.Enums;
 using ErrorOr;
 using Mediator;
 
@@ -28,6 +30,16 @@ internal sealed class GetPendingQueryHandler(
     public async ValueTask<ErrorOr<PagedResult<PendingEmailTransactionResponse>>> Handle(
         GetPendingQuery request, CancellationToken ct)
     {
+        // Query-string enum binding accepts ANY integer (Enum.TryParse happily parses
+        // undefined values, so "?status=99" binds to (PendingEmailStatus)99), so an unknown
+        // status must be rejected here: debt plan §3.3 pins GET /inbox?status=99 → 400.
+        if (request.Status is { } statusValue && !Enum.IsDefined(statusValue))
+            return Error.Validation(
+                "EmailImport.InvalidStatus",
+                CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "en"
+                    ? $"'{(int)statusValue}' is not a valid inbox status."
+                    : $"'{(int)statusValue}' no es un estado válido de la bandeja de revisión.");
+
         var userId = currentUserProvider.GetUserId();
         var page = Math.Max(1, request.Page);
         var pageSize = Math.Clamp(request.PageSize, 1, MaxPageSize);

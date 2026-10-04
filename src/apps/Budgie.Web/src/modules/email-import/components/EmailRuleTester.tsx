@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { memo, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { toast } from "sonner";
@@ -26,6 +26,7 @@ import { ChevronDownIcon, FlaskConicalIcon, Loader2Icon } from "lucide-react";
 import { usePreviewRule } from "../hooks/useEmailRules";
 import { ConfidenceBadge } from "./ConfidenceBadge";
 import { FieldConfidenceBadges } from "./FieldConfidenceBadges";
+import { CurrencyWarning } from "./CurrencyWarning";
 import type { EmailImportRule, EmailRuleDraftBody, PreviewRuleResponse } from "../types";
 
 const DRAFT_VALUE = "__draft__";
@@ -35,8 +36,12 @@ const DRAFT_VALUE = "__draft__";
  * seleccionada —guardada o el borrador del formulario— sin escribir nada en la
  * base de datos. Devuelve el texto plano (lo que realmente leen las regex), los
  * campos, la confianza por campo y la explicación literal del backend.
+ *
+ * `memo`: con el estado del borrador dentro de RulesTab (plan deuda §7.17.2), las
+ * props son estables salvo `draft` (que cambia al teclear en el formulario); memo
+ * evita re-renderizar el probador por los demás cambios de estado de la pestaña.
  */
-export function EmailRuleTester({
+export const EmailRuleTester = memo(function EmailRuleTester({
   rules,
   draft,
 }: {
@@ -56,8 +61,37 @@ export function EmailRuleTester({
 
   const previewMutation = usePreviewRule();
 
-  const usingDraft = selected === DRAFT_VALUE;
-  const canRun = !!rawEmail.trim() && (usingDraft ? draft != null : !!selected);
+  // `selected` puede quedar en el centinela del borrador cuando el borrador pasa a
+  // null (el item desaparece de la lista): sin este filtro, el trigger enseñaría
+  // "Form draft" de una opción que ya no existe y `canRun` sería false en silencio.
+  // La etiqueta del trigger se deriva del valor efectivo, no del `selected` obsoleto.
+  const usingDraft = selected === DRAFT_VALUE && draft != null;
+  const effectiveSelected = usingDraft ? DRAFT_VALUE : selected === DRAFT_VALUE ? null : selected;
+  const canRun = !!rawEmail.trim() && (usingDraft ? draft != null : !!effectiveSelected);
+
+  /**
+   * Identifica QUÉ produjo el resultado que se está enseñando, para no exhibir el desglose de
+   * una versión anterior de lo que el usuario tiene delante.
+   *
+   * Limpiar el resultado al cambiar de selección (en `onValueChange`) no basta: con "Form draft"
+   * seleccionado, seguir editando el formulario lo invalida igual y el resultado viejo se queda
+   * en pantalla bajo la MISMA etiqueta. Con `role="status"` no hay re-anuncio, porque el nodo no
+   * cambia de presencia: el lector de pantalla y el usuario ven lo mismo, desactualizado.
+   *
+   * La firma del borrador es su JSON de patrones, así que cualquier edición que cambie lo que se
+   * extrae invalida el resultado; tocar el nombre o la categoría no, que es lo correcto: el
+   * parseo no depende de ellos. Se compara en render en vez de con un `useEffect` porque no hay
+   * nada que sincronizar con el mundo externo (y `set-state-in-effect` es error en este repo).
+   */
+  const draftSignature = draft?.fieldPatternsJson ?? null;
+  const currentSourceKey = usingDraft
+    ? `draft:${draftSignature}`
+    : `rule:${effectiveSelected ?? ""}`;
+
+  // El resultado sólo se muestra mientras siga describiendo lo que hay en pantalla. Se guarda en
+  // render (no en estado) para no introducir un segundo ciclo de efectos.
+  const [resultSource, setResultSource] = useState<string | null>(null);
+  const resultIsCurrent = result !== null && resultSource === currentSourceKey;
 
   const ruleItems = useMemo(() => {
     const draftItem = { label: t("emailImport.rules.tester.draft"), value: DRAFT_VALUE };
@@ -69,14 +103,17 @@ export function EmailRuleTester({
     if (!canRun) return;
     previewMutation.mutate(
       {
-        ruleId: usingDraft ? null : selected,
+        ruleId: usingDraft ? null : effectiveSelected,
         draft: usingDraft ? draft : null,
         rawEmail,
         fromAddress: fromAddress.trim() || null,
         subject: subject.trim() || null,
       },
       {
-        onSuccess: (data) => setResult(data),
+        onSuccess: (data) => {
+          setResult(data);
+          setResultSource(currentSourceKey);
+        },
         onError: (err) =>
           toast.error(t("emailImport.rules.tester.error"), {
             description: err instanceof Error ? err.message : undefined,
@@ -94,15 +131,23 @@ export function EmailRuleTester({
       <CardContent className="flex flex-col gap-4">
         <FieldGroup className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field className="sm:col-span-2">
-            <FieldLabel>{t("emailImport.rules.tester.rule")}</FieldLabel>
+            <FieldLabel htmlFor="tester-rule">{t("emailImport.rules.tester.rule")}</FieldLabel>
             <Select
               items={ruleItems}
-              value={selected ?? ""}
+              value={effectiveSelected ?? ""}
               onValueChange={(v) => {
-                if (v !== null) setSelected(String(v));
+                if (v !== null) {
+                  setSelected(String(v));
+                  // El desglose de la regla anterior no corresponde a la nueva
+                  // selección: limpiarlo evita (a) enseñar el resultado viejo bajo
+                  // el nombre nuevo y (b) —con el role="status" del slice 15—
+                  // anunciar un resultado que ya no vale.
+                  setResult(null);
+                  setResultSource(null);
+                }
               }}
             >
-              <SelectTrigger className="w-full">
+              <SelectTrigger id="tester-rule" className="w-full">
                 <SelectValue placeholder={t("emailImport.rules.tester.none")} />
               </SelectTrigger>
               <SelectContent>
@@ -146,7 +191,14 @@ export function EmailRuleTester({
         </FieldGroup>
 
         <div className="flex flex-wrap items-center gap-2">
-          <Button type="button" onClick={handleRun} disabled={!canRun || previewMutation.isPending}>
+          <Button
+            type="button"
+            onClick={handleRun}
+            disabled={!canRun || previewMutation.isPending}
+            // La pista de "qué falta" se asocia al botón en vez de ser región viva: se lee al
+            // enfocar el control, que es cuando el usuario necesita saber por qué no corre.
+            aria-describedby={!canRun ? "tester-need-input" : undefined}
+          >
             {previewMutation.isPending ? (
               <Loader2Icon data-icon="inline-start" className="animate-spin" />
             ) : (
@@ -157,22 +209,31 @@ export function EmailRuleTester({
               : t("emailImport.rules.tester.run")}
           </Button>
           {!canRun && (
-            <p className="text-xs text-muted-foreground">{t("emailImport.rules.tester.needInput")}</p>
+            // Sin role="status": esto es una PISTA DE VALIDACIÓN SÍNCRONA que se monta y
+            // desmonta en cada tecla, no un resultado asíncrono. Una región viva que aparece y
+            // desaparece en cada pulsación es ruido para el lector de pantalla. Se anuncia al
+            // mover el foco al botón, que ya dice si está deshabilitado y por qué está vacío.
+            <p id="tester-need-input" className="text-xs text-muted-foreground">
+              {t("emailImport.rules.tester.needInput")}
+            </p>
           )}
         </div>
 
-        {result && <TesterResult result={result} />}
+        {/* Sólo si el resultado sigue describiendo lo que hay en pantalla (ver currentSourceKey). */}
+        {resultIsCurrent && <TesterResult result={result} />}
       </CardContent>
     </Card>
   );
-}
+});
 
 function TesterResult({ result }: { result: PreviewRuleResponse }) {
   const { t } = useTranslation();
   const fieldEntries = Object.entries(result.fields ?? {});
 
   return (
-    <div className="flex flex-col gap-3">
+    // role="status" + aria-live="polite": el resultado llega de una mutación y el
+    // lector de pantalla debe anunciarlo sin robar el foco (slice 15.6).
+    <div role="status" aria-live="polite" className="flex flex-col gap-3">
       <Separator />
 
       <div className="flex flex-wrap items-center gap-2">
@@ -181,6 +242,9 @@ function TesterResult({ result }: { result: PreviewRuleResponse }) {
       </div>
 
       <FieldConfidenceBadges scores={result.fieldConfidence ?? null} />
+      {/* Mismo aviso y mismas claves que en la fila de revisión: un mensaje en una sola
+          de las dos superficies es la mitad del problema (§2.4). */}
+      <CurrencyWarning scores={result.fieldConfidence ?? null} />
 
       {result.skipReason && (
         <Alert variant="destructive">

@@ -1,3 +1,5 @@
+using Budgie.Shared.Domain;
+
 namespace Budgie.Modules.EmailImport.Domain.Parsing;
 
 /// <summary>
@@ -35,20 +37,10 @@ public sealed record EmailMessage(
         new(messageId, threadId, fromAddress?.Trim(), subject, body, receivedAt);
 
     /// <summary>
-    /// Returns the bare sender address. If <see cref="FromAddress"/> is a raw MIME header
-    /// (<c>Nombre &lt;correo@dominio&gt;</c>), only the address inside the angle brackets is
-    /// returned; otherwise the value is trimmed and returned as-is. Null stays null.
+    /// Returns the bare sender address by delegating to
+    /// <see cref="EmailHeader.ExtractAddress"/> — the single From-header parser (debt plan
+    /// §6.2). A blank <see cref="FromAddress"/> yields <c>null</c>: blank means "no sender",
+    /// never the blank string itself.
     /// </summary>
-    public string? GetFromAddress()
-    {
-        if (string.IsNullOrWhiteSpace(FromAddress))
-            return FromAddress;
-
-        var start = FromAddress.IndexOf('<');
-        var end = FromAddress.IndexOf('>');
-        if (start >= 0 && end > start)
-            return FromAddress[(start + 1)..end].Trim();
-
-        return FromAddress.Trim();
-    }
+    public string? GetFromAddress() => EmailHeader.ExtractAddress(FromAddress);
 }

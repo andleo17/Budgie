@@ -25,7 +25,7 @@ using FluentAssertions;
 using Mediator;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
-using Npgsql;
+using Budgie.Shared.Exceptions;
 using Xunit;
 
 namespace Budgie.Modules.EmailImport.UnitTests.Inbox;
@@ -161,16 +161,12 @@ public class ApprovePendingTests
 
     private CreateTransactionCommand SentCommand() => _sent.Should().ContainSingle().Subject;
 
-    private static PostgresException UniqueViolation()
-    {
-        var exception = (PostgresException)System.Runtime.CompilerServices.RuntimeHelpers
-            .GetUninitializedObject(typeof(PostgresException));
-        typeof(PostgresException)
-            .GetField("<SqlState>k__BackingField",
-                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
-            .SetValue(exception, PostgresErrorCodes.UniqueViolation);
-        return exception;
-    }
+    /// <summary>
+    /// The neutral exception <c>TransactionRepository.AddAsync</c> translates a unique violation
+    /// into: the contract this handler actually catches, across the layer boundary.
+    /// </summary>
+    private static UniqueConstraintViolationException UniqueViolation() =>
+        new("duplicate key value violates unique constraint \"IX_Transactions_UserId_ExternalUid\"");
 
     // ── The happy path ─────────────────────────────────────────────────────────────────
     [Fact]

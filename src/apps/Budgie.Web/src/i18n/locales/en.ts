@@ -650,9 +650,16 @@ const en = {
       pending: "Pending",
       rules: "Rules",
     },
+    loading: {
+      pending: "Loading pending emails…",
+      rules: "Loading rules…",
+      accounts: "Loading accounts…",
+      settings: "Loading settings…",
+    },
     pending: {
       filterPending: "Pending",
       filterFailed: "Failed",
+      statusLabel: "Status",
       empty: "No emails pending review.",
       emptyDesc:
         "When a bank email arrives and a rule matches it, it will show up here for review.",
@@ -673,6 +680,7 @@ const en = {
       dismissed: "Email dismissed.",
       dismissError: "Could not dismiss the email",
       approveBatch: "Approve high-confidence ones",
+      approveBatchPending: "Waiting for the connection's auto-commit threshold.",
       approveBatchTitle: "Approve high-confidence emails?",
       approveBatchDesc:
         "Pending emails with confidence equal to or above {{threshold}} will be approved.",
@@ -701,6 +709,11 @@ const en = {
       low: "Low",
       noData: "No confidence data",
       fieldsLabel: "Confidence per field",
+      // Aviso destacado de moneda (§2.4). "Unidentified", not "wrong": since slice 3 the backend
+      // REJECTS the message when the symbol contradicts the rule, so what reaches here is a
+      // symbol we cannot read — not a wrong currency.
+      currencyUnidentified:
+        "The email's currency symbol could not be matched to the rule's currency. Check the amount and currency before approving.",
       fields: {
         amount: "Amount",
         direction: "Sign",
@@ -726,6 +739,10 @@ const en = {
       namePlaceholder: "e.g. Card purchases",
       nameRequired: "The name is required.",
       patternRequired: "The amount pattern is required.",
+      regexHint:
+        "Invalid regex in the browser: {{error}}. The server (.NET) may still accept it: it will be sent and the server will decide.",
+      regexHintServer:
+        "The server rejected the rule as invalid (EmailImport.InvalidRule). Review the pattern and body regexes.",
       adapter: "Adapter",
       adapterDesc: "The only adapter available in this version.",
       account: "Target account",
@@ -830,7 +847,8 @@ const en = {
       lastError: "Last error",
       threshold: "Auto-commit threshold",
       thresholdDesc:
-        "Minimum confidence to create the transaction automatically. Set by the deployment operator; read-only here.",
+        "Minimum confidence to create a transaction automatically without review. Raise the threshold to review more emails; lower it if transactions pile up in the inbox needlessly.",
+      thresholdError: "The auto-commit threshold could not be saved.",
       interval: "Sync interval",
       intervalDesc:
         "Set by the deployment operator (EmailImport:SyncIntervalMinutes); read-only here.",

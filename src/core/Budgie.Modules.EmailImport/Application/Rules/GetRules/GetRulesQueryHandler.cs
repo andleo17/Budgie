@@ -35,7 +35,9 @@ internal sealed class GetRulesQueryHandler(
         rule.AccountId,
         rule.CategoryId,
         rule.TransactionType,
-        rule.Currency,
+        // Read model stays string; .Code makes the canonical value explicit instead of
+        // leaning on CurrencyCode's implicit conversion to string.
+        rule.Currency.Code,
         rule.ExchangeRate,
         rule.FromAddress,
         rule.SubjectContains,

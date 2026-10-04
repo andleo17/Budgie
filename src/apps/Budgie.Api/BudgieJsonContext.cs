@@ -227,6 +227,7 @@ namespace Budgie.Api;
 [JsonSerializable(typeof(Budgie.Modules.EmailImport.Presentation.Rules.RuleDraftRequest))]
 [JsonSerializable(typeof(Budgie.Modules.EmailImport.Presentation.Inbox.ApprovePendingRequest))]
 [JsonSerializable(typeof(Budgie.Modules.EmailImport.Presentation.Inbox.ApproveBatchRequest))]
+[JsonSerializable(typeof(Budgie.Modules.EmailImport.Presentation.Connections.UpdateAutoCommitThresholdRequest))]
 internal partial class BudgieJsonContext : JsonSerializerContext
 {
 }

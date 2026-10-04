@@ -10,7 +10,9 @@ namespace Budgie.Modules.EmailImport.Application.Rules;
 /// <remarks>
 /// <c>FieldPatternsJson</c> is echoed back as stored. Note that PostgreSQL normalizes jsonb
 /// on write (key order, escaping), so clients must round-trip the parsed JSON, never compare
-/// raw strings.
+/// raw strings. <c>Currency</c> stays a plain <c>string</c> in this read model (wire
+/// contract), but it is always the canonical <c>CurrencyCode</c> code (e.g. <c>USD</c>,
+/// never <c>usd</c>): the domain value object normalizes on write.
 /// </remarks>
 public record EmailImportRuleResponse(
     Guid Id,

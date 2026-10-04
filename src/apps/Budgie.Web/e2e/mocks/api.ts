@@ -21,6 +21,13 @@ export type MockRequest = {
   method: string
   url: string
   postDataJSON: () => unknown
+  /**
+   * Cabeceras de la petición. Existe para que un handler pueda COMPROBAR el Content-Type:
+   * sin esto el harness perdona el defecto del slice 1, donde el PUT del umbral viajaba sin
+   * `Content-Type` y fetch lo enviaba como `text/plain` — que la API real rechaza con 415 y
+   * ningún test veía, porque el stub responds bien a cualquier cuerpo (§9.1 de la spec).
+   */
+  headers: () => Record<string, string>
 }
 
 export type HandlerFn = (ctx: {
@@ -82,6 +89,11 @@ export class ApiMock {
       postDataJSON: () => {
         const post = request.postDataJSON()
         return post && typeof post === "object" ? post : undefined
+      },
+      headers: () => {
+        const out: Record<string, string> = {}
+        for (const [key, value] of Object.entries(request.headers())) out[key.toLowerCase()] = value
+        return out
       },
     }
 

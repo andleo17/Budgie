@@ -101,7 +101,37 @@ internal sealed class GmailEmailProvider(
                 "The provider did not return a refresh token; the authorization must be requested with offline access and forced consent.");
 
         var credential = new StoredCredential(token.AccessToken, token.RefreshToken, ResolveExpiry(token));
-        return ToCredentials(credential);
+        return ToCredentials(credential, email: await ReadMailboxAddressAsync(token.AccessToken, ct));
+    }
+
+    /// <summary>
+    /// Reads the connected mailbox's address so the UI can show which mailbox it is.
+    /// </summary>
+    /// <remarks>
+    /// <b>One extra round trip per connect.</b> The profile endpoint already exists in this class
+    /// — it is what anchors the <c>historyId</c> cursor — but that happens on the first
+    /// <c>ListNewAsync</c> tick, i.e. AFTER this exchange. So connecting costs a second call to the
+    /// same endpoint: no new endpoint and no new scope (<c>gmail.readonly</c> already covers it),
+    /// and the single response carries both <c>emailAddress</c> and <c>historyId</c>.
+    /// </remarks>
+    /// <remarks>
+    /// <b>Best-effort, and deliberately so.</b> A failure here is swallowed and reported as null:
+    /// the mailbox really is connected, and refusing the connection because an informational
+    /// endpoint was unreachable would be strictly worse than not knowing the address. An empty
+    /// catch always looks like a bug to whoever reads it later, hence the comment.
+    /// </remarks>
+    private async Task<string?> ReadMailboxAddressAsync(string accessToken, CancellationToken ct)
+    {
+        try
+        {
+            var profile = await api.GetProfileAsync(accessToken, ct);
+            return string.IsNullOrWhiteSpace(profile?.EmailAddress) ? null : profile.EmailAddress;
+        }
+        catch (EmailProviderException)
+        {
+            // Best-effort; see remarks above.
+            return null;
+        }
     }
 
     /// <inheritdoc />
@@ -248,11 +278,17 @@ internal sealed class GmailEmailProvider(
         return new StoredCredential(token.AccessToken, refreshToken, ResolveExpiry(token));
     }
 
-    private EmailCredentials ToCredentials(StoredCredential credential) =>
+    /// <summary>
+    /// Builds the neutral credential from the stored envelope. <paramref name="email"/> is only
+    /// known on the authorization-exchange path (see <see cref="ReadMailboxAddressAsync"/>); the
+    /// refresh path leaves it null because the address already lives on the connection.
+    /// </summary>
+    private EmailCredentials ToCredentials(StoredCredential credential, string? email = null) =>
         new(
             credential.AccessToken,
             protector.Protect(JsonSerializer.Serialize(credential)),
-            credential.ExpiresAt);
+            credential.ExpiresAt,
+            email);
 
     private StoredCredential Decrypt(string encrypted)
     {

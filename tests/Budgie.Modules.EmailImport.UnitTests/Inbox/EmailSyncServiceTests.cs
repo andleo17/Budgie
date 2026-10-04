@@ -21,7 +21,7 @@ using Mediator;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
-using Npgsql;
+using Budgie.Shared.Exceptions;
 using Xunit;
 
 namespace Budgie.Modules.EmailImport.UnitTests.Inbox;
@@ -119,23 +119,14 @@ public class EmailSyncServiceTests
     private CreateTransactionCommand SentCommand() => _sent.Should().ContainSingle().Subject;
 
     /// <summary>
-    /// A real <see cref="PostgresException"/> carrying <c>SqlState = 23505</c>.
-    /// <c>PostgresException</c> has no public constructor (it is built by the protocol
-    /// handler), so the internal setters are reached through reflection — which is exactly
-    /// why the sync service matches on <c>ex.SqlState</c> rather than on the message.
+    /// The neutral exception <c>TransactionRepository.AddAsync</c> translates a unique violation
+    /// into. The test raises the exception the APPLICATION sees — the one the handler actually
+    /// catches — instead of forging the driver's own exception through reflection, which used to
+    /// be necessary while Application matched on <c>ex.SqlState</c>. Less fragile, and a more
+    /// honest test: it pins the contract across the layer boundary, not the driver's internals.
     /// </summary>
-    private static PostgresException UniqueViolation()
-    {
-        var exception = (PostgresException)System.Runtime.CompilerServices.RuntimeHelpers
-            .GetUninitializedObject(typeof(PostgresException));
-        // SqlState is an internal get-only property with a backing field; the property
-        // itself cannot be assigned, so the field is written directly.
-        typeof(PostgresException)
-            .GetField("<SqlState>k__BackingField",
-                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
-            .SetValue(exception, PostgresErrorCodes.UniqueViolation);
-        return exception;
-    }
+    private static UniqueConstraintViolationException UniqueViolation() =>
+        new("duplicate key value violates unique constraint \"IX_Transactions_UserId_ExternalUid\"");
 
     // ── The happy path ─────────────────────────────────────────────────────────────────
     [Fact]
@@ -213,6 +204,56 @@ public class EmailSyncServiceTests
 
         SentCommand().Date.Should().Be(new DateTime(2026, 10, 1));
     }
+
+    // ── A contradicting currency can never become money (slice 3, §2.3) ─────────────────
+    [Fact]
+    public async Task SyncUserAsync_ContradictingCurrencySymbol_IsSkippedAndNeverDispatches()
+    {
+        // A $-denominated message against the EUR rule. Before this change the currency field
+        // scored 0.0, which cost only 0.10 of 1.00: confidence 0.90, above the default 0.85
+        // threshold, so the auto-commit path created a transaction labelled EUR for a message
+        // denominated in dollars — with nobody reviewing it.
+        //
+        // This is the sync-level assertion the plan asked for: the adapter and parser are
+        // covered by their own tests, but what matters here is that NOTHING leaves the loop —
+        // no dispatch to Finances and no staging row.
+        var connection = Connection(threshold: 0.85m);
+        _provider.Messages.Add(
+            EmailMessage.Create(
+                "msg-cur", "thread-1", "notificaciones@banco.es", "Su pago",
+                "Fecha: 01/10/2026\nImporte: 45,20 $\nComercio: Cafetería Central",
+                new DateTimeOffset(2026, 10, 2, 12, 0, 0, TimeSpan.Zero)));
+        GivenConnections(connection);
+        GivenRules(RuleWithCurrencySymbolPattern());
+
+        var result = await _service.SyncUserAsync(UserId, CancellationToken.None);
+
+        result.Skipped.Should().Be(1);
+        result.AutoCommitted.Should().Be(0);
+        result.Staged.Should().Be(0);
+        result.Failed.Should().Be(0);
+
+        _sent.Should().BeEmpty("no transaction may be dispatched for a contradicting currency");
+        await _pending.DidNotReceive()
+            .TryAddAsync(Arg.Any<PendingEmailTransaction>(), Arg.Any<CancellationToken>());
+    }
+
+    /// <summary>
+    /// The <c>Rule</c> helper's amount pattern without a symbol group, so the currency is not
+    /// captured at all. This one embeds it, which is what lets the adapter see the "$".
+    /// </summary>
+    private static EmailImportRule RuleWithCurrencySymbolPattern() =>
+        EmailImportRule.Create(
+            UserId, "Banco Ejemplo", EmailImportRule.GenericRegexKey, 0, true,
+            AccountId, CategoryId, TransactionType.Expense, "EUR", null,
+            null, null, null,
+            JsonSerializer.Serialize(new Dictionary<string, string>
+            {
+                ["amount"] = @"Importe:\s*(?<amount>[\d.,]+)\s*(?<symbol>[^\s]+)",
+                ["date"] = @"Fecha:\s*(?<date>\d{2}/\d{2}/\d{4})",
+                ["merchant"] = @"Comercio:\s*(?<merchant>.+)"
+            }),
+            autoCommit: true);
 
     // ── Nothing is invented when nothing matches ───────────────────────────────────────
     [Fact]

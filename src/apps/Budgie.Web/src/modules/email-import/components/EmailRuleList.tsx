@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { memo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { useCategories } from "@/lib/hooks/useCategories";
@@ -25,7 +25,15 @@ import type { EmailImportRule } from "../types";
  * Tabla de reglas de importación: activar/desactivar, editar y borrar
  * (spec §8 — pestaña "Reglas").
  */
-export function EmailRuleList({
+/**
+ * Tabla de reglas.
+ *
+ * `memo` con `onEdit` memoizado en el padre: sin las dos cosas, la tabla entera se re-renderiza
+ * en CADA tecla del formulario, porque `openEditForm` es una función nueva en cada render de
+ * `RulesTab`. Sus demás props (`rules`, `isLoading`) ya son estables, así que con esto la tabla
+ * sólo se repinta cuando los datos cambian de verdad.
+ */
+export const EmailRuleList = memo(function EmailRuleList({
   rules,
   isLoading,
   onEdit,
@@ -80,7 +88,10 @@ export function EmailRuleList({
 
   if (isLoading) {
     return (
-      <div className="flex flex-col gap-2">
+      // role="status": el lector de pantalla anuncia la carga de la tabla (slice 15.5).
+      // Skeleton hace spread de props; la primitiva no se toca.
+      <div role="status" className="flex flex-col gap-2">
+        <span className="sr-only">{t("emailImport.loading.rules")}</span>
         <Skeleton className="h-10 w-full" />
         <Skeleton className="h-10 w-full" />
       </div>
@@ -192,4 +203,4 @@ export function EmailRuleList({
       />
     </>
   );
-}
+});

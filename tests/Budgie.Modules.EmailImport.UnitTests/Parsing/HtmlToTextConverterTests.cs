@@ -156,6 +156,8 @@ public class HtmlToTextConverterTests
     [Theory]
     [InlineData("&#8364;", "€")]   // decimal
     [InlineData("&#x20AC;", "€")]  // lowercase hex
+    [InlineData("&#X20AC;", "€")]  // UPPERCASE hex: HTML5 treats 'x' case-insensitively (§6.5)
+    [InlineData("&#X41;", "A")]    // uppercase hex, digits only — separates hex-case from signed entities
     [InlineData("&#39;", "'")]
     public void Convert_NumericEntities_AreDecoded(string html, string expected)
     {
@@ -163,12 +165,14 @@ public class HtmlToTextConverterTests
     }
 
     [Fact]
-    public void Convert_UppercaseHexEntity_IsNotRecognisedAndStaysLiteral()
+    public void Convert_UppercaseHexEntity_IsDecoded()
     {
-        // The entity regex only accepts a LOWERCASE '#x'. HTML5 permits "&#X20AC;", so this
-        // is a real (minor) gap rather than intended behaviour — pinned here so that fixing
-        // it later is a deliberate, visible change rather than a silent one.
-        HtmlToTextConverter.Convert("&#X20AC;").Should().Be("&#X20AC;");
+        // The previous assertion here EXPECTED "&#X20AC;" to stay LITERAL: it pinned the
+        // defect (the entity regex only accepted a lowercase '#x', §9.3 of the spec in
+        // live). HTML5 permits both cases and DecodeEntity already understood 'X', so the
+        // entity must decode — this assertion was changed on purpose, not by side effect
+        // (debt plan §6.5).
+        HtmlToTextConverter.Convert("&#X20AC;").Should().Be("€");
     }
 
     [Fact]

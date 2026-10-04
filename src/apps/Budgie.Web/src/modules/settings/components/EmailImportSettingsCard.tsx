@@ -28,12 +28,13 @@ import {
   RefreshCwIcon,
   UnlinkIcon,
 } from "lucide-react";
-import { getDateLocale } from "@/lib/date-locale";
+import { getDateLocale, parseDbDate } from "@/lib/date-locale";
 import {
   useAuthorizeEmailConnection,
   useDisconnectEmailConnection,
   useEmailConnections,
   useSyncNow,
+  useUpdateAutoCommitThreshold,
 } from "@/modules/email-import/hooks/useEmailConnections";
 import { useEmailImportNotice } from "@/modules/email-import/hooks/useEmailImportNotice";
 import { EmailImportApiError } from "@/modules/email-import/api";
@@ -44,9 +45,18 @@ const PROVIDER_LABEL_KEYS: Record<number, string> = {
 };
 
 /**
+ * El Slider de Base UI entrega `number | readonly number[]` según la primitiva. Este control es
+ * de un solo valor, así que se normaliza aquí en vez de repetir el `value[0] ?? 0` en dos sitios
+ * (y con un type assertion que el compilador no comprobaría).
+ */
+function toThresholdValue(value: number | readonly number[]): number {
+  return Array.isArray(value) ? (value[0] ?? 0) : (value as number);
+}
+
+/**
  * Tarjeta de Ajustes de importación por correo (spec §8): conectar (redirect
- * OAuth), estado de la conexión, umbral de auto-commit (solo lectura: lo fija el
- * backend/operador), "Sincronizar ahora" y enlace a /email-import.
+ * OAuth), estado de la conexión, umbral de auto-commit (**editable** desde el slice 1),
+ * "Sincronizar ahora" y enlace a /email-import.
  */
 export function EmailImportSettingsCard() {
   const { t, i18n } = useTranslation();
@@ -57,11 +67,45 @@ export function EmailImportSettingsCard() {
   const authorizeMutation = useAuthorizeEmailConnection();
   const disconnectMutation = useDisconnectEmailConnection();
   const syncMutation = useSyncNow();
+  const thresholdMutation = useUpdateAutoCommitThreshold();
   const [disconnectOpen, setDisconnectOpen] = useState(false);
 
   const connection = connections?.[0];
   const providerKey = connection ? (PROVIDER_LABEL_KEYS[connection.provider] ?? null) : null;
   const providerLabel = providerKey ? t(providerKey) : "—";
+
+  // El borrador es "una edición en curso" o null: mientras sea null, lo que se muestra y lo que
+  // vale es lo que dice el servidor. Se eligió esta forma y no un draft inicializado al valor
+  // del servidor con un guard de sincronización porque ese patrón NO puede absorber la primera
+  // carga: en el primer render `connection` aún no existe, así que el estado nace en 0, y cuando
+  // llega 0.85 el guard compara 0 contra 0 y no corre — el slider se quedaba en 0% con el
+  // servidor diciendo 0.85, y el primer arrastre se revertía solo, con `onValueCommitted`
+  // cortocircuitando por ser igual al valor del servidor y sin mandar el PUT.
+  // Con `null` no hay estado que sincronizar: null significa "sigue lo que diga el servidor".
+  const serverThreshold = connection ? Number(connection.autoCommitMinConfidence) : 0;
+  const [thresholdDraft, setThresholdDraft] = useState<number | null>(null);
+  const shownThreshold = thresholdDraft ?? serverThreshold;
+
+  const saveThreshold = (value: number) => {
+    if (!connection || value === serverThreshold) return;
+
+    setThresholdDraft(value);
+    thresholdMutation.mutate(
+      { provider: String(connection.provider), threshold: value },
+      {
+        onSuccess: () => {
+          // El guardado libera el borrador: a partir de aquí manda el servidor, y un refetch
+          // desde otro dispositivo se refleja sin quedar desincronizado con un draft viejo.
+          setThresholdDraft(null);
+        },
+        onError: () => {
+          // Rollback: el servidor puede rechazar el valor ([0,1] lo admite, pero es quien
+          // manda) y el slider no debe seguir enseñando algo no guardado.
+          setThresholdDraft(null);
+        },
+      },
+    );
+  };
 
   const handleConnect = () => {
     authorizeMutation.mutate(String(EmailProvider.Gmail), {
@@ -128,7 +172,14 @@ export function EmailImportSettingsCard() {
           <CardDescription>{t("emailImport.settings.description")}</CardDescription>
         </CardHeader>
         <CardContent>
-          <Skeleton className="h-24 w-full" />
+          {/* Variante única para toda la app: un contenedor `role="status"` CON TEXTO sr-only dentro.
+              Se descartó la de `aria-label` sobre el propio Skeleton porque una región viva
+              anuncia CAMBIOS DE CONTENIDO, no su etiqueta: un div vacío etiquetado puede no
+              anunciarse nunca. Con texto real, el lector dice "cargando ajustes" al pintarse. */}
+          <div role="status" className="w-full">
+            <span className="sr-only">{t("emailImport.loading.settings")}</span>
+            <Skeleton className="h-24 w-full" />
+          </div>
         </CardContent>
       </Card>
     );
@@ -179,9 +230,14 @@ export function EmailImportSettingsCard() {
             <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
               <div>
                 <p className="text-muted-foreground">{t("emailImport.settings.lastSync")}</p>
+                {/* parseDbDate, igual que la fila de la bandeja (PendingTransactionRow):
+                    la convención del módulo es mostrar el timestamp tal como lo guardó
+                    el backend (naive, sin zona). `new Date(...Z)` lo convertiría a la
+                    zona local y con un lastSyncAt con Z las dos pantallas divergirían
+                    (plan deuda §7.16.3). */}
                 <p className="tabular-nums">
                   {connection.lastSyncAt
-                    ? format(new Date(connection.lastSyncAt), "PPp", { locale: dateLocale })
+                    ? format(parseDbDate(connection.lastSyncAt), "PPp", { locale: dateLocale })
                     : t("emailImport.settings.never")}
                 </p>
               </div>
@@ -204,26 +260,48 @@ export function EmailImportSettingsCard() {
 
             <Separator />
 
-            {/* Umbral de auto-commit: el backend aún no expone su actualización,
-                así que el slider muestra el valor de la conexión en solo lectura. */}
+            {/* Umbral de auto-commit: editable (slice 1). Antes solo lectura porque el backend
+                no exponía su actualización — un parámetro que parecía configurable y no lo era. */}
             <div className="flex flex-col gap-2">
               <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-medium">{t("emailImport.settings.threshold")}</p>
+                <p id="email-import-threshold-label" className="text-sm font-medium">
+                  {t("emailImport.settings.threshold")}
+                </p>
                 <span className="text-sm tabular-nums">
-                  {Math.round(connection.autoCommitMinConfidence * 100)}%
+                  {Math.round(shownThreshold * 100)}%
                 </span>
               </div>
               <Slider
-                value={[Number(connection.autoCommitMinConfidence)]}
+                value={[shownThreshold]}
                 min={0}
                 max={1}
                 step={0.01}
-                disabled
-                aria-label={t("emailImport.settings.threshold")}
+                // Sólo bloquea mientras la petición está en vuelo: bloquear en cada movimiento
+                // impediría seguir ajustando el tirador.
+                disabled={thresholdMutation.isPending}
+                // El primitive pone `role="group"` en la raíz y delega el rol "slider" real al
+                // `<input type="range">` interno, que hereda el nombre pero es el elemento
+                // enfocable: sin `aria-label` en la raíz, un lector de pantalla anunciaba
+                // "slider, 0.85" sin decir QUÉ es (WCAG 4.1.2). Con `aria-labelledby` apuntando
+                // al título visible, el elemento interactivo queda con nombre accesible.
+                aria-labelledby="email-import-threshold-label"
+                // El error del guardado se asocia al control: sin esto el `role="alert"` grita
+                // al aparecer pero no queda vinculado al campo al que se refiere al navegar con
+                // el teclado.
+                aria-describedby={
+                  thresholdMutation.isError ? "email-import-threshold-error" : undefined
+                }
+                onValueChange={(value) => setThresholdDraft(toThresholdValue(value))}
+                onValueCommitted={(value) => saveThreshold(toThresholdValue(value))}
               />
               <p className="text-xs text-muted-foreground">
                 {t("emailImport.settings.thresholdDesc")}
               </p>
+              {thresholdMutation.isError && (
+                <p id="email-import-threshold-error" role="alert" className="text-xs text-destructive">
+                  {t("emailImport.settings.thresholdError")}
+                </p>
+              )}
             </div>
 
             <div className="flex flex-col gap-1">
@@ -273,12 +351,17 @@ export function EmailImportSettingsCard() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={disconnectMutation.isPending}>
-              {t("emailImport.rules.cancel")}
-            </AlertDialogCancel>
+            {/* Sin disabled en AlertDialogAction/Cancel: la primitiva es un Button
+                normal que CIERRA el diálogo al hacer clic, así que un
+                disabled={isPending} sería feedback muerto —el estado nunca se ve—
+                y en Cancel además impediría cancelar. El toast de resultado
+                (disconnected/disconnectError) es el feedback real (plan deuda
+                §7.18.1). DeleteRuleDialog sí empareja disabled+Loader2, pero
+                porque usa Dialog y no AlertDialog: no copiar ese patrón sin
+                cambiar de primitiva. */}
+            <AlertDialogCancel>{t("emailImport.rules.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDisconnect}
-              disabled={disconnectMutation.isPending}
               className="bg-destructive text-white hover:bg-destructive/90"
             >
               {t("emailImport.settings.disconnect")}

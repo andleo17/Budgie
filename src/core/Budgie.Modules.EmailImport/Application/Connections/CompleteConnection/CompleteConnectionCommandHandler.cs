@@ -13,15 +13,11 @@ internal sealed class CompleteConnectionCommandHandler(
     : IRequestHandler<CompleteConnectionCommand, ErrorOr<Guid>>
 {
     /// <summary>
-    /// TODO(EmailCredentials.Email): <see cref="EmailCredentials"/> does not carry the
-    /// mailbox address, so the provider cannot tell Application which mailbox was just
-    /// connected. The placeholder below is deliberate: it is NOT a syntactically valid
-    /// email, so nobody can mistake it for real data, and it documents the gap instead of
-    /// hiding it behind a fabricated address. Together with the ExistsByProviderAsync
-    /// check below it preserves the application-level invariant of one connection per
-    /// provider per user — which is what UNIQUE("UserId","Provider","Email") protects
-    /// anyway. When EmailCredentials gains an email/profile field (the provider can fetch
-    /// it from its profile endpoint during the exchange), use it here and delete this TODO.
+    /// Fallback mailbox value when the provider reported no address (or its profile read failed).
+    /// It is deliberately NOT a syntactically valid email: the alternative would be fabricating
+    /// an address that looks real and would be stored inside
+    /// <c>UNIQUE("UserId","Provider","Email")</c>. Rows created before the provider started
+    /// reporting the address keep this value until the user disconnects and reconnects.
     /// </summary>
     private const string ConnectedEmailPlaceholder = "connected";
 
@@ -69,8 +65,15 @@ internal sealed class CompleteConnectionCommandHandler(
         //    ISecretProtector). Store it VERBATIM: re-encrypting here would produce a
         //    double envelope no one can decrypt, breaking every future sync. The access
         //    token itself is intentionally NOT persisted — only the envelope.
+        // 3b. The mailbox address, when the provider reported one. The provider already fetches it
+        //     during the exchange (the profile call that yields the historyId yields emailAddress
+        //     too), so it costs nothing extra. Falling back to the placeholder keeps the
+        //     connection working when the provider is silent — the mailbox IS connected.
         var connection = EmailConnection.Create(
-            userId, provider, ConnectedEmailPlaceholder, credentials.EncryptedRefreshToken);
+            userId,
+            provider,
+            string.IsNullOrWhiteSpace(credentials.Email) ? ConnectedEmailPlaceholder : credentials.Email,
+            credentials.EncryptedRefreshToken);
 
         // SyncCursor stays null (the Create factory never sets it): the first sync reads
         // the provider's recovery window.

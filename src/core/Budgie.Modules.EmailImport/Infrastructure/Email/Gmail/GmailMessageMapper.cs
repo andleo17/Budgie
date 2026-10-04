@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using Budgie.Modules.EmailImport.Domain.Parsing;
+using Budgie.Shared.Domain;
 
 namespace Budgie.Modules.EmailImport.Infrastructure.Email.Gmail;
 
@@ -34,19 +35,10 @@ internal static partial class GmailMessageMapper
 
     /// <summary>
     /// Normalizes a raw From header (<c>"Banco X" &lt;correo@dominio&gt;</c>) to the bare
-    /// address. Values without angle brackets are trimmed and returned as-is.
+    /// address by delegating to <see cref="EmailHeader.ExtractAddress"/> — the single
+    /// From-header parser (debt plan §6.2); blank headers yield <c>null</c>.
     /// </summary>
-    private static string? NormalizeFrom(string? raw)
-    {
-        if (string.IsNullOrWhiteSpace(raw))
-            return null;
-
-        var start = raw.IndexOf('<');
-        var end = raw.IndexOf('>');
-        return start >= 0 && end > start
-            ? raw[(start + 1)..end].Trim()
-            : raw.Trim();
-    }
+    private static string? NormalizeFrom(string? raw) => EmailHeader.ExtractAddress(raw);
 
     /// <summary>
     /// Walks the (possibly multipart) payload recursively, collecting the first

@@ -55,7 +55,8 @@ builder.Services.AddHttpContextAccessor();
 // ICurrentUserProvider is registered by AddEmailImportModule as ScopedCurrentUserProvider:
 // an explicitly pushed user (EmailImport sync worker, manual review dispatch) wins, and a
 // normal HTTP request falls back to the JWT claim, resolving the owner exactly like the
-// previous Budgie.Api.Infrastructure.CurrentUserProvider did. See
+// previous HttpContext-only provider that lived in Budgie.Api.Infrastructure (deleted in
+// the email-import debt plan, §6.3). See
 // Budgie.Modules.EmailImport/Infrastructure/Identity/ScopedCurrentUserProvider.cs.
 
 // OpenTelemetry

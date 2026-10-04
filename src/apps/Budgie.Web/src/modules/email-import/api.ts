@@ -99,6 +99,24 @@ export function disconnectEmailConnection(provider: string): Promise<void> {
   });
 }
 
+/**
+ * PUT /connections/{provider}/threshold → 204, o 400 `EmailImport.InvalidThreshold`
+ * si el valor sale de [0, 1].
+ */
+export function updateAutoCommitThreshold(
+  provider: string,
+  threshold: number,
+): Promise<void> {
+  return request<void>(`${BASE}/connections/${encodeURIComponent(provider)}/threshold`, {
+    method: "PUT",
+    // Content-Type obligatorio: `fetch` con un body string y sin cabecera lo envía como
+    // `text/plain;charset=UTF-8`, y el binder JSON de Minimal API responde 415. Ni `request`
+    // ni `authFetch` lo añaden por su cuenta, así que cada llamada con body lo declara.
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ threshold }),
+  });
+}
+
 /** POST /sync → EmailSyncResult | 400 EmailImport.SyncAlreadyScheduled (worker activo). */
 export function syncNow(): Promise<EmailSyncResult> {
   return request<EmailSyncResult>(`${BASE}/sync`, { method: "POST" });

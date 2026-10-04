@@ -12,7 +12,7 @@ namespace Budgie.Modules.EmailImport.Application.Inbox.ApprovePending;
 /// <remarks>
 /// The dispatch reuses the SAME idempotency path as the sync auto-commit — the same
 /// <c>ExternalUid = "email:{provider}:{messageId}"</c> key and the same
-/// <c>SqlState 23505</c> interpretation — so approving a row the worker already committed
+/// <see cref="Budgie.Shared.Exceptions.UniqueConstraintViolationException"/> interpretation — so approving a row the worker already committed
 /// can never create a second transaction.
 /// </remarks>
 /// <param name="Id">Staging row id.</param>

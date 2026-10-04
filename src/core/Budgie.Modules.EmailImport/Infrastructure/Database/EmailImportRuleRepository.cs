@@ -1,5 +1,6 @@
 using Budgie.Modules.EmailImport.Application;
 using Budgie.Modules.EmailImport.Domain.Rules;
+using Budgie.Shared.Domain.ValueObjects;
 using Budgie.Shared.Enums;
 using Budgie.Shared.Infrastructure;
 
@@ -28,7 +29,12 @@ internal sealed class EmailImportRuleRepository(IDbConnectionFactory factory) : 
         var rows = await factory.QueryListAsync<RuleRow>(
             $@"SELECT {Columns} FROM ""EmailImportRules""
                WHERE ""UserId"" = @UserId
-               ORDER BY ""CreatedAt"" ASC",
+               -- Deterministic, and paired with the parser's in-memory sort. NOT byte-identical
+               -- to it: Postgres orders uuid as big-endian bytes while Guid.CompareTo reads
+               -- Data1 as a signed int, so two same-priority rules could order differently in
+               -- each layer. Harmless — the parser re-sorts before choosing (EmailParser is
+               -- authoritative), and this ordering only makes the RULES LIST stable in the UI.
+               ORDER BY ""Priority"" ASC, ""Id"" ASC",
             new { UserId = userId }, ct);
         return rows.Select(Map).ToList();
     }
@@ -69,7 +75,9 @@ internal sealed class EmailImportRuleRepository(IDbConnectionFactory factory) : 
         rule.AccountId,
         rule.CategoryId,
         TransactionType = (int)rule.TransactionType,
-        rule.Currency,
+        // Explicit .Code: the persistence layer writes the canonical scalar, never a
+        // conversion that a future refactor of CurrencyCode could silently remove.
+        Currency = rule.Currency.Code,
         rule.ExchangeRate,
         rule.FromAddress,
         rule.SubjectContains,
@@ -89,7 +97,7 @@ internal sealed class EmailImportRuleRepository(IDbConnectionFactory factory) : 
         AccountId = row.AccountId,
         CategoryId = row.CategoryId,
         TransactionType = (TransactionType)row.TransactionType,
-        Currency = row.Currency,
+        Currency = CurrencyCode.From(row.Currency),
         ExchangeRate = row.ExchangeRate,
         FromAddress = row.FromAddress,
         SubjectContains = row.SubjectContains,

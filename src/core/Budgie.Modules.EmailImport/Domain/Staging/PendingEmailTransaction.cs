@@ -5,22 +5,6 @@ using Budgie.Shared.Enums;
 namespace Budgie.Modules.EmailImport.Domain.Staging;
 
 /// <summary>
-/// Lifecycle of a staged email transaction. Declared next to its only use, following the
-/// repo precedent of <c>ExportFormat</c> and <c>BudgetThresholdStatus</c>.
-/// </summary>
-public enum PendingEmailStatus
-{
-    /// <summary>Awaiting review or auto-commit.</summary>
-    Pending = 0,
-    /// <summary>Already committed to Budgie (manually or through auto-commit).</summary>
-    Committed = 1,
-    /// <summary>Discarded by the user. The row is kept so its MessageId keeps blocking re-import.</summary>
-    Dismissed = 2,
-    /// <summary>Parse or commit failed. <see cref="PendingEmailTransaction.FailureReason"/> explains why.</summary>
-    Failed = 3
-}
-
-/// <summary>
 /// Staging row for an email-derived transaction: either auto-committed into Finances or parked
 /// in the review inbox. Idempotency relies on <c>UNIQUE(UserId, MessageId)</c> on top of
 /// <c>Transactions.ExternalUid</c>; this entity never writes to Finances directly.
@@ -74,7 +58,8 @@ public class PendingEmailTransaction : Entity
     /// <summary>
     /// Creates a staging row in <see cref="PendingEmailStatus.Pending"/>.
     /// Text fields are truncated to the DDL limits (real emails carry very long subjects);
-    /// out-of-range values are cut, never rejected.
+    /// out-of-range values are cut, never rejected. A blank <paramref name="merchant"/>
+    /// normalizes to <c>null</c> (TrimOrNull, same rule as <c>EmailImportRule</c>), never "".
     /// </summary>
     /// <exception cref="ArgumentException">
     /// <paramref name="messageId"/> is null/empty; <paramref name="confidence"/> is outside [0, 1];
@@ -115,7 +100,7 @@ public class PendingEmailTransaction : Entity
             MessageId = normalizedMessageId,
             ThreadId = Truncate(threadId?.Trim(), ThreadIdMaxLength),
             Subject = Truncate(subject?.Trim(), SubjectMaxLength),
-            Merchant = Truncate(merchant?.Trim(), MerchantMaxLength),
+            Merchant = Truncate(TrimOrNull(merchant), MerchantMaxLength),
             Notes = Truncate(notes?.Trim(), NotesMaxLength),
             Amount = Money.FromPositive(amount, currencyCode),
             Currency = currencyCode,
@@ -208,7 +193,7 @@ public class PendingEmailTransaction : Entity
         Currency = currencyCode;
         ExchangeRate = NormalizeExchangeRate(exchangeRate);
         Date = Guard.NormalizeDate(date);
-        Merchant = Truncate(merchant?.Trim(), MerchantMaxLength);
+        Merchant = Truncate(TrimOrNull(merchant), MerchantMaxLength);
         Notes = Truncate(notes?.Trim(), NotesMaxLength);
         TransactionType = transactionType;
         Status = PendingEmailStatus.Pending;
@@ -216,6 +201,16 @@ public class PendingEmailTransaction : Entity
 
     private static string? NormalizeOptionalJson(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value;
+
+    /// <summary>
+    /// Trim-and-nullify normalization for <see cref="Merchant"/>: a blank merchant means
+    /// "no merchant" (<c>null</c>), never an empty string — the same rule
+    /// <c>EmailImportRule</c> applies to its optional text fields (debt plan §6.3).
+    /// <see cref="Notes"/> deliberately keeps the older trim-to-empty behaviour: only
+    /// Merchant was unified, on purpose.
+    /// </summary>
+    private static string? TrimOrNull(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     private static decimal NormalizeConfidence(decimal confidence, string paramName)
     {

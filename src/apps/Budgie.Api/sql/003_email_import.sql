@@ -17,6 +17,11 @@ CREATE TABLE IF NOT EXISTS "EmailImportConnections" (
     "EncryptedCredentials" TEXT NOT NULL,
     "SyncCursor" VARCHAR(255),
     "SyncEnabled" BOOLEAN NOT NULL DEFAULT TRUE,
+    -- The DEFAULT below is DDL and cannot reference C#: it is a COPY of
+    -- EmailConnection.DefaultAutoCommitMinConfidence (Domain). The domain constant is the
+    -- single source of truth; this copy is pinned by
+    -- tests/Budgie.Modules.EmailImport.UnitTests/Domain/AutoCommitThresholdConsistencyTests.cs,
+    -- which reads this file and fails if the two values drift. Change BOTH together.
     "AutoCommitMinConfidence" DECIMAL(3,2) NOT NULL DEFAULT 0.85,
     "LastSyncAt" TIMESTAMP WITHOUT TIME ZONE,
     "LastError" VARCHAR(500),

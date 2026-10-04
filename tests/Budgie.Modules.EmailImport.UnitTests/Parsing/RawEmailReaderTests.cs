@@ -259,10 +259,12 @@ public class RawEmailReaderTests
     }
 
     [Fact]
-    public void ExtractBody_TextPlainAttachment_WinsOverTheHtmlBody()
+    public void ExtractBody_TextPlainAttachment_IsSkipped_AndTheHtmlBodyWins()
     {
-        // The reader does not inspect Content-Disposition — it is documented as preferring
-        // the first text/plain part. Pinned so the limitation stays visible.
+        // The previous version of this test PINNED the defect (§6.4/§9.3): a text/plain
+        // part with Content-Disposition: attachment was chosen as the body because the
+        // reader did not inspect Content-Disposition. Attachments are skipped now, so the
+        // real html body of the message wins — changed on purpose, not by side effect.
         var raw =
             "From: banco@ejemplo.es\r\n" +
             "Content-Type: multipart/mixed; boundary=\"B\"\r\n\r\n" +
@@ -275,7 +277,90 @@ public class RawEmailReaderTests
             "<p>cuerpo del correo</p>\r\n" +
             "--B--\r\n";
 
-        RawEmailReader.ExtractBody(raw).Should().Be("contenido del recibo");
+        RawEmailReader.ExtractBody(raw).Should().Be("<p>cuerpo del correo</p>");
+    }
+
+    [Fact]
+    public void ExtractBody_TextPlainAttachmentBeforeTheRealPlainPart_ReturnsTheRealBody()
+    {
+        // Document order must not decide: the attachment is physically FIRST, the real
+        // text/plain body comes second and must win (§6.4).
+        var raw =
+            "From: banco@ejemplo.es\r\n" +
+            "Content-Type: multipart/mixed; boundary=\"B\"\r\n\r\n" +
+            "--B\r\n" +
+            "Content-Type: text/plain; name=\"notas.txt\"\r\n" +
+            "Content-Disposition: attachment; filename=\"notas.txt\"\r\n\r\n" +
+            "notas internas\r\n" +
+            "--B\r\n" +
+            "Content-Type: text/plain; charset=utf-8\r\n\r\n" +
+            "Importe: 45,20 EUR\r\n" +
+            "--B--\r\n";
+
+        RawEmailReader.ExtractBody(raw).Should().Be("Importe: 45,20 EUR");
+    }
+
+    [Fact]
+    public void ExtractBody_InlinePartWithFilename_IsAlsoSkipped()
+    {
+        // HTML senders attach assets inline (logos and the like): inline + filename is the
+        // attachment case too, not just disposition "attachment" (§6.4).
+        var raw =
+            "From: banco@ejemplo.es\r\n" +
+            "Content-Type: multipart/related; boundary=\"B\"\r\n\r\n" +
+            "--B\r\n" +
+            "Content-Type: text/plain; name=\"logo.txt\"\r\n" +
+            "Content-Disposition: inline; filename=\"logo.txt\"\r\n\r\n" +
+            "datos del logo\r\n" +
+            "--B\r\n" +
+            "Content-Type: text/html\r\n\r\n" +
+            "<p>cuerpo</p>\r\n" +
+            "--B--\r\n";
+
+        RawEmailReader.ExtractBody(raw).Should().Be("<p>cuerpo</p>");
+    }
+
+    [Fact]
+    public void ExtractBody_OnlyTextPlainAttachments_FallsBackToTheHtmlPart()
+    {
+        // Nothing but attachments: the html body is the only real body left.
+        var raw =
+            "From: banco@ejemplo.es\r\n" +
+            "Content-Type: multipart/mixed; boundary=\"B\"\r\n\r\n" +
+            "--B\r\n" +
+            "Content-Type: text/plain; name=\"adjunto1.txt\"\r\n" +
+            "Content-Disposition: attachment; filename=\"adjunto1.txt\"\r\n\r\n" +
+            "uno\r\n" +
+            "--B\r\n" +
+            "Content-Type: text/plain; name=\"adjunto2.txt\"\r\n" +
+            "Content-Disposition: attachment; filename=\"adjunto2.txt\"\r\n\r\n" +
+            "dos\r\n" +
+            "--B\r\n" +
+            "Content-Type: text/html\r\n\r\n" +
+            "<p>único cuerpo</p>\r\n" +
+            "--B--\r\n";
+
+        RawEmailReader.ExtractBody(raw).Should().Be("<p>único cuerpo</p>");
+    }
+
+    [Fact]
+    public void ExtractBody_OnlyTextPlainAttachments_NoHtmlAtAll_ReturnsEmptyWithoutBreaking()
+    {
+        // Attachments and no body whatsoever: empty is the honest answer, and the reader
+        // must not throw or hand the user an attachment as if it were the message (§6.4).
+        var raw =
+            "From: banco@ejemplo.es\r\n" +
+            "Content-Type: multipart/mixed; boundary=\"B\"\r\n\r\n" +
+            "--B\r\n" +
+            "Content-Type: text/plain; name=\"adjunto.txt\"\r\n" +
+            "Content-Disposition: attachment; filename=\"adjunto.txt\"\r\n\r\n" +
+            "contenido del adjunto\r\n" +
+            "--B--\r\n";
+
+        var act = () => RawEmailReader.ExtractBody(raw);
+
+        act.Should().NotThrow();
+        act().Should().Be(string.Empty);
     }
 
     // ── Header handling ────────────────────────────────────────────────────────────────

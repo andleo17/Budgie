@@ -1,4 +1,3 @@
-using Budgie.Modules.EmailImport.Domain.Staging;
 using Budgie.Shared.Enums;
 using ErrorOr;
 using Mediator;
@@ -15,7 +14,8 @@ namespace Budgie.Modules.EmailImport.Application.Inbox.GetPending;
 /// <param name="Status">
 /// Status to list; <c>null</c> means Pending. Committed and Dismissed rows are not part of
 /// the review inbox (committed transactions live in Finances; dismissed rows are closed)
-/// and yield an empty page.
+/// and yield an empty page. A value outside the enum — binding accepts any integer — is
+/// rejected with <c>EmailImport.InvalidStatus</c> (debt plan §3.3).
 /// </param>
 public record GetPendingQuery(
     int Page = 1,

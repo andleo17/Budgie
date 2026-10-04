@@ -27,8 +27,8 @@ import { PageSkeleton } from "@/components/page-skeleton";
 import { MetricStrip, type MetricItem } from "@/components/shared/MetricStrip";
 import { ChevronLeft, ChevronRight, FileText, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { parseViewMode, type ViewMode, TransactionType } from "@/lib/constants";
-import { getMonthRange, getBillingPeriodRange } from "../period-utils";
+import { parseViewMode, type ViewMode, AccountType, TransactionType } from "@/lib/constants";
+import { getMonthRange, getBillingPeriodRange, resolveDefaultTransactionDate } from "../period-utils";
 import { useTransactions, useTransactionSummary, useSettings } from "@/lib/hooks/useTransactions";
 
 type TransactionResponse = components["schemas"]["TransactionResponse"];
@@ -202,6 +202,16 @@ export default function Transactions() {
     pageSize: Number(settings?.transactionPageSize ?? 100),
     enabled: !!settings,
   });
+
+  const defaultTransactionDate = useMemo(
+    () =>
+      resolveDefaultTransactionDate(
+        dateRange.from,
+        dateRange.to,
+        hasSingleAccount && allAccounts?.type === AccountType.Credit,
+      ),
+    [dateRange.from, dateRange.to, hasSingleAccount, allAccounts?.type],
+  );
 
   const { data: summary, isLoading: summaryLoading } = useTransactionSummary({
     from: dateRange.from,
@@ -455,7 +465,7 @@ export default function Transactions() {
         onDelete={handleDelete}
         onCopy={handleCopy}
         template={dialogTx ? undefined : selectedTemplate}
-        initialDate={dateRange.from ? `${dateRange.from}T00:00:00` : undefined}
+        initialDate={defaultTransactionDate}
       />
 
       <DeleteTransactionDialog

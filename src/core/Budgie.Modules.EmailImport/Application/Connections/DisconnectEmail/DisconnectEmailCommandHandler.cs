@@ -3,7 +3,6 @@ using Budgie.Shared.Abstractions;
 using Budgie.Shared.Enums;
 using ErrorOr;
 using Mediator;
-using System.Globalization;
 
 namespace Budgie.Modules.EmailImport.Application.Connections.DisconnectEmail;
 
@@ -20,11 +19,7 @@ internal sealed class DisconnectEmailCommandHandler(
         // here: unlike "already connected?", disconnecting acts on one concrete row.
         var connection = await emailConnectionRepository.GetByProviderAsync(userId, request.Provider, ct);
         if (connection is null)
-        {
-            return CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "en"
-                ? Error.NotFound("EmailImport.NotConnected", "There is no mailbox connected for this provider.")
-                : Error.NotFound("EmailImport.NotConnected", "No hay ningún buzón conectado para este proveedor.");
-        }
+            return EmailImportErrors.NotConnected();
 
         // ON DELETE CASCADE removes this connection's STAGING rows in the same statement
         // (see 003_email_import.sql). NOTE: EmailImportRules has no FK to connections —

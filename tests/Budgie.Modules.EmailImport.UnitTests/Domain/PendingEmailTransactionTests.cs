@@ -98,15 +98,23 @@ public class PendingEmailTransactionTests
     }
 
     [Fact]
-    public void Create_BlankNotesAndMerchant_BecomeEmptyAfterTrimming()
+    public void Create_BlankMerchant_BecomesNull_ButBlankNotesStayEmpty()
     {
-        // Trimmed, NOT nulled: TrimOrNull's blank-to-null rule belongs to the rule entity,
-        // not here. Downstream consumers must treat "" as "no merchant", which the approve
-        // path already does (`Notes: pending.Merchant` is then an empty note, not a lie).
+        // Debt plan §6.3: the blank-Merchant rule is unified with EmailImportRule's
+        // TrimOrNull — a blank merchant means "no merchant" (null), never "". The previous
+        // version of this test pinned "" for BOTH fields; only Merchant was unified, on
+        // purpose, so Notes keeps its older trim-to-empty behaviour.
         var pending = Create(merchant: "   ", notes: "   ");
 
-        pending.Merchant.Should().BeEmpty();
+        pending.Merchant.Should().BeNull();
         pending.Notes.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Create_MerchantWithSurroundingWhitespace_IsTrimmedNotNull()
+    {
+        // TrimOrNull trims real content; only blank collapses to null.
+        Create(merchant: "  Cafetería Central  ").Merchant.Should().Be("Cafetería Central");
     }
 
     [Theory]
@@ -268,6 +276,21 @@ public class PendingEmailTransactionTests
 
         pending.Merchant.Should().BeNull();
         pending.Notes.Should().BeNull();
+    }
+
+    [Fact]
+    public void ApplyReview_BlankMerchant_BecomesNull()
+    {
+        // Same TrimOrNull rule as Create (debt plan §6.3): a user who clears the merchant
+        // field stages null, never "". Notes keeps the trim-to-empty behaviour.
+        var pending = Create(merchant: "Cafetería Central", notes: "notas previas");
+
+        pending.ApplyReview(
+            10m, "EUR", 1m, DateTime.UtcNow, merchant: "   ", notes: "   ",
+            Guid.NewGuid(), null, TransactionType.Expense);
+
+        pending.Merchant.Should().BeNull();
+        pending.Notes.Should().BeEmpty();
     }
 
     [Fact]

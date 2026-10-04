@@ -5,7 +5,6 @@ using Budgie.Modules.EmailImport.Application.Inbox;
 using Budgie.Modules.EmailImport.Application.Inbox.Abstractions;
 using Budgie.Modules.EmailImport.Application.Parsing;
 using Budgie.Modules.EmailImport.Application.Parsing.Adapters;
-using Budgie.Modules.EmailImport.Infrastructure;
 using Budgie.Modules.EmailImport.Infrastructure.Database;
 using Budgie.Modules.EmailImport.Infrastructure.Email.Gmail;
 using Budgie.Modules.EmailImport.Infrastructure.Identity;

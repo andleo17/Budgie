@@ -7,8 +7,10 @@ using Budgie.Modules.Finances.Application.Transactions.GetTransactions;
 using Budgie.Modules.Finances.Domain.Transactions;
 using Budgie.Shared.Abstractions;
 using Budgie.Shared.Enums;
+using Budgie.Shared.Exceptions;
 using Budgie.Shared.Infrastructure;
 using Dapper;
+using Npgsql;
 
 namespace Budgie.Modules.Finances.Infrastructure.Database;
 
@@ -42,7 +44,32 @@ internal sealed class TransactionRepository(
         => factory.ExecuteAsync(@"DELETE FROM ""TransactionParticipants"" WHERE ""TransactionId"" = @TxId AND ""PersonId"" = @PersonId",
             new { TxId = parentTxId, PersonId = personId }, ct);
 
-    public Task AddAsync(Transaction tx, CancellationToken ct, IDbTransaction? transaction = null)
+    /// <summary>
+    /// Inserts one transaction, translating a unique-constraint violation into
+    /// <see cref="UniqueConstraintViolationException"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This is the SINGLE translation point between the driver and the layers above, and it
+    /// exists because EmailImport's second idempotency barrier (§3.5) has to tell "the
+    /// transaction was ALREADY committed" (unique index on
+    /// <c>Transactions."ExternalUid"</c>) apart from a real failure — otherwise an already
+    /// imported email would be reported as failed and retried forever. AGENTS.md forbids
+    /// Application from referencing Npgsql, so the two Application handlers that depend on this
+    /// distinction catch the neutral exception instead.
+    /// </para>
+    /// <para>
+    /// <b>Every</b> unique violation is translated, not just the ExternalUid one. The type
+    /// asserts "a unique constraint was violated" and deliberately does not say which: deciding
+    /// that a given violation means "already imported" belongs to the caller, and filtering by
+    /// index name here would put EmailImport's semantics inside Finances.
+    /// </para>
+    /// <para>
+    /// Both execution paths are covered — the explicit <paramref name="transaction"/> one is the
+    /// bulk-import path (Money Manager).
+    /// </para>
+    /// </remarks>
+    public async Task AddAsync(Transaction tx, CancellationToken ct, IDbTransaction? transaction = null)
     {
         const string sql =
             @"INSERT INTO ""Transactions"" (""Id"",""UserId"",""AccountId"",""CategoryId"",""Amount"",""Currency"",""ExchangeRate"",""Date"",""Notes"",""Type"",""Installments"",""ParentTransactionId"",""IsInitialBalance"",""ExternalUid"",""LinkedTransactionId"",""InstallmentGroupId"",""InstallmentNumber"",""TotalInstallments"",""InterestRate"")
@@ -54,9 +81,19 @@ internal sealed class TransactionRepository(
             Type = (int)tx.Type, tx.Installments, tx.ParentTransactionId, tx.IsInitialBalance, tx.ExternalUid,
             tx.LinkedTransactionId, tx.InstallmentGroupId, tx.InstallmentNumber, tx.TotalInstallments, InterestRate = tx.InterestRate.Value
         };
-        return transaction is not null
-            ? transaction.Connection!.ExecuteAsync(new CommandDefinition(sql, p, transaction: transaction, cancellationToken: ct))
-            : factory.ExecuteAsync(sql, p, ct);
+
+        try
+        {
+            if (transaction is not null)
+                await transaction.Connection!.ExecuteAsync(
+                    new CommandDefinition(sql, p, transaction: transaction, cancellationToken: ct));
+            else
+                await factory.ExecuteAsync(sql, p, ct);
+        }
+        catch (PostgresException ex) when (ex.SqlState == PostgresErrorCodes.UniqueViolation)
+        {
+            throw new UniqueConstraintViolationException(ex.MessageText, ex);
+        }
     }
 
     public async Task AddRangeAsync(IEnumerable<Transaction> txs, CancellationToken ct, IDbTransaction? transaction = null)

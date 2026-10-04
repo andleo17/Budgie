@@ -6,24 +6,21 @@ import client from "@/lib/api-client";
 import { useAccounts } from "@/lib/hooks/useAccounts";
 import { CurrencySelector } from "@/components/currency-selector";
 import { enrichCurrencies } from "@/lib/currencies";
+import { getRegexError } from "@/lib/regex-hint";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldGroup, FieldLabel, FieldError } from "@/components/ui/field";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { CategoryCombobox } from "@/modules/categories/components/CategoryCombobox";
 import { Loader2Icon, SaveIcon } from "lucide-react";
 import { useCreateRule, useUpdateRule } from "../hooks/useEmailRules";
+import { EmailImportApiError } from "../api";
 import { GENERIC_REGEX_ADAPTER } from "../types";
+import { AccountSelect, TypeSelect, type FieldPatterns } from "./rule-fields";
 import type { EmailImportRule, EmailRuleBody, EmailRuleDraftBody } from "../types";
+import { describedBy } from "@/lib/aria";
 
 /** Prefill del ciclo aprender-del-uso (fila descartada → nueva regla). */
 export interface RulePrefill {
@@ -32,14 +29,7 @@ export interface RulePrefill {
   subjectContains?: string;
 }
 
-interface FieldPatterns {
-  amount: string;
-  date: string;
-  merchant: string;
-  direction: string;
-  symbol: string;
-}
-
+// Solo lo consume parsePatterns: se queda aquí (ver nota en rule-fields.tsx).
 const EMPTY_PATTERNS: FieldPatterns = { amount: "", date: "", merchant: "", direction: "", symbol: "" };
 
 const GUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -99,6 +89,23 @@ interface FormErrors {
 }
 
 /**
+ * Aviso inline de regex inválida en el navegador. NO bloquea el guardado: la
+ * sintaxis JS no es la de .NET y el servidor es el juez (ver el doc de
+ * `getRegexError` en `lib/regex-hint.ts`). El `id` del párrafo lo referencia el
+ * input con `aria-describedby`, para que el lector de pantalla lo anuncie.
+ */
+function RegexHint({ htmlFor, pattern }: { htmlFor: string; pattern: string }) {
+  const { t } = useTranslation();
+  const error = getRegexError(pattern);
+  if (!error) return null;
+  return (
+    <p id={`${htmlFor}-hint`} className="text-xs text-destructive">
+      {t("emailImport.rules.regexHint", { error })}
+    </p>
+  );
+}
+
+/**
  * Borrador para el probador: solo es utilizable si la forma es mínimamente
  * válida (nombre, cuenta GUID y patrón de importe) — el backend rechazaría el resto.
  */
@@ -128,8 +135,8 @@ function buildDraft(
 /**
  * Formulario crear/editar regla de importación (spec §8). Auto-commit se explica
  * con el umbral de la conexión (solo lectura aquí: el umbral lo guarda el backend).
- * El padre debe remontarlo con `key={rule?.id ?? prefillKey}` al cambiar de destino
- * para que el estado local se reinicie desde las props.
+ * El padre (RulesTab) lo monta con `key={formKey}` y lo remonta al cambiar de
+ * destino para que el estado local se reinicie desde las props.
  */
 export function EmailRuleForm({
   rule,
@@ -164,8 +171,15 @@ export function EmailRuleForm({
     return enrichCurrencies(supported.length ? supported : [settingsData?.mainCurrency ?? "EUR"], i18n.language);
   }, [settingsData, i18n.language]);
 
-  const initialPatterns = parsePatterns(rule?.fieldPatternsJson ?? null);
-  const [patterns, setPatterns] = useState<FieldPatterns>(initialPatterns);
+  // Inicializador perezoso: parsePatterns solo se consume en el estado inicial.
+  // DEPENDENCIA QUE NO HAY QUE ROMPER: el padre monta este formulario con
+  // `key={formKey}` (RulesTab) y lo remonta al cambiar de regla, así que en cada
+  // montaje `rule` es la regla correcta. Si esto se "optimiza" a un valor
+  // computado en cada render o a un efecto, el formulario deja de reflejar la
+  // regla que se está editando.
+  const [patterns, setPatterns] = useState<FieldPatterns>(() =>
+    parsePatterns(rule?.fieldPatternsJson ?? null),
+  );
   const [state, setState] = useState<FormState>(() => ({
     name: rule?.name ?? prefill?.name ?? "",
     priority: String(rule?.priority ?? 0),
@@ -238,6 +252,13 @@ export function EmailRuleForm({
       onSaved();
     };
     const onError = (err: unknown) => {
+      // El 400 EmailImport.InvalidRule viene sin indicar qué campo falló; el grupo
+      // de patrones es el único con validación de regex del lado servidor, así que
+      // el aviso se pinta ahí, junto a los campos de regex (el early feedback del
+      // navegador puede no haberlo visto: sintaxis JS ≠ sintaxis .NET).
+      if (err instanceof EmailImportApiError && err.code === "EmailImport.InvalidRule") {
+        setErrors((prev) => ({ ...prev, patterns: t("emailImport.rules.regexHintServer") }));
+      }
       toast.error(t("emailImport.rules.saveError"), {
         description: err instanceof Error ? err.message : undefined,
       });
@@ -255,16 +276,24 @@ export function EmailRuleForm({
       </CardHeader>
       <CardContent>
         <FieldGroup className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {/*
+            PATRÓN NUEVO EN EL REPO (plan deuda §7.15.1): FieldError lleva `id` y el
+            control lo referencia con `aria-describedby`, para que el lector de
+            pantalla anuncie el error junto al campo. Es la primera vez que se hace
+            aquí (antes había cero `aria-describedby` en la app): el resto de
+            formularios deben copiar este patrón a partir de ahora.
+          */}
           <Field data-invalid={!!errors.name}>
             <FieldLabel htmlFor="rule-name">{t("emailImport.rules.name")}</FieldLabel>
             <Input
               id="rule-name"
               value={state.name}
               aria-invalid={!!errors.name}
+              aria-describedby={describedBy(errors.name ? "rule-name-error" : undefined)}
               placeholder={t("emailImport.rules.namePlaceholder")}
               onChange={(e) => update("name", e.target.value)}
             />
-            {errors.name && <FieldError>{errors.name}</FieldError>}
+            {errors.name && <FieldError id="rule-name-error">{errors.name}</FieldError>}
           </Field>
 
           <Field>
@@ -282,8 +311,10 @@ export function EmailRuleForm({
               value={state.accountId}
               onChange={(id) => update("accountId", id)}
               accounts={accounts ?? []}
+              describedBy={describedBy(errors.accountId ? "rule-account-error" : undefined)}
+              invalid={!!errors.accountId}
             />
-            {errors.accountId && <FieldError>{errors.accountId}</FieldError>}
+            {errors.accountId && <FieldError id="rule-account-error">{errors.accountId}</FieldError>}
           </Field>
 
           <Field>
@@ -371,9 +402,13 @@ export function EmailRuleForm({
             <Input
               id="rule-body"
               value={state.bodyRegex}
+              aria-describedby={describedBy(
+                getRegexError(state.bodyRegex) ? "rule-body-hint" : undefined,
+              )}
               placeholder={t("emailImport.rules.bodyPlaceholder")}
               onChange={(e) => update("bodyRegex", e.target.value)}
             />
+            <RegexHint htmlFor="rule-body" pattern={state.bodyRegex} />
           </Field>
 
           {/* Patrones de extracción (FieldPatternsJson) */}
@@ -388,10 +423,17 @@ export function EmailRuleForm({
                   id="rule-pattern-amount"
                   value={patterns.amount}
                   aria-invalid={!!errors.patterns}
+                  aria-describedby={describedBy(
+                    errors.patterns ? "rule-pattern-amount-error" : undefined,
+                    getRegexError(patterns.amount) ? "rule-pattern-amount-hint" : undefined,
+                  )}
                   placeholder={t("emailImport.rules.patterns.amountPlaceholder")}
                   onChange={(e) => updatePattern("amount", e.target.value)}
                 />
-                {errors.patterns && <FieldError>{errors.patterns}</FieldError>}
+                {errors.patterns && (
+                  <FieldError id="rule-pattern-amount-error">{errors.patterns}</FieldError>
+                )}
+                <RegexHint htmlFor="rule-pattern-amount" pattern={patterns.amount} />
               </Field>
               <Field>
                 <FieldLabel htmlFor="rule-pattern-date">
@@ -400,9 +442,13 @@ export function EmailRuleForm({
                 <Input
                   id="rule-pattern-date"
                   value={patterns.date}
+                  aria-describedby={describedBy(
+                    getRegexError(patterns.date) ? "rule-pattern-date-hint" : undefined,
+                  )}
                   placeholder={t("emailImport.rules.patterns.datePlaceholder")}
                   onChange={(e) => updatePattern("date", e.target.value)}
                 />
+                <RegexHint htmlFor="rule-pattern-date" pattern={patterns.date} />
               </Field>
               <Field>
                 <FieldLabel htmlFor="rule-pattern-merchant">
@@ -411,9 +457,13 @@ export function EmailRuleForm({
                 <Input
                   id="rule-pattern-merchant"
                   value={patterns.merchant}
+                  aria-describedby={describedBy(
+                    getRegexError(patterns.merchant) ? "rule-pattern-merchant-hint" : undefined,
+                  )}
                   placeholder={t("emailImport.rules.patterns.merchantPlaceholder")}
                   onChange={(e) => updatePattern("merchant", e.target.value)}
                 />
+                <RegexHint htmlFor="rule-pattern-merchant" pattern={patterns.merchant} />
               </Field>
               <Field>
                 <FieldLabel htmlFor="rule-pattern-direction">
@@ -422,9 +472,13 @@ export function EmailRuleForm({
                 <Input
                   id="rule-pattern-direction"
                   value={patterns.direction}
+                  aria-describedby={describedBy(
+                    getRegexError(patterns.direction) ? "rule-pattern-direction-hint" : undefined,
+                  )}
                   placeholder={t("emailImport.rules.patterns.directionPlaceholder")}
                   onChange={(e) => updatePattern("direction", e.target.value)}
                 />
+                <RegexHint htmlFor="rule-pattern-direction" pattern={patterns.direction} />
               </Field>
               <Field>
                 <FieldLabel htmlFor="rule-pattern-symbol">
@@ -433,9 +487,13 @@ export function EmailRuleForm({
                 <Input
                   id="rule-pattern-symbol"
                   value={patterns.symbol}
+                  aria-describedby={describedBy(
+                    getRegexError(patterns.symbol) ? "rule-pattern-symbol-hint" : undefined,
+                  )}
                   placeholder={t("emailImport.rules.patterns.symbolPlaceholder")}
                   onChange={(e) => updatePattern("symbol", e.target.value)}
                 />
+                <RegexHint htmlFor="rule-pattern-symbol" pattern={patterns.symbol} />
               </Field>
             </FieldGroup>
           </div>
@@ -490,81 +548,5 @@ export function EmailRuleForm({
         </div>
       </CardContent>
     </Card>
-  );
-}
-
-function AccountSelect({
-  id,
-  value,
-  onChange,
-  accounts,
-}: {
-  /** id del trigger, para asociar el FieldLabel (WCAG 1.3.1). */
-  id?: string;
-  value: string;
-  onChange: (id: string) => void;
-  accounts: { id: string; name: string }[];
-}) {
-  const { t } = useTranslation();
-  const items = [
-    { label: t("emailImport.rules.selectAccount"), value: "" },
-    ...accounts.map((a) => ({ label: a.name, value: a.id })),
-  ];
-  return (
-    <Select
-      items={items}
-      value={value}
-      onValueChange={(v) => {
-        if (v !== null) onChange(String(v));
-      }}
-    >
-      <SelectTrigger id={id} className="w-full">
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent>
-        {items.map((item) => (
-          <SelectItem key={item.value} value={item.value}>
-            {item.label}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  );
-}
-
-function TypeSelect({
-  id,
-  value,
-  onChange,
-}: {
-  /** id del trigger, para asociar el FieldLabel (WCAG 1.3.1). */
-  id?: string;
-  value: string;
-  onChange: (v: string) => void;
-}) {
-  const { t } = useTranslation();
-  const items = [
-    { label: t("transactions.income"), value: "0" },
-    { label: t("transactions.expense"), value: "1" },
-  ];
-  return (
-    <Select
-      items={items}
-      value={value}
-      onValueChange={(v) => {
-        if (v !== null) onChange(String(v));
-      }}
-    >
-      <SelectTrigger id={id} className="w-full">
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent>
-        {items.map((item) => (
-          <SelectItem key={item.value} value={item.value}>
-            {item.label}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
   );
 }

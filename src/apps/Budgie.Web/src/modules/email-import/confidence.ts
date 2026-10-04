@@ -5,7 +5,13 @@
 
 export type ConfidenceBand = "high" | "medium" | "low";
 
-/** Mismo umbral que `ConfidenceWeights.DefaultAutoCommitThreshold` (0.85) en el backend. */
+/**
+ * Banda ALTA de los badges. Coincide en número con `ConfidenceWeights.DefaultAutoCommitThreshold`
+ * (0.85) pero **no es el mismo valor que la política de auto-commit**: éste decide qué color
+ * lleva un badge, aquél decide qué se commitea sin revisión. Mantenerlos unidos haría que
+ * cambiar uno cambiara el otro por accidente, así que están desacoplados a propósito
+ * (deuda §6.1): el backend manda el umbral real por conexión y esta banda es sólo presentación.
+ */
 const HIGH_THRESHOLD = 0.85;
 const MEDIUM_THRESHOLD = 0.5;
 

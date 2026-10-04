@@ -57,6 +57,12 @@ export function useEmailImportNotice() {
 
     if (!hasValidToken()) {
       // Volvió sin sesión válida (otra pestaña / token caducado): a login.
+      //
+      // `replace` y NO `href` (como hace lib/api-client.ts cuando se agota el
+      // refresh): aquí la sesión se perdió y la entrada de esta página no debe
+      // quedar en el historial — con `href`, el botón atrás devuelve a una página
+      // muerta que solo volverá a mandar a login. Difiere de api-client.ts A
+      // PROPÓSITO; no lo "unifiques" al revés (plan deuda §7.18.3).
       window.location.replace("/login");
       return;
     }

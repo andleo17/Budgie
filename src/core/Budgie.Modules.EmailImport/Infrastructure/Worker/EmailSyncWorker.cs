@@ -1,3 +1,4 @@
+using Budgie.Modules.EmailImport.Application;
 using Budgie.Modules.EmailImport.Application.Inbox;
 using Budgie.Modules.EmailImport.Infrastructure.Logging;
 using Microsoft.Extensions.DependencyInjection;

@@ -12,12 +12,17 @@ import { getDateLocale } from "@/lib/date-locale";
 import { useTranslation } from "react-i18next";
 
 interface DateTimePickerProps {
+  /**
+   * id del trigger, para asociar un Label externo con `htmlFor` (WCAG 1.3.1).
+   * Mismo patrón que `CategoryCombobox`.
+   */
+  id?: string;
   value: string;
   onChange: (value: string) => void;
   disabled?: boolean;
 }
 
-export function DateTimePicker({ value, onChange, disabled }: DateTimePickerProps) {
+export function DateTimePicker({ id, value, onChange, disabled }: DateTimePickerProps) {
   const { t, i18n } = useTranslation();
   const dateLocale = getDateLocale(i18n.language);
 
@@ -64,6 +69,7 @@ export function DateTimePicker({ value, onChange, disabled }: DateTimePickerProp
       <PopoverTrigger render={
 
         <Button
+          id={id}
           variant="outline"
           className="w-full justify-start text-left font-normal"
           disabled={disabled}

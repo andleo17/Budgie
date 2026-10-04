@@ -30,6 +30,26 @@ export function useAuthorizeEmailConnection() {
   });
 }
 
+/**
+ * PUT /connections/{provider}/threshold.
+ *
+ * Invalida la query de conexiones al terminar para que la tarjeta refleje el valor persistido.
+ * El hook NO decide cuándo enviar: eso es del componente (lo hace al soltar el tirador, con
+ * `onValueCommitted`, para no lanzar una petición por cada píxel de arrastre), ni mantiene el
+ * borrador ni hace rollback — de eso se ocupa `EmailImportSettingsCard`, que es quien conoce el
+ * valor que el usuario está viendo.
+ */
+export function useUpdateAutoCommitThreshold() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ provider, threshold }: { provider: string; threshold: number }) =>
+      api.updateAutoCommitThreshold(provider, threshold),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: emailImportKeys.connections });
+    },
+  });
+}
+
 /** DELETE /connections/{provider} — CASCADE borra reglas y staging asociados. */
 export function useDisconnectEmailConnection() {
   const queryClient = useQueryClient();

@@ -654,9 +654,16 @@ const es = {
       pending: "Pendientes",
       rules: "Reglas",
     },
+    loading: {
+      pending: "Cargando pendientes…",
+      rules: "Cargando reglas…",
+      accounts: "Cargando cuentas…",
+      settings: "Cargando la configuración…",
+    },
     pending: {
       filterPending: "Pendientes",
       filterFailed: "Con error",
+      statusLabel: "Estado",
       empty: "No hay correos pendientes de revisión.",
       emptyDesc:
         "Cuando el correo de tu banco llegue y una regla lo detecte, aparecerá aquí para revisarlo.",
@@ -677,6 +684,7 @@ const es = {
       dismissed: "Correo descartado.",
       dismissError: "No se pudo descartar el correo",
       approveBatch: "Aprobar los de alta confianza",
+      approveBatchPending: "Esperando el umbral de auto-commit de la conexión.",
       approveBatchTitle: "¿Aprobar correos de alta confianza?",
       approveBatchDesc:
         "Se aprobarán los correos pendientes con una confianza igual o superior a {{threshold}}.",
@@ -705,6 +713,11 @@ const es = {
       low: "Baja",
       noData: "Sin datos de confianza",
       fieldsLabel: "Confianza por campo",
+      // Aviso destacado de moneda (§2.4): "no identificada", no "incorrecta". Desde el slice 3 el
+      // backend RECHAZA el correo cuando el símbolo contradice la regla, así que lo que llega
+      // aquí es un símbolo que no sabemos leer, no una moneda equivocada.
+      currencyUnidentified:
+        "No se pudo identificar el símbolo de moneda del correo con la moneda de la regla. Revisa el importe y la moneda antes de aprobar.",
       fields: {
         amount: "Importe",
         direction: "Signo",
@@ -730,6 +743,10 @@ const es = {
       namePlaceholder: "Ej. Compras con tarjeta",
       nameRequired: "El nombre es obligatorio.",
       patternRequired: "El patrón de importe es obligatorio.",
+      regexHint:
+        "Regex no válida en el navegador: {{error}}. El servidor (.NET) puede aceptarla igualmente: se enviará y él decidirá.",
+      regexHintServer:
+        "El servidor rechazó la regla como inválida (EmailImport.InvalidRule). Revisa las regex de los patrones y del cuerpo.",
       adapter: "Adaptador",
       adapterDesc: "Único adaptador disponible en esta versión.",
       account: "Cuenta destino",
@@ -833,7 +850,8 @@ const es = {
       lastError: "Último error",
       threshold: "Umbral de auto-commit",
       thresholdDesc:
-        "Confianza mínima para crear la transacción automáticamente. Lo fija el operador del despliegue; aquí es de solo lectura.",
+        "Confianza mínima para crear la transacción automáticamente sin revisarla. Sube el umbral si quieres revisar más correos; bájelo si alguna transacción se queda en la bandeja sin necesidad.",
+      thresholdError: "No se pudo guardar el umbral de auto-commit.",
       interval: "Intervalo de sincronización",
       intervalDesc:
         "Lo fija el operador del despliegue (EmailImport:SyncIntervalMinutes); aquí es de solo lectura.",

@@ -21,14 +21,16 @@ namespace Budgie.Modules.EmailImport.Infrastructure.Identity;
 /// <item><description>
 /// An explicitly pushed user (<see cref="Push"/>): the sync worker pushes each connection's
 /// owner around its processing block, and the review dispatch pushes the reviewed row's
-/// owner before dispatching. This instance replaced Budgie.Api's HttpContext-only
-/// <c>CurrentUserProvider</c> for the whole tree, so outside a request the pushed user is
+/// owner before dispatching. This instance is the single <c>ICurrentUserProvider</c> for the
+/// whole tree (it replaced the old HttpContext-only provider that lived in
+/// <c>Budgie.Api.Infrastructure</c>; that class was deleted in the email-import debt plan,
+/// §6.3), so outside a request the pushed user is
 /// the ONLY valid source — flows that forgot to push fail fast with
 /// <see cref="InvalidOperationException"/> instead of silently operating as "no user".
 /// </description></item>
 /// <item><description>
 /// The JWT claim of the current HTTP request, read exactly like the previous
-/// <c>Budgie.Api.Infrastructure.CurrentUserProvider</c> did
+/// HttpContext-only provider did
 /// (<c>ClaimTypes.NameIdentifier</c>, then raw <c>sub</c>). This fallback is what keeps
 /// every existing endpoint — Finances, Users, Relationships and this module — resolving
 /// the same owner as before the replacement.
@@ -78,8 +80,9 @@ internal sealed class ScopedCurrentUserProvider(
 
     /// <summary>
     /// JWT-claim fallback for HTTP requests. Returns <c>null</c> outside a request (worker
-    /// scopes) — there the pushed user is the only valid source. Mirrors
-    /// <c>Budgie.Api.Infrastructure.CurrentUserProvider</c>: this provider replaced it for
+    /// scopes) — there the pushed user is the only valid source. Mirrors the previous
+    /// HttpContext-only claim resolution (its class was deleted in the email-import debt
+    /// plan, §6.3): this provider replaced it for
     /// the whole tree, so requests without a pushed user must resolve the owner exactly
     /// like before.
     /// </summary>

@@ -32,6 +32,12 @@ internal sealed class GenericRegexAdapter : IBankAdapter
     private const string MerchantGroup = "merchant";
     private const string SymbolGroup = "symbol";
 
+    /// <summary>
+    /// Skip reason for "the message carries a currency symbol that maps to a known ISO code
+    /// other than the rule's". Public so callers and the UI can name it like any other reason.
+    /// </summary>
+    public const string CurrencyContradictionReason = "currency-symbol-contradiction";
+
     private static readonly TimeSpan RegexTimeout = TimeSpan.FromSeconds(2);
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
@@ -215,18 +221,36 @@ internal sealed class GenericRegexAdapter : IBankAdapter
         }
 
         // ── currency ────────────────────────────────────────────────────────────────────
-        // No captured symbol → the rule declares the currency explicitly: 1.0. A captured
-        // symbol must agree with the rule or the row goes to review with 0.
-        var currency = context.Rule.Currency;
+        // No captured symbol → the rule declares the currency explicitly: 1.0.
+        //
+        // A captured symbol splits in TWO cases, and they are NOT treated alike
+        // (debt plan §2.3, option (c)):
+        //
+        //  • It maps to a KNOWN ISO code that contradicts the rule → RuleCannotOwn. This rule
+        //    cannot own the message: the amount would be labelled EUR while the email says
+        //    dollars, which is the one way this system can file money under the wrong currency
+        //    with nobody looking at it. Penalising it by 0.10 was not enough — 0.90 clears the
+        //    0.85 auto-commit threshold, so it used to auto-commit. A hard fact is not a low
+        //    score, so it is a verdict, not a penalty.
+        //
+        //  • It maps to NOTHING (¥, CHF, ₿ — not in the table) → stays a 0.0 penalty and the
+        //    message goes to review. Here we do NOT know the currency is wrong; we only know we
+        //    cannot identify it. Discarding the email would throw away a message because of a
+        //    gap in our own symbol table, and a user with a CHF account would silently stop
+        //    importing anything. Contradiction is a fact; an unknown symbol is our ignorance,
+        //    and the two deserve different outcomes for the same reason (c) does.
+        var currency = context.Rule.Currency.Code;
         var currencyScore = 1.0m;
         var symbol = CaptureSymbol(context, compiled, firstAmount);
         if (symbol is not null)
         {
             var mapped = MapSymbol(symbol);
-            currencyScore = mapped is not null &&
-                            string.Equals(mapped, currency, StringComparison.OrdinalIgnoreCase)
+            if (mapped is not null && !string.Equals(mapped, currency, StringComparison.OrdinalIgnoreCase))
+                return ParseOutcome.RuleCannotOwn(CurrencyContradictionReason);
+
+            currencyScore = string.Equals(mapped, currency, StringComparison.OrdinalIgnoreCase)
                 ? 1.0m
-                : 0.0m; // unmappable or contradicting symbol: do not trust the currency
+                : 0.0m; // unmappable symbol: the currency cannot be trusted
         }
 
         var fieldScores = new Dictionary<string, decimal>(StringComparer.Ordinal)

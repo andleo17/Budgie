@@ -1,4 +1,4 @@
-import { format, type Locale } from "date-fns";
+import { format, isWithinInterval, type Locale } from "date-fns";
 
 export interface PeriodRange {
   from: string;
@@ -78,4 +78,68 @@ export function findCurrentBillingPeriod(
   locale?: Locale,
 ): PeriodRange {
   return getBillingPeriodRange(now, cycleDay, inclusive, locale);
+}
+
+function parseLocalDate(dateStr: string): Date {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
+function withTimeOfDay(day: Date, source: Date): Date {
+  const result = new Date(day);
+  result.setHours(source.getHours(), source.getMinutes(), source.getSeconds(), 0);
+  return result;
+}
+
+/**
+ * Default date/time for a brand-new transaction, given the period currently
+ * selected in the filters.
+ *
+ * - Period containing today → today at the current time.
+ * - Any other period, credit card → first day of the period at the current time.
+ * - Any other period, regular account → same day-of-month as today (clamped to
+ *   the last day of the period) at the current time.
+ *
+ * Returns `yyyy-MM-ddTHH:mm:ss` in local time, or undefined when there is no
+ * period (the caller then falls back to "now").
+ */
+export function resolveDefaultTransactionDate(
+  from: string | undefined,
+  to: string | undefined,
+  isCreditCard: boolean,
+  now: Date = new Date(),
+): string | undefined {
+  if (!from || !to) return undefined;
+
+  const periodStart = parseLocalDate(from);
+  const periodEnd = parseLocalDate(to);
+  if (isNaN(periodStart.getTime()) || isNaN(periodEnd.getTime())) return undefined;
+
+  if (isWithinInterval(now, { start: periodStart, end: periodEnd })) {
+    return format(now, "yyyy-MM-dd'T'HH:mm:ss");
+  }
+
+  if (isCreditCard) {
+    return format(withTimeOfDay(periodStart, now), "yyyy-MM-dd'T'HH:mm:ss");
+  }
+
+  // Same day-of-month as today, clamped to the last day of that month and to
+  // the period bounds (e.g. today is the 31st and the period is February → 28/29).
+  const lastDayOfMonth = new Date(
+    periodStart.getFullYear(),
+    periodStart.getMonth() + 1,
+    0,
+  ).getDate();
+  const candidate = withTimeOfDay(
+    new Date(
+      periodStart.getFullYear(),
+      periodStart.getMonth(),
+      Math.min(now.getDate(), lastDayOfMonth),
+    ),
+    now,
+  );
+  if (candidate.getTime() < periodStart.getTime()) return format(withTimeOfDay(periodStart, now), "yyyy-MM-dd'T'HH:mm:ss");
+  if (candidate.getTime() > periodEnd.getTime()) return format(withTimeOfDay(periodEnd, now), "yyyy-MM-dd'T'HH:mm:ss");
+
+  return format(candidate, "yyyy-MM-dd'T'HH:mm:ss");
 }

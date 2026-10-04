@@ -207,6 +207,12 @@ internal static partial class RawEmailReader
             : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var partBody = separator.Success ? partText[(separator.Index + separator.Length)..] : partText;
 
+        // §6.4 (debt plan): Content-Disposition is inspected BEFORE the media type, so an
+        // attached text/plain ("notas.txt", an inline logo, ...) can never compete with the
+        // real body of the message — a .txt attachment that arrives first must not eclipse it.
+        if (IsAttachment(partHeaders))
+            return;
+
         var mediaType = GetMediaType(partHeaders);
 
         if (mediaType.StartsWith("multipart/", StringComparison.OrdinalIgnoreCase))
@@ -229,6 +235,27 @@ internal static partial class RawEmailReader
         {
             html ??= text;
         }
+    }
+
+    /// <summary>
+    /// True when the part's <c>Content-Disposition</c> marks it as content that is NOT the
+    /// message body: disposition type <c>attachment</c>, or type <c>inline</c> carrying a
+    /// <c>filename</c> (HTML senders attach logos and similar assets inline). Absent or
+    /// malformed <c>Content-Disposition</c> means "body", never "attachment".
+    /// </summary>
+    private static bool IsAttachment(Dictionary<string, string> partHeaders)
+    {
+        if (!partHeaders.TryGetValue("Content-Disposition", out var disposition) ||
+            string.IsNullOrWhiteSpace(disposition))
+            return false;
+
+        var semicolon = disposition.IndexOf(';');
+        var type = (semicolon >= 0 ? disposition[..semicolon] : disposition).Trim();
+        if (type.Equals("attachment", StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        return type.Equals("inline", StringComparison.OrdinalIgnoreCase) &&
+               !string.IsNullOrEmpty(GetParameter(partHeaders, "Content-Disposition", "filename"));
     }
 
     /// <summary>

@@ -21,6 +21,17 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Slice 11 (§6.1): AutoCommitThresholdConsistencyTests reads this DDL from the test
+         output directory and pins its "AutoCommitMinConfidence" DEFAULT to
+         EmailConnection.DefaultAutoCommitMinConfidence. Copying the file next to the test
+         binary (instead of resolving a repo-relative path at runtime) is what keeps the test
+         valid when it runs from the bin folder or in CI, not just from the repo root. -->
+    <None Include="..\..\src\apps\Budgie.Api\sql\003_email_import.sql"
+          Link="Sql\003_email_import.sql"
+          CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\core\Budgie.Modules.EmailImport\Budgie.Modules.EmailImport.csproj" />
   </ItemGroup>
 

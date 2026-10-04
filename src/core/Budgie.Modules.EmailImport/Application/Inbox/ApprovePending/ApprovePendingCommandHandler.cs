@@ -5,9 +5,10 @@ using Budgie.Modules.EmailImport.Domain.Staging;
 using Budgie.Modules.Finances.Application;
 using Budgie.Modules.Finances.Application.Transactions.CreateTransaction;
 using Budgie.Shared.Abstractions;
+using Budgie.Shared.Enums;
+using Budgie.Shared.Exceptions;
 using ErrorOr;
 using Mediator;
-using Npgsql;
 
 namespace Budgie.Modules.EmailImport.Application.Inbox.ApprovePending;
 
@@ -192,12 +193,15 @@ internal static class PendingApprovalHelper
                     ExternalUid: externalUid),
                 ct);
         }
-        catch (PostgresException ex) when (ex.SqlState == PostgresErrorCodes.UniqueViolation)
+        catch (UniqueConstraintViolationException)
         {
             // SECOND barrier hit: the transaction ALREADY exists — most likely the worker's
             // auto-commit raced this approval, or a previous attempt died between dispatch
             // and MarkCommitted. That is a success, not an error: link the row to the
             // existing transaction, exactly like EmailSyncService does.
+            //
+            // The exception is the neutral one TransactionRepository translates out of the
+            // driver's, so Application never references Npgsql (AGENTS.md).
             var existingId = await context.TransactionRepository.GetIdByExternalUidAsync(
                 userId, externalUid, ct);
 

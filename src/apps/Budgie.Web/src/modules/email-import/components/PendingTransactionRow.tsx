@@ -31,12 +31,15 @@ import { CategoryCombobox } from "@/modules/categories/components/CategoryCombob
 import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { HelpCircleIcon, Loader2Icon, ThumbsUpIcon, XCircleIcon } from "lucide-react";
 import { getDateLocale, formatLocal, parseDbDate } from "@/lib/date-locale";
+import { parseAmountInput } from "@/lib/amount";
 import { TransactionType } from "@/lib/constants";
 import { useApprovePending, useDismissPending } from "../hooks/usePendingEmails";
 import { usePreviewRule } from "../hooks/useEmailRules";
 import { parseFieldConfidence } from "../confidence";
 import { ConfidenceBadge } from "./ConfidenceBadge";
 import { FieldConfidenceBadges } from "./FieldConfidenceBadges";
+import { CurrencyWarning } from "./CurrencyWarning";
+import { describedBy } from "@/lib/aria";
 import { RawEmailDisclosure } from "./RawEmailDisclosure";
 import type { PendingEmailTransaction } from "../types";
 
@@ -54,11 +57,20 @@ export function PendingTransactionRow({
   row,
   accounts,
   accountsLoading,
+  refetching,
   onDismissed,
 }: {
   row: PendingEmailTransaction;
   accounts: AccountResponse[] | undefined;
   accountsLoading: boolean;
+  /**
+   * La bandeja se está refrescando (p. ej. tras aprobar esta u otra fila).
+   * Mantiene los botones deshabilitados hasta que el refetch aterrice: React Query
+   * pone `isPending` a false en cuanto la mutación resuelve, ANTES de que termine
+   * el invalidate de `usePendingEmails`, y sin esto la fila seguiría en la lista
+   * con el botón reabilitado (ventana de doble clic, plan deuda §7.16.4).
+   */
+  refetching: boolean;
   onDismissed: (row: PendingEmailTransaction) => void;
 }) {
   const { t, i18n } = useTranslation();
@@ -81,11 +93,16 @@ export function PendingTransactionRow({
   const dismissMutation = useDismissPending();
   const explainMutation = usePreviewRule();
 
-  const parsedAmount = Number(amount.replace(",", "."));
+  // Normaliza separadores de grupo/decimal según locale (es-ES, en-US); ver
+  // `lib/amount.ts`. El antiguo `Number(amount.replace(",", "."))` devolvía NaN
+  // con cualquier importe con miles (plan deuda §7.16.2).
+  const parsedAmount = parseAmountInput(amount);
   const amountValid = Number.isFinite(parsedAmount) && parsedAmount > 0;
   // Sin regla que aporte cuenta y sin override: aprobar fallaría en el backend.
   const accountResolvable = !!accountId || !!row.ruleId;
-  const busy = approveMutation.isPending || dismissMutation.isPending;
+  // `refetching` cierra la ventana de doble clic: el botón sigue deshabilitado
+  // hasta que la bandeja se refresque y la fila desaparezca de `inbox.items`.
+  const busy = approveMutation.isPending || dismissMutation.isPending || refetching;
 
   const handleApprove = () => {
     if (!amountValid || !accountResolvable) return;
@@ -161,6 +178,9 @@ export function PendingTransactionRow({
         </div>
 
         <FieldConfidenceBadges scores={scores} />
+        {/* Aviso destacado de moneda (plan §2.4): el dato viajaba sólo dentro del
+            Explanation del backend, y sólo al abrir el probador. */}
+        <CurrencyWarning scores={scores} />
 
         {row.failureReason && (
           <Alert variant="destructive">
@@ -176,7 +196,13 @@ export function PendingTransactionRow({
               {t("emailImport.pending.fields.account")}
             </Label>
             {accountsLoading ? (
-              <Skeleton className="h-9 w-full" />
+              // Contenedor role="status" con texto sr-only: una región viva anuncia cambios de
+              // contenido, no su aria-label, así que un Skeleton vacío etiquetado puede no
+              // anunciarse nunca. Es la variante usada en las cuatro listas de carga del módulo.
+              <div role="status" className="w-full">
+                <span className="sr-only">{t("emailImport.loading.accounts")}</span>
+                <Skeleton className="h-9 w-full" />
+              </div>
             ) : (
               <AccountCombobox
                 id={`account-${row.id}`}
@@ -193,6 +219,7 @@ export function PendingTransactionRow({
               {t("emailImport.pending.fields.category")}
             </Label>
             <CategoryCombobox
+              id={`category-${row.id}`}
               value={categoryId}
               onValueChange={(id) => setCategoryId(id)}
               placeholder={t("emailImport.pending.fields.categoryFromRule")}
@@ -209,18 +236,33 @@ export function PendingTransactionRow({
                 inputMode="decimal"
                 className="tabular-nums"
                 aria-invalid={!amountValid}
+                // Sin esto el lector de pantalla anuncia "inválido" y nunca el motivo: el
+                // <p> de error queda huérfano y no se llega a leer al enfocar.
+                aria-describedby={describedBy(
+                  !amountValid ? `amount-${row.id}-error` : undefined,
+                )}
                 onChange={(e) => setAmount(e.target.value)}
               />
               <span className="shrink-0 text-sm text-muted-foreground">{row.currency}</span>
             </div>
             {!amountValid && (
-              <p className="text-xs text-destructive">{t("emailImport.pending.amountInvalid")}</p>
+              <p
+                id={`amount-${row.id}-error`}
+                className="text-xs text-destructive"
+              >
+                {t("emailImport.pending.amountInvalid")}
+              </p>
             )}
           </div>
 
           <div className="flex flex-col gap-1.5">
             <Label htmlFor={`date-${row.id}`}>{t("emailImport.pending.fields.date")}</Label>
-            <DateTimePicker value={date} onChange={setDate} disabled={busy} />
+            <DateTimePicker
+              id={`date-${row.id}`}
+              value={date}
+              onChange={setDate}
+              disabled={busy}
+            />
           </div>
 
           <div className="flex flex-col gap-1.5">
@@ -268,9 +310,12 @@ export function PendingTransactionRow({
 
         <RawEmailDisclosure rawBody={row.rawBody} />
 
-        {/* Explicación literal del scorer, traída on-demand con la misma regla + correo */}
+        {/* Explicación literal del scorer, traída on-demand con la misma regla + correo.
+            role="status" + aria-live="polite": el bloque llega de una mutación y el
+            lector de pantalla debe anunciarlo (slice 15.6). Alert trae role="alert"
+            (assertive) por defecto; el spread de props lo sobreescribe. */}
         {explanation && (
-          <Alert>
+          <Alert role="status" aria-live="polite">
             <AlertTitle>{t("emailImport.pending.explanation")}</AlertTitle>
             <AlertDescription>
               <ul className="list-disc space-y-0.5 pl-4">

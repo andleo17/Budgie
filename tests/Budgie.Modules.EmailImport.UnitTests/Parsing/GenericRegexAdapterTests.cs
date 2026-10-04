@@ -506,15 +506,24 @@ public class GenericRegexAdapterTests
     }
 
     [Fact]
-    public void Parse_CapturedSymbolContradictingTheRule_ScoresZero()
+    public void Parse_CapturedSymbolContradictingTheRule_RejectsTheMessage()
     {
-        // The message says dollars while the rule declares euros: do not trust the currency.
+        // The message says dollars while the rule declares euros.
+        //
+        // This test USED TO assert that the currency field scored 0.0 and the message was still
+        // extracted — that assertion pinned the defect the debt spec §2.3 describes: a 0.0 on
+        // currency only costs 0.10 of 1.00, so the total was 0.90, above the 0.85 auto-commit
+        // threshold, and the transaction was created labelled EUR with nobody reviewing it
+        // (spec §9.3: a test that does not fail when the defect is reintroduced fixes it).
+        // A contradiction is a hard fact, not a low score, so the message is now rejected.
         var rule = Rule(amount: @"Importe:\s*(?<symbol>\$)?\s*(?<amount>[\d.,]+)");
 
         var outcome = new GenericRegexAdapter().Parse(Context("Importe: $45,20", rule));
 
-        outcome.Value!.Currency.Should().Be("EUR"); // the rule's value is what is stored
-        outcome.Value.FieldConfidence[ConfidenceScorer.CurrencyField].Should().Be(0.0m);
+        outcome.RuleRejected.Should().BeTrue();
+        outcome.Matched.Should().BeFalse();
+        outcome.Value.Should().BeNull();
+        outcome.SkipReason.Should().Be(GenericRegexAdapter.CurrencyContradictionReason);
     }
 
     [Fact]

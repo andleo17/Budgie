@@ -17,7 +17,8 @@ public interface ITransactionRepository
     /// <summary>
     /// Returns the id of the transaction carrying <paramref name="externalUid"/>, or null
     /// when none exists. Used by EmailImport's second idempotency barrier (spec §3.5): on
-    /// a <c>SqlState 23505</c> conflict the sync service links the staging row to the
+    /// a <see cref="Budgie.Shared.Exceptions.UniqueConstraintViolationException"/> the sync
+    /// service links the staging row to the
     /// transaction that already exists instead of inventing a duplicate. LIMIT 1 guards
     /// against a hypothetical duplicate the unique index should already prevent.
     /// </summary>

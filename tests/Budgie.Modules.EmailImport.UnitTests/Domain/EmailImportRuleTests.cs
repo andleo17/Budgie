@@ -58,7 +58,7 @@ public class EmailImportRuleTests
         rule.AccountId.Should().Be(AccountId);
         rule.CategoryId.Should().Be(categoryId);
         rule.TransactionType.Should().Be(TransactionType.Income);
-        rule.Currency.Should().Be("USD");
+        rule.Currency.Code.Should().Be("USD");
         rule.ExchangeRate.Should().Be(1.25m);
         rule.FromAddress.Should().Be("@banco.es");
         rule.SubjectContains.Should().Be("pago");
@@ -257,6 +257,14 @@ public class EmailImportRuleTests
     }
 
     [Fact]
+    public void Create_LowercaseCurrency_IsStoredAsTheCanonicalCode()
+    {
+        // Slice 10: the value object normalizes. If "usd" survived as stored data, every
+        // downstream Money/currency comparison would depend on how the user typed it.
+        Create(currency: "usd").Currency.Code.Should().Be("USD");
+    }
+
+    [Fact]
     public void Create_OverlongFromAddress_IsRejected()
     {
         var act = () => Create(fromAddress: "@" + new string('a', 256));
@@ -375,7 +383,7 @@ public class EmailImportRuleTests
         rule.Priority.Should().Be(9);
         rule.IsEnabled.Should().BeFalse();
         rule.TransactionType.Should().Be(TransactionType.Income);
-        rule.Currency.Should().Be("USD");
+        rule.Currency.Code.Should().Be("USD");
         rule.ExchangeRate.Should().Be(2m);
         rule.AutoCommit.Should().BeTrue();
     }

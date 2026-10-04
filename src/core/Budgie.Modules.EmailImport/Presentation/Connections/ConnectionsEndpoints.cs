@@ -1,5 +1,6 @@
 using Budgie.Modules.EmailImport.Application.Connections.DisconnectEmail;
 using Budgie.Modules.EmailImport.Application.Connections.GetConnectionStatus;
+using Budgie.Modules.EmailImport.Application.Connections.UpdateThreshold;
 using Mediator;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -36,5 +37,29 @@ internal static class ConnectionsEndpoints
                 _ => Results.NoContent(),
                 errors => Results.BadRequest(errors.ToDictionary(e => e.Code, e => new[] { e.Description })));
         });
+
+        // The auto-commit threshold used to be a column only — no route could change it, so the
+        // settings slider was read-only. The domain has always validated the value
+        // (ChangeAutoCommitThreshold → [0, 1]); the handler turns that rejection into a 400
+        // instead of a 500.
+        group.MapPut("/connections/{provider}/threshold", async (
+            string provider, UpdateAutoCommitThresholdRequest req, IMediator mediator) =>
+        {
+            if (!GetAuthorizationUriEndpoint.TryParseProvider(provider, out var parsedProvider))
+                return GetAuthorizationUriEndpoint.UnknownProvider(provider);
+
+            var result = await mediator.Send(
+                new UpdateAutoCommitThresholdCommand(parsedProvider, req.Threshold));
+            return result.Match(
+                _ => Results.NoContent(),
+                errors => Results.BadRequest(errors.ToDictionary(e => e.Code, e => new[] { e.Description })));
+        });
     }
 }
+
+/// <summary>
+/// Body of <c>PUT /api/email-import/connections/{provider}/threshold</c>. A single value: the
+/// minimum confidence a parsed email needs to be committed without review.
+/// </summary>
+/// <param name="Threshold">New minimum confidence, in [0, 1].</param>
+public record UpdateAutoCommitThresholdRequest(decimal Threshold);

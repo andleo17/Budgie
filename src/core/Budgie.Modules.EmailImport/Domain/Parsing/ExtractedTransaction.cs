@@ -35,6 +35,28 @@ public sealed record ExtractedTransaction(
 /// reason why nothing was extracted. Never carries a value without a match, nor a match
 /// without a value — the factories enforce that invariant.
 /// </summary>
+/// <remarks>
+/// There are <b>three</b> outcomes, not two, and the third one is not a flavour of the second:
+/// <list type="number">
+/// <item><description>
+/// <see cref="Success(ExtractedTransaction)"/> — a transaction was extracted.
+/// </description></item>
+/// <item><description>
+/// <see cref="RuleCannotOwn(string)"/> — the rule's FILTERS matched this email, but a hard fact
+/// about the message contradicts the rule, so <b>this rule cannot own it</b>. The parser keeps
+/// trying the remaining rules: the next one may be the right owner. A contradicting currency
+/// symbol is the case that exists today (debt plan §2.3, option (c)) — the amount is right but
+/// labelling it EUR when the email says dollars is the one way this system can file money under
+/// the wrong currency without a human looking at it.
+/// </description></item>
+/// <item><description>
+/// <see cref="NoMatch(string)"/> — nothing was extracted, for any reason. Terminal.
+/// </description></item>
+/// </list>
+/// Treating <see cref="RuleRejected"/> as a plain <see cref="NoMatch(string)"/> would be a
+/// regression, not a simplification: <c>EmailParser</c> returns the first rule whose filters
+/// match, so a rejected email would be discarded before a later, correct rule was ever tried.
+/// </remarks>
 /// <param name="Matched">Whether the adapter extracted a transaction.</param>
 /// <param name="Value">The extracted transaction; null when <paramref name="Matched"/> is false.</param>
 /// <param name="SkipReason">Machine-readable reason (e.g. <c>amount-not-found</c>); null on success.</param>
@@ -46,7 +68,24 @@ public sealed record ExtractedTransaction(
 /// staging row's provenance. Added by slice 11; the parameter defaults to null so every
 /// pre-existing call site keeps compiling unchanged.
 /// </param>
-public sealed record ParseOutcome(bool Matched, ExtractedTransaction? Value, string? SkipReason, EmailImportRule? MatchedRule = null)
+/// <param name="RuleRejected">
+/// True when the outcome is a "this rule cannot own this email" verdict rather than a terminal
+/// no-match. Defaults to false so every existing producer and call site keeps compiling
+/// unchanged; build it with <see cref="RuleCannotOwn(string)"/>, never by hand.
+/// <para>
+/// <b>This flag is a signal BETWEEN an adapter and the parser, never part of the parser's
+/// result.</b> <c>EmailParser</c> consumes it while looping over rules and always returns a
+/// terminal outcome, so code that calls <c>ParseAsync</c> will never see it set — a rejected
+/// email surfaces as a <see cref="NoMatch"/> carrying the same reason. Reading this flag on the
+/// result of a parse is therefore a bug that compiles and silently never fires.
+/// </para>
+/// </param>
+public sealed record ParseOutcome(
+    bool Matched,
+    ExtractedTransaction? Value,
+    string? SkipReason,
+    EmailImportRule? MatchedRule = null,
+    bool RuleRejected = false)
 {
     /// <summary>
     /// Creates a successful outcome without rule provenance. Prefer the overload that
@@ -64,7 +103,8 @@ public sealed record ParseOutcome(bool Matched, ExtractedTransaction? Value, str
         new(true, Guard.NotNull(tx, nameof(tx)), null, Guard.NotNull(rule, nameof(rule)));
 
     /// <summary>
-    /// Creates a non-match outcome with the reason the email was skipped.
+    /// Creates a non-match outcome with the reason the email was skipped. Terminal: the parser
+    /// stops here.
     /// </summary>
     /// <exception cref="ArgumentException"><paramref name="skipReason"/> is null or empty.</exception>
     public static ParseOutcome NoMatch(string skipReason)
@@ -72,5 +112,20 @@ public sealed record ParseOutcome(bool Matched, ExtractedTransaction? Value, str
         if (string.IsNullOrWhiteSpace(skipReason))
             throw new ArgumentException("SkipReason cannot be null or empty when there is no match.", nameof(skipReason));
         return new ParseOutcome(false, null, skipReason);
+    }
+
+    /// <summary>
+    /// Creates a non-terminal outcome: the rule's filters matched but a hard fact contradicts
+    /// the rule, so this rule cannot own the email. The parser continues with the next rule and
+    /// only falls back to a terminal <see cref="NoMatch"/> with this same reason if no remaining
+    /// rule can own it either. Named for what it asserts rather than for the flag it sets
+    /// (<see cref="RuleRejected"/>), so the two never read as the same concept.
+    /// </summary>
+    /// <exception cref="ArgumentException"><paramref name="reason"/> is null or empty.</exception>
+    public static ParseOutcome RuleCannotOwn(string reason)
+    {
+        if (string.IsNullOrWhiteSpace(reason))
+            throw new ArgumentException("A rejection must carry a reason.", nameof(reason));
+        return new ParseOutcome(false, null, reason, null, RuleRejected: true);
     }
 }

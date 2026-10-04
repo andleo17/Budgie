@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Budgie.Shared.Abstractions;
+using Budgie.Shared.Domain;
 using Budgie.Shared.Domain.ValueObjects;
 using Budgie.Shared.Enums;
 
@@ -48,7 +49,13 @@ public class EmailImportRule : Entity
     public Guid AccountId { get; internal set; }
     public Guid? CategoryId { get; internal set; }
     public TransactionType TransactionType { get; internal set; }
-    public string Currency { get; internal set; } = null!;
+
+    /// <summary>
+    /// Canonical currency code (ISO 4217) this rule stamps on parsed transactions.
+    /// A value object, not a raw string: the domain validates and normalizes through
+    /// <see cref="Budgie.Shared.Domain.ValueObjects.CurrencyCode"/> at write time.
+    /// </summary>
+    public CurrencyCode Currency { get; internal set; } = null!;
     public decimal? ExchangeRate { get; internal set; }
     public string? FromAddress { get; internal set; }
     public string? SubjectContains { get; internal set; }
@@ -96,7 +103,7 @@ public class EmailImportRule : Entity
             AccountId = accountId,
             CategoryId = categoryId,
             TransactionType = transactionType,
-            Currency = currency,
+            Currency = CurrencyCode.From(currency),
             ExchangeRate = NormalizeExchangeRate(exchangeRate),
             FromAddress = TrimOrNull(fromAddress),
             SubjectContains = TrimOrNull(subjectContains),
@@ -138,7 +145,7 @@ public class EmailImportRule : Entity
         AccountId = accountId;
         CategoryId = categoryId;
         TransactionType = transactionType;
-        Currency = currency;
+        Currency = CurrencyCode.From(currency);
         ExchangeRate = NormalizeExchangeRate(exchangeRate);
         FromAddress = TrimOrNull(fromAddress);
         SubjectContains = TrimOrNull(subjectContains);
@@ -180,10 +187,12 @@ public class EmailImportRule : Entity
     {
         if (string.IsNullOrWhiteSpace(FromAddress))
             return true; // no filter
-        if (string.IsNullOrWhiteSpace(fromAddress))
+
+        // Single From-header parser (debt plan §6.2): blank sender → null → no match.
+        var sender = EmailHeader.ExtractAddress(fromAddress);
+        if (sender is null)
             return false;
 
-        var sender = ExtractAddress(fromAddress);
         var filter = FromAddress.Trim();
 
         if (sender.Equals(filter, StringComparison.OrdinalIgnoreCase))
@@ -210,16 +219,6 @@ public class EmailImportRule : Entity
 
         // Sender domain is a subdomain of the filter: "alerts.santander.es" vs "santander.es".
         return senderDomain.EndsWith("." + normalizedFilter, StringComparison.OrdinalIgnoreCase);
-    }
-
-    /// <summary>Extracts the bare address from a raw From header ("Name &lt;a@b.c&gt;" → "a@b.c").</summary>
-    private static string ExtractAddress(string value)
-    {
-        var start = value.IndexOf('<');
-        var end = value.IndexOf('>');
-        if (start >= 0 && end > start)
-            return value[(start + 1)..end].Trim();
-        return value.Trim();
     }
 
     /// <summary>Parses the part after '@' of an email address, tolerating header leftovers.</summary>

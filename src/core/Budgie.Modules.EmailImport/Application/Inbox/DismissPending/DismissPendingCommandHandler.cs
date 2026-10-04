@@ -1,6 +1,7 @@
 using Budgie.Modules.EmailImport.Application.Inbox.ApprovePending;
 using Budgie.Modules.EmailImport.Domain.Staging;
 using Budgie.Shared.Abstractions;
+using Budgie.Shared.Enums;
 using ErrorOr;
 using Mediator;
 
