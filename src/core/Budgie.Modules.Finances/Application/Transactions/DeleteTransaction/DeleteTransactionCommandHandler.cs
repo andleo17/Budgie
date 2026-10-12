@@ -37,6 +37,16 @@ internal sealed class DeleteTransactionCommandHandler(
         var account = await accountRepository.GetByIdAsync(tx.AccountId, userId, ct);
         if (account is null) return Error.NotFound("Account.NotFound", "Account not found.");
 
+        // A transfer is one unit spread over several rows linked by a shared group id, so
+        // deleting ANY leg must remove the group: the counterpart would otherwise stay
+        // orphaned with the destination balance wrong (spec §Delete as a unit).
+        if (tx.LinkedTransactionId.HasValue)
+        {
+            var group = await txRepository.GetTransferGroupAsync(tx.LinkedTransactionId.Value, userId, ct);
+            if (group.Count > 1)
+                return await DeleteTransferGroupAsync(group, userId, ct);
+        }
+
         if (tx.ParentTransactionId.HasValue)
         {
             await DeleteChild(account, tx, ct);
@@ -50,6 +60,36 @@ internal sealed class DeleteTransactionCommandHandler(
         await txRepository.DeleteTransactionAsync(tx.Id, ct);
 
         await accountRepository.UpdateBalanceAsync(account.UserId, account.Id, account.Balance.Amount, ct);
+
+        return Result.Success;
+    }
+
+    private async Task<ErrorOr<Success>> DeleteTransferGroupAsync(
+        List<TransactionForUpdate> group, Guid userId, CancellationToken ct)
+    {
+        var accounts = new Dictionary<Guid, Account>();
+        foreach (var leg in group)
+        {
+            if (!accounts.ContainsKey(leg.AccountId))
+            {
+                var account = await accountRepository.GetByIdAsync(leg.AccountId, userId, ct);
+                if (account is null)
+                    return Error.NotFound("Account.NotFound", "Account not found.");
+                accounts[leg.AccountId] = account;
+            }
+        }
+
+        foreach (var leg in group)
+        {
+            accounts[leg.AccountId].RevertTransaction(
+                Money.FromPositive(leg.Amount, CurrencyCode.From(leg.Currency)),
+                leg.ExchangeRate, leg.Installments, leg.Type);
+            await txRepository.DeleteParticipantAsync(leg.Id, ct);
+            await txRepository.DeleteTransactionAsync(leg.Id, ct);
+        }
+
+        foreach (var account in accounts.Values)
+            await accountRepository.UpdateBalanceAsync(account.UserId, account.Id, account.Balance.Amount, ct);
 
         return Result.Success;
     }

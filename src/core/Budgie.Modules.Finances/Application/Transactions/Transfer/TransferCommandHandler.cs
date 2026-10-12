@@ -11,7 +11,8 @@ namespace Budgie.Modules.Finances.Application.Transactions.Transfer;
 
 public record TransferCommand(
     Guid FromAccountId, Guid ToAccountId, decimal Amount, decimal Fee,
-    string Currency, decimal ExchangeRate, DateTime Date, string? Notes)
+    string Currency, decimal ExchangeRate, DateTime Date, string? Notes,
+    string? ExternalUid = null)
     : IRequest<ErrorOr<Guid>>;
 
 internal sealed class TransferCommandHandler(
@@ -23,6 +24,16 @@ internal sealed class TransferCommandHandler(
     public async ValueTask<ErrorOr<Guid>> Handle(TransferCommand request, CancellationToken ct)
     {
         var userId = currentUserProvider.GetUserId();
+
+        // Idempotency barrier, same contract as CreateTransactionCommand: an import that
+        // retries a transfer must not duplicate the money (spec §Idempotent creation).
+        if (!string.IsNullOrWhiteSpace(request.ExternalUid))
+        {
+            var existingId = await txRepository.GetIdByExternalUidAsync(userId, request.ExternalUid, ct);
+            if (existingId.HasValue)
+                return existingId.Value;
+        }
+
         var fromAccount = await accountRepository.GetByIdAsync(request.FromAccountId, userId, ct);
         var toAccount = await accountRepository.GetByIdAsync(request.ToAccountId, userId, ct);
 
@@ -34,7 +45,8 @@ internal sealed class TransferCommandHandler(
         var outgoing = Transaction.Create(userId, fromAccount.Id, SystemCategoryIds.Transfer,
             request.Amount, request.Currency, request.ExchangeRate, request.Date,
             request.Notes ?? $"Transfer to {toAccount.Name}",
-            TransactionType.Transfer, linkedTransactionId: transferId);
+            TransactionType.Transfer, linkedTransactionId: transferId,
+            externalUid: request.ExternalUid);
 
         var incoming = Transaction.Create(userId, toAccount.Id, SystemCategoryIds.Transfer,
             request.Amount, request.Currency, request.ExchangeRate, request.Date,
@@ -62,6 +74,8 @@ internal sealed class TransferCommandHandler(
         await accountRepository.UpdateBalanceAsync(fromAccount.UserId, fromAccount.Id, fromAccount.Balance.Amount, ct);
         await accountRepository.UpdateBalanceAsync(toAccount.UserId, toAccount.Id, toAccount.Balance.Amount, ct);
 
-        return transferId;
+        // Return a real transaction id (the outgoing leg) rather than the group id, which
+        // is not the Id of any row and therefore useless to a caller.
+        return outgoing.Id;
     }
 }

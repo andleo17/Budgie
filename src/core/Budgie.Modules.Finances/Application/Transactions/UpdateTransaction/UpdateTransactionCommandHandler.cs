@@ -15,7 +15,9 @@ public record UpdateTransactionCommand(
     Guid Id, Guid? CategoryId, decimal Amount, string Currency, decimal ExchangeRate,
     DateTime Date, string? Notes, TransactionType Type, int Installments,
     List<TransactionParticipantDto>? Participants = null,
-    Guid? ParentTransactionId = null) : IRequest<ErrorOr<Success>>;
+    Guid? ParentTransactionId = null,
+    Guid? AccountId = null,
+    Guid? TransferDestinationAccountId = null) : IRequest<ErrorOr<Success>>;
 
 internal sealed class UpdateTransactionCommandHandler(
     ITransactionRepository txRepository,
@@ -28,6 +30,11 @@ internal sealed class UpdateTransactionCommandHandler(
         var userId = currentUserProvider.GetUserId();
         var existing = await txRepository.GetByIdForUpdateAsync(request.Id, userId, ct);
         if (existing is null) return Error.NotFound("Transaction.NotFound", "Transaction not found.");
+
+        // A transfer's legs are one unit: updating only the row the caller named would
+        // drop the link and desynchronise both balances (spec §Update as a unit).
+        if (existing.Type == TransactionType.Transfer)
+            return await UpdateTransferAsync(existing, request, userId, ct);
 
         var account = await accountRepository.GetByIdAsync(existing.AccountId, userId, ct);
         if (account is null) return Error.NotFound("Account.NotFound", "Account not found.");
@@ -108,6 +115,62 @@ internal sealed class UpdateTransactionCommandHandler(
         if (participantDelta != 0)
             account.Balance = Money.FromAny(account.Balance.Amount + participantDelta, account.Balance.Currency);
         await accountRepository.UpdateBalanceAsync(account.UserId, account.Id, account.Balance.Amount, ct);
+
+        return Result.Success;
+    }
+
+    private async Task<ErrorOr<Success>> UpdateTransferAsync(
+        TransactionForUpdate existing, UpdateTransactionCommand request, Guid userId, CancellationToken ct)
+    {
+        if (request.Type != TransactionType.Transfer)
+            return Error.Validation("Transfer.TypeImmutable",
+                "Una transferencia no puede cambiar de tipo; elimínala y créala de nuevo.");
+        if (request.Installments != 1)
+            return Error.Validation("Transfer.NoInstallments",
+                "Una transferencia no admite cuotas.");
+
+        // A transfer whose legs were already broken by the old update path cannot be
+        // repaired by guessing: reject it instead of writing a worse state.
+        if (existing.LinkedTransactionId is null)
+            return Error.Validation("Transfer.MalformedGroup",
+                "La transferencia no tiene grupo de enlace y no puede modificarse de forma segura.");
+
+        var group = await txRepository.GetTransferGroupAsync(existing.LinkedTransactionId.Value, userId, ct);
+        var outgoing = group.FirstOrDefault(l => l.Type == TransactionType.Transfer);
+        var incoming = group.FirstOrDefault(l => l.Type == TransactionType.Income);
+        if (outgoing is null || incoming is null
+            || group.Count(l => l.Type == TransactionType.Transfer) > 1
+            || group.Count(l => l.Type == TransactionType.Income) > 1)
+            return Error.Validation("Transfer.MalformedGroup",
+                "El grupo de la transferencia está incompleto o duplicado; no puede modificarse de forma segura.");
+
+        var newOrigin = request.AccountId ?? outgoing.AccountId;
+        var newDestination = request.TransferDestinationAccountId ?? incoming.AccountId;
+
+        var accounts = new Dictionary<Guid, Account>();
+        foreach (var accountId in new[] { outgoing.AccountId, incoming.AccountId, newOrigin, newDestination }.Distinct())
+        {
+            var account = await accountRepository.GetByIdAsync(accountId, userId, ct);
+            if (account is null) return Error.NotFound("Account.NotFound", "Account not found.");
+            accounts[accountId] = account;
+        }
+
+        foreach (var leg in new[] { outgoing, incoming })
+            accounts[leg.AccountId].RevertTransaction(ToMoney(leg), leg.ExchangeRate, leg.Installments, leg.Type);
+
+        await txRepository.UpdateTransferLegAsync(outgoing.Id, newOrigin,
+            request.Amount, request.Currency, request.ExchangeRate, request.Date, request.Notes, ct);
+        await txRepository.UpdateTransferLegAsync(incoming.Id, newDestination,
+            request.Amount, request.Currency, request.ExchangeRate, request.Date, request.Notes, ct);
+
+        accounts[newOrigin].ApplyTransaction(Money.FromPositive(request.Amount, CurrencyCode.From(request.Currency)),
+            request.ExchangeRate, 1, TransactionType.Transfer);
+        if (newOrigin != newDestination)
+            accounts[newDestination].ApplyTransaction(Money.FromPositive(request.Amount, CurrencyCode.From(request.Currency)),
+                request.ExchangeRate, 1, TransactionType.Income);
+
+        foreach (var account in accounts.Values)
+            await accountRepository.UpdateBalanceAsync(account.UserId, account.Id, account.Balance.Amount, ct);
 
         return Result.Success;
     }

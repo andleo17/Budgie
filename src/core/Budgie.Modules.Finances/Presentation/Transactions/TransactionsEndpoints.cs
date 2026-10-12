@@ -66,7 +66,8 @@ internal static class TransactionsEndpoints
             var cmd = new UpdateTransactionCommand(
                 id, req.CategoryId, req.Amount, req.Currency, req.ExchangeRate,
                 req.Date, req.Notes, req.Type, req.Installments,
-                req.Participants, req.ParentTransactionId);
+                req.Participants, req.ParentTransactionId,
+                req.AccountId, req.TransferDestinationAccountId);
             var result = await mediator.Send(cmd);
             return result.Match(_ => Results.NoContent(), err => Results.BadRequest(err));
         });
@@ -83,4 +84,5 @@ internal static class TransactionsEndpoints
 public record UpdateTransactionRequest(
     Guid? CategoryId, decimal Amount, string Currency, decimal ExchangeRate,
     DateTime Date, string? Notes, TransactionType Type, int Installments,
-    List<TransactionParticipantDto>? Participants = null, Guid? ParentTransactionId = null);
+    List<TransactionParticipantDto>? Participants = null, Guid? ParentTransactionId = null,
+    Guid? AccountId = null, Guid? TransferDestinationAccountId = null);

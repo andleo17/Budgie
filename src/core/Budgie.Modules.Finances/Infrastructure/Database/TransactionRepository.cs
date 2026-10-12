@@ -21,18 +21,18 @@ internal sealed class TransactionRepository(
     public async Task<TransactionInfo?> GetByIdForDeleteAsync(Guid id, Guid userId, CancellationToken ct)
     {
         var row = await factory.QuerySingleOrDefaultAsync<TxRow>(
-            @"SELECT ""Id"",""Type"",""IsInitialBalance"",""Amount"",""Currency"",""ExchangeRate"",""Installments"",""AccountId"",""ParentTransactionId"",""Date"" FROM ""Transactions"" WHERE ""Id"" = @Id AND ""UserId"" = @UserId",
+            @"SELECT ""Id"",""Type"",""IsInitialBalance"",""Amount"",""Currency"",""ExchangeRate"",""Installments"",""AccountId"",""ParentTransactionId"",""Date"",""LinkedTransactionId"" FROM ""Transactions"" WHERE ""Id"" = @Id AND ""UserId"" = @UserId",
             new { Id = id, UserId = userId }, ct);
         return row is null ? null : new TransactionInfo(row.Id, (TransactionType)row.Type, row.IsInitialBalance,
-            row.Amount, row.Currency, row.ExchangeRate, row.Installments, row.AccountId, row.ParentTransactionId);
+            row.Amount, row.Currency, row.ExchangeRate, row.Installments, row.AccountId, row.ParentTransactionId, row.LinkedTransactionId);
     }
 
     public async Task<List<TransactionInfo>> GetChildTransactionsForDeleteAsync(Guid parentId, CancellationToken ct)
         => (await factory.QueryListAsync<TxRow>(
-            @"SELECT ""Id"",""Type"",""IsInitialBalance"",""Amount"",""Currency"",""ExchangeRate"",""Installments"",""AccountId"",""ParentTransactionId"",""Date"" FROM ""Transactions"" WHERE ""ParentTransactionId"" = @Id",
+            @"SELECT ""Id"",""Type"",""IsInitialBalance"",""Amount"",""Currency"",""ExchangeRate"",""Installments"",""AccountId"",""ParentTransactionId"",""Date"",""LinkedTransactionId"" FROM ""Transactions"" WHERE ""ParentTransactionId"" = @Id",
             new { Id = parentId }, ct))
             .Select(r => new TransactionInfo(r.Id, (TransactionType)r.Type, r.IsInitialBalance,
-                r.Amount, r.Currency, r.ExchangeRate, r.Installments, r.AccountId, r.ParentTransactionId))
+                r.Amount, r.Currency, r.ExchangeRate, r.Installments, r.AccountId, r.ParentTransactionId, r.LinkedTransactionId))
             .ToList();
 
     public async Task<Guid?> GetFirstParticipantPersonIdAsync(Guid txId, CancellationToken ct)
@@ -135,9 +135,17 @@ internal sealed class TransactionRepository(
             @"SELECT ""Id"" FROM ""Transactions"" WHERE ""UserId"" = @UserId AND ""ExternalUid"" = @ExternalUid LIMIT 1",
             new { UserId = userId, ExternalUid = externalUid }, ct);
 
+    public Task UpdateTransferLegAsync(Guid id, Guid accountId, decimal amount, string currency,
+        decimal exchangeRate, DateTime date, string? notes, CancellationToken ct)
+        => factory.ExecuteAsync(
+            @"UPDATE ""Transactions"" SET ""AccountId"" = @AccountId, ""Amount"" = @Amount, ""Currency"" = @Currency,
+              ""ExchangeRate"" = @ExchangeRate, ""Date"" = @Date, ""Notes"" = @Notes
+              WHERE ""Id"" = @Id",
+            new { Id = id, AccountId = accountId, Amount = amount, Currency = currency, ExchangeRate = exchangeRate, Date = date, Notes = notes }, ct);
+
     public Task UpdateAsync(Transaction tx, CancellationToken ct)
         => factory.ExecuteAsync(
-            @"UPDATE ""Transactions"" SET ""CategoryId"" = @CategoryId, ""Amount"" = @Amount, ""Currency"" = @Currency,
+            @"UPDATE ""Transactions"" SET ""AccountId"" = @AccountId, ""CategoryId"" = @CategoryId, ""Amount"" = @Amount, ""Currency"" = @Currency,
               ""ExchangeRate"" = @ExchangeRate, ""Date"" = @Date, ""Notes"" = @Notes, ""Type"" = @Type,
               ""Installments"" = @Installments, ""ParentTransactionId"" = @ParentTransactionId,
               ""LinkedTransactionId"" = @LinkedTransactionId, ""InstallmentGroupId"" = @InstallmentGroupId,
@@ -145,19 +153,30 @@ internal sealed class TransactionRepository(
               WHERE ""Id"" = @Id",
             new
             {
-                tx.CategoryId, Amount = tx.Amount.Amount, Currency = tx.Amount.Currency.Code,
+                tx.AccountId, tx.CategoryId, Amount = tx.Amount.Amount, Currency = tx.Amount.Currency.Code,
                 tx.ExchangeRate, tx.Date, tx.Notes, Type = (int)tx.Type, tx.Installments,
                 tx.ParentTransactionId, tx.LinkedTransactionId, tx.InstallmentGroupId, tx.InstallmentNumber, tx.TotalInstallments, InterestRate = tx.InterestRate.Value, tx.Id
             }, ct);
 
+    public async Task<List<TransactionForUpdate>> GetTransferGroupAsync(Guid groupId, Guid userId, CancellationToken ct)
+    {
+        var rows = await factory.QueryListAsync<TxUpdateRow>(
+            @"SELECT ""Id"",""Type"",""IsInitialBalance"",""Amount"",""Currency"",""ExchangeRate"",""Installments"",""AccountId"",""ParentTransactionId"",""Date"",""InstallmentGroupId"",""InstallmentNumber"",""TotalInstallments"",""InterestRate"",""LinkedTransactionId""
+              FROM ""Transactions"" WHERE ""LinkedTransactionId"" = @GroupId AND ""UserId"" = @UserId",
+            new { GroupId = groupId, UserId = userId }, ct);
+        return rows.Select(row => new TransactionForUpdate(row.Id, (TransactionType)row.Type, row.IsInitialBalance,
+            row.Amount, row.Currency, row.ExchangeRate, row.Installments, row.AccountId, row.ParentTransactionId, row.Date,
+            row.InstallmentGroupId, row.InstallmentNumber, row.TotalInstallments, row.InterestRate)).ToList();
+    }
+
     public async Task<TransactionForUpdate?> GetByIdForUpdateAsync(Guid id, Guid userId, CancellationToken ct)
     {
         var row = await factory.QuerySingleOrDefaultAsync<TxUpdateRow>(
-            @"SELECT ""Id"",""Type"",""IsInitialBalance"",""Amount"",""Currency"",""ExchangeRate"",""Installments"",""AccountId"",""ParentTransactionId"",""Date"",""InstallmentGroupId"",""InstallmentNumber"",""TotalInstallments"",""InterestRate"" FROM ""Transactions"" WHERE ""Id"" = @Id AND ""UserId"" = @UserId",
+            @"SELECT ""Id"",""Type"",""IsInitialBalance"",""Amount"",""Currency"",""ExchangeRate"",""Installments"",""AccountId"",""ParentTransactionId"",""Date"",""InstallmentGroupId"",""InstallmentNumber"",""TotalInstallments"",""InterestRate"",""LinkedTransactionId"" FROM ""Transactions"" WHERE ""Id"" = @Id AND ""UserId"" = @UserId",
             new { Id = id, UserId = userId }, ct);
         return row is null ? null : new TransactionForUpdate(row.Id, (TransactionType)row.Type, row.IsInitialBalance,
             row.Amount, row.Currency, row.ExchangeRate, row.Installments, row.AccountId, row.ParentTransactionId, row.Date,
-            row.InstallmentGroupId, row.InstallmentNumber, row.TotalInstallments, row.InterestRate);
+            row.InstallmentGroupId, row.InstallmentNumber, row.TotalInstallments, row.InterestRate, row.LinkedTransactionId);
     }
 
     public Task AddParticipantAsync(TransactionParticipant p, CancellationToken ct)
@@ -320,11 +339,14 @@ internal sealed class TransactionRepository(
         if (transferIds.Count > 0)
         {
             destRows = (await factory.QueryListAsync<AccountNameRow>(
-                @"SELECT t.""AccountId"", a.""Name"" AS AccountName, t.""LinkedTransactionId"" FROM ""Transactions"" t JOIN ""Accounts"" a ON a.""Id"" = t.""AccountId"" WHERE t.""LinkedTransactionId"" = ANY(@Ids)",
+                @"SELECT t.""Id"", t.""AccountId"", a.""Name"" AS AccountName, t.""LinkedTransactionId"" FROM ""Transactions"" t JOIN ""Accounts"" a ON a.""Id"" = t.""AccountId"" WHERE t.""LinkedTransactionId"" = ANY(@Ids)",
                 new { Ids = transferIds.ToArray() }, ct)).ToList();
         }
+        // The query above returns the whole group, including the row being projected.
+        // Picking First() at random is what made a transfer render as "A -> A"; the
+        // destination is the leg that is NOT the current row (spec §Destination resolution).
         var destByLinked = destRows.GroupBy(x => x.LinkedTransactionId!.Value)
-            .ToDictionary(g => g.Key, g => g.First());
+            .ToDictionary(g => g.Key, g => g.ToList());
 
         // Traduce los nombres de categorías de sistema según el idioma del usuario
         // (solo consulta UserSettings si la página contiene categorías de sistema).
@@ -337,10 +359,14 @@ internal sealed class TransactionRepository(
             Guid? destId = null;
             string? destName = null;
             if (item.Type == TransactionType.Transfer && item.LinkedTransactionId.HasValue &&
-                destByLinked.TryGetValue(item.LinkedTransactionId.Value, out var dest))
+                destByLinked.TryGetValue(item.LinkedTransactionId.Value, out var candidates))
             {
-                destId = dest.AccountId;
-                destName = dest.AccountName;
+                var dest = candidates.FirstOrDefault(c => c.Id != item.Id);
+                if (dest is not null)
+                {
+                    destId = dest.AccountId;
+                    destName = dest.AccountName;
+                }
             }
 
             return item with
@@ -413,11 +439,13 @@ internal sealed class TransactionRepository(
     }
 
     private record TxRow(Guid Id, int Type, bool IsInitialBalance, decimal Amount,
-        string Currency, decimal ExchangeRate, int Installments, Guid AccountId, Guid? ParentTransactionId, DateTime Date);
+        string Currency, decimal ExchangeRate, int Installments, Guid AccountId, Guid? ParentTransactionId, DateTime Date,
+        Guid? LinkedTransactionId);
 
     private record TxUpdateRow(Guid Id, int Type, bool IsInitialBalance, decimal Amount,
         string Currency, decimal ExchangeRate, int Installments, Guid AccountId, Guid? ParentTransactionId, DateTime Date,
-        Guid? InstallmentGroupId, int InstallmentNumber, int TotalInstallments, decimal InterestRate);
+        Guid? InstallmentGroupId, int InstallmentNumber, int TotalInstallments, decimal InterestRate,
+        Guid? LinkedTransactionId);
 
     private record TxQueryRow(Guid Id, Guid AccountId, string AccountName, Guid? CategoryId,
         string? CategoryName, decimal Amount, string Currency, decimal ExchangeRate,
@@ -430,5 +458,5 @@ internal sealed class TransactionRepository(
 
     private record AccountCurrencyRow(Guid Id, string Currency);
 
-    private record AccountNameRow(Guid AccountId, string AccountName, Guid? LinkedTransactionId);
+    private record AccountNameRow(Guid Id, Guid AccountId, string AccountName, Guid? LinkedTransactionId);
 }
