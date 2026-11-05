@@ -491,8 +491,11 @@ wwwroot/
 # Generated OpenAPI schema from the backend
 openapi.json
 
-# Generated TypeScript API client types
-src/apps/Budgie.Web/src/lib/api-types.ts
+# Generated TypeScript API client types.
+# Versionado a propósito: la imagen se construye desde un clon limpio y `tsc -b`
+# lo necesita. Regenerar con `bun run api:spec && bun run api:gen` contra una API
+# en marcha cuando cambie el contrato.
+# src/apps/Budgie.Web/src/lib/api-types.ts
 
 # Data Protection certificates (generated at runtime)
 *.pfx
