@@ -170,6 +170,8 @@ export function LoanForm({ transaction, defaultAccountId, initialDate, onSuccess
       notes: values.notes || null,
       type: 3 as components["schemas"]["TransactionType"],
       installments: 1,
+      // Un préstamo se registra en una sola cuota: no hay interés que calcular.
+      isInterestFree: true,
       participants: [{
         personId: values.personId,
         contributedAmount: amount,
