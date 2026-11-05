@@ -318,3 +318,9 @@ docker compose build              # Rebuild images
 docker compose up -d              # Start services
 docker compose down -v            # Stop and delete volumes
 ```
+
+## Despliegue
+
+La imagen se construye desde este repositorio y la despliega Komodo, usando el stack `budgie` en `komodo.andleo.dev` con el compose de `deploy/compose.yaml`. Cada push a `main` dispara el despliegue mediante un webhook.
+
+Las variables de entorno viven en la configuración del stack en Komodo, no en el repositorio. El compose las espera con los nombres `BUDGIE_HOST`, `POSTGRES_PASSWORD`, `JWT_SECRET` y `EMAILIMPORT_*`.
