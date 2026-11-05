@@ -107,7 +107,7 @@ internal sealed class GmailApiClient(
         string accessToken, string query, CancellationToken ct)
     {
         var uri = QueryHelpers.AddQueryString(
-            MePath("messages/list"), new Dictionary<string, string?> { ["q"] = query });
+            MePath("messages"), new Dictionary<string, string?> { ["q"] = query });
 
         using var response = await SendAuthorizedAsync(uri, accessToken, "users.messages.list", ct);
         var payload = await ReadSuccessAsync<GmailMessageListResponse>(response, "users.messages.list", ct);
@@ -140,7 +140,7 @@ internal sealed class GmailApiClient(
         string accessToken, string startHistoryId, CancellationToken ct)
     {
         var uri = QueryHelpers.AddQueryString(
-            MePath("history/list"),
+            MePath("history"),
             new Dictionary<string, string?>
             {
                 ["startHistoryId"] = startHistoryId,
@@ -177,7 +177,7 @@ internal sealed class GmailApiClient(
         string accessToken, CancellationToken ct)
     {
         using var response = await SendAuthorizedAsync(
-            MePath("getProfile"), accessToken, "users.getProfile", ct);
+            MePath("profile"), accessToken, "users.getProfile", ct);
         return await ReadSuccessAsync<GmailProfileResponse>(response, "users.getProfile", ct);
     }
 

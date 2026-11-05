@@ -56,7 +56,9 @@ public class GmailApiClientPathTests
         await client.ListMessageIdsAsync("token", "newer_than:7d", CancellationToken.None);
 
         handler.RequestedPaths.Should().ContainSingle();
-        handler.RequestedPaths[0].Should().StartWith("/gmail/v1/users/me/messages/list");
+        handler.RequestedPaths[0].Should().StartWith("/gmail/v1/users/me/messages?");
+        handler.RequestedPaths[0].Should().NotContain("/list");
+        handler.RequestedPaths[0].Should().Contain("q=newer_than");
     }
 
     [Fact]
@@ -67,7 +69,8 @@ public class GmailApiClientPathTests
         await client.ListHistoryAsync("token", "12345", CancellationToken.None);
 
         handler.RequestedPaths.Should().ContainSingle();
-        handler.RequestedPaths[0].Should().StartWith("/gmail/v1/users/me/history/list");
+        handler.RequestedPaths[0].Should().StartWith("/gmail/v1/users/me/history?");
+        handler.RequestedPaths[0].Should().NotContain("/list");
         handler.RequestedPaths[0].Should().Contain("startHistoryId=12345");
     }
 
@@ -79,7 +82,7 @@ public class GmailApiClientPathTests
         await client.GetProfileAsync("token", CancellationToken.None);
 
         handler.RequestedPaths.Should().ContainSingle();
-        handler.RequestedPaths[0].Should().StartWith("/gmail/v1/users/me/getProfile");
+        handler.RequestedPaths[0].Should().Be("/gmail/v1/users/me/profile");
     }
 
     [Fact]
@@ -94,11 +97,23 @@ public class GmailApiClientPathTests
         handler.RequestedPaths[0].Should().Contain("format=full");
     }
 
-    [Theory]
-    [InlineData("users/messages/list")]
-    [InlineData("users/history/list")]
-    [InlineData("users/getProfile")]
-    public void MePath_IsNotConfusedWithTheRpcMethodName(string invalidPath) =>
-        // Guards the exact regression: these are method identifiers, not URL paths.
-        invalidPath.Should().NotStartWith("users/me/");
+    // Guards the exact regression that shipped in the 2026-10 image: every Gmail call went
+    // out with the RPC method name transcribed into the path ("messages/list",
+    // "history/list", "getProfile"), so the list call answered HTTP 400 and the profile 404
+    // and no message was ever fetched.
+    [Fact]
+    public async Task NoCall_TranscribesTheRpcMethodNameIntoThePath()
+    {
+        var (client, handler) = CreateClient();
+
+        await client.ListMessageIdsAsync("token", "newer_than:7d", CancellationToken.None);
+        await client.ListHistoryAsync("token", "12345", CancellationToken.None);
+        await client.GetProfileAsync("token", CancellationToken.None);
+        await client.GetMessageAsync("token", "msg-42", CancellationToken.None);
+
+        handler.RequestedPaths.Should().HaveCount(4);
+        handler.RequestedPaths.Should().OnlyContain(p => p.StartsWith("/gmail/v1/users/me/"));
+        handler.RequestedPaths.Should().NotContain(p => p.Contains("/list"));
+        handler.RequestedPaths.Should().NotContain(p => p.Contains("getProfile"));
+    }
 }
