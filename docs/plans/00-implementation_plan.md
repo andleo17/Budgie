@@ -25,8 +25,8 @@ This plan outlines the systematic implementation of the Software Requirement Spe
   - Add domain events / notifications base interfaces using `Mediator.INotification`.
   - Ensure bilingual error message catalogs (`es` default, `en` fallback) for all shared domain value objects.
 
-#### [MODIFY] [SharedEnums.cs](file:///home/andleo/Proyectos/Budgie/src/core/Budgie.Shared/Enums/SharedEnums.cs)
-#### [NEW] [DomainEvents.cs](file:///home/andleo/Proyectos/Budgie/src/core/Budgie.Shared/Domain/Events/DomainEvents.cs)
+#### [MODIFY] [SharedEnums.cs](src/core/Budgie.Shared/Enums/SharedEnums.cs)
+#### [NEW] [DomainEvents.cs](src/core/Budgie.Shared/Domain/Events/DomainEvents.cs)
 
 ---
 
@@ -40,12 +40,12 @@ This plan outlines the systematic implementation of the Software Requirement Spe
   - Migrate JWT Refresh Token delivery to secure `HttpOnly`, `SameSite=Strict` cookies with sliding rotation.
   - Move all remaining raw SQL out of Application query handlers into `Infrastructure/Database/UserRepository.cs`.
 
-#### [MODIFY] [User.cs](file:///home/andleo/Proyectos/Budgie/src/core/Budgie.Modules.Users/Domain/User.cs)
-#### [NEW] [UserInvite.cs](file:///home/andleo/Proyectos/Budgie/src/core/Budgie.Modules.Users/Domain/UserInvite.cs)
-#### [MODIFY] [RegistrationPolicy.cs](file:///home/andleo/Proyectos/Budgie/src/core/Budgie.Modules.Users/Infrastructure/RegistrationPolicy.cs)
-#### [NEW] [CreateInviteCommandHandler.cs](file:///home/andleo/Proyectos/Budgie/src/core/Budgie.Modules.Users/Application/Invites/CreateInviteCommandHandler.cs)
-#### [NEW] [AdminCreateUserCommandHandler.cs](file:///home/andleo/Proyectos/Budgie/src/core/Budgie.Modules.Users/Application/Admin/CreateUser/AdminCreateUserCommandHandler.cs)
-#### [MODIFY] [Repositories.cs](file:///home/andleo/Proyectos/Budgie/src/core/Budgie.Modules.Users/Infrastructure/Database/Repositories.cs)
+#### [MODIFY] [User.cs](src/core/Budgie.Modules.Users/Domain/User.cs)
+#### [NEW] [UserInvite.cs](src/core/Budgie.Modules.Users/Domain/UserInvite.cs)
+#### [MODIFY] [RegistrationPolicy.cs](src/core/Budgie.Modules.Users/Infrastructure/RegistrationPolicy.cs)
+#### [NEW] [CreateInviteCommandHandler.cs](src/core/Budgie.Modules.Users/Application/Invites/CreateInviteCommandHandler.cs)
+#### [NEW] [AdminCreateUserCommandHandler.cs](src/core/Budgie.Modules.Users/Application/Admin/CreateUser/AdminCreateUserCommandHandler.cs)
+#### [MODIFY] [Repositories.cs](src/core/Budgie.Modules.Users/Infrastructure/Database/Repositories.cs)
 
 ---
 
@@ -72,16 +72,16 @@ This plan outlines the systematic implementation of the Software Requirement Spe
 - **Clean Architecture Refactoring**:
   - Move raw SQL queries from Goals, Categories, Reports, and Debts application handlers into Dapper repository implementations in `Infrastructure/Database/`.
 
-#### [MODIFY] [Account.cs](file:///home/andleo/Proyectos/Budgie/src/core/Budgie.Modules.Finances/Domain/Accounts/Account.cs)
-#### [MODIFY] [Category.cs](file:///home/andleo/Proyectos/Budgie/src/core/Budgie.Modules.Finances/Domain/Categories/Category.cs)
-#### [MODIFY] [CreateTransactionCommandHandler.cs](file:///home/andleo/Proyectos/Budgie/src/core/Budgie.Modules.Finances/Application/Transactions/CreateTransaction/CreateTransactionCommandHandler.cs)
-#### [NEW] [FinanceEvents.cs](file:///home/andleo/Proyectos/Budgie/src/core/Budgie.Modules.Finances/Domain/Events/FinanceEvents.cs)
-#### [NEW] [UpdateAccountBalanceHandler.cs](file:///home/andleo/Proyectos/Budgie/src/core/Budgie.Modules.Finances/Application/Transactions/EventHandlers/UpdateAccountBalanceHandler.cs)
-#### [NEW] [RecordSplitDebtsHandler.cs](file:///home/andleo/Proyectos/Budgie/src/core/Budgie.Modules.Finances/Application/Transactions/EventHandlers/RecordSplitDebtsHandler.cs)
-#### [NEW] [SettleDebtCommandHandler.cs](file:///home/andleo/Proyectos/Budgie/src/core/Budgie.Modules.Finances/Application/Debts/SettleDebt/SettleDebtCommandHandler.cs)
-#### [NEW] [ExportSnapshotQueryHandler.cs](file:///home/andleo/Proyectos/Budgie/src/core/Budgie.Modules.Finances/Application/Export/ExportSnapshotQueryHandler.cs)
-#### [NEW] [RestoreSnapshotCommandHandler.cs](file:///home/andleo/Proyectos/Budgie/src/core/Budgie.Modules.Finances/Application/Export/RestoreSnapshotCommandHandler.cs)
-#### [MODIFY] [Repositories.cs](file:///home/andleo/Proyectos/Budgie/src/core/Budgie.Modules.Finances/Infrastructure/Database/Repositories.cs)
+#### [MODIFY] [Account.cs](src/core/Budgie.Modules.Finances/Domain/Accounts/Account.cs)
+#### [MODIFY] [Category.cs](src/core/Budgie.Modules.Finances/Domain/Categories/Category.cs)
+#### [MODIFY] [CreateTransactionCommandHandler.cs](src/core/Budgie.Modules.Finances/Application/Transactions/CreateTransaction/CreateTransactionCommandHandler.cs)
+#### [NEW] [FinanceEvents.cs](src/core/Budgie.Modules.Finances/Domain/Events/FinanceEvents.cs)
+#### [NEW] [UpdateAccountBalanceHandler.cs](src/core/Budgie.Modules.Finances/Application/Transactions/EventHandlers/UpdateAccountBalanceHandler.cs)
+#### [NEW] [RecordSplitDebtsHandler.cs](src/core/Budgie.Modules.Finances/Application/Transactions/EventHandlers/RecordSplitDebtsHandler.cs)
+#### [NEW] [SettleDebtCommandHandler.cs](src/core/Budgie.Modules.Finances/Application/Debts/SettleDebt/SettleDebtCommandHandler.cs)
+#### [NEW] [ExportSnapshotQueryHandler.cs](src/core/Budgie.Modules.Finances/Application/Export/ExportSnapshotQueryHandler.cs)
+#### [NEW] [RestoreSnapshotCommandHandler.cs](src/core/Budgie.Modules.Finances/Application/Export/RestoreSnapshotCommandHandler.cs)
+#### [MODIFY] [Repositories.cs](src/core/Budgie.Modules.Finances/Infrastructure/Database/Repositories.cs)
 
 ---
 
@@ -90,7 +90,7 @@ This plan outlines the systematic implementation of the Software Requirement Spe
 - **Clean Architecture & Repository Separation**:
   - Move direct `IDbConnectionFactory` queries from Person and Tag handlers into `Infrastructure/Database/PersonRepository.cs` and `TagRepository.cs`.
 
-#### [MODIFY] [Repositories.cs](file:///home/andleo/Proyectos/Budgie/src/core/Budgie.Modules.Relationships/Infrastructure/Database/Repositories.cs)
+#### [MODIFY] [Repositories.cs](src/core/Budgie.Modules.Relationships/Infrastructure/Database/Repositories.cs)
 
 ---
 
@@ -103,9 +103,9 @@ This plan outlines the systematic implementation of the Software Requirement Spe
 - **Database Schema Updates**:
   - Add SQL script `002_master_architecture_updates.sql` adding `Role` on `Users`, `ControlStartDate` on `Accounts`, `MonthlyBudget` on `Categories`, and `UserInvites` table.
 
-#### [NEW] [002_master_architecture_updates.sql](file:///home/andleo/Proyectos/Budgie/src/apps/Budgie.Api/sql/002_master_architecture_updates.sql)
-#### [MODIFY] [BudgieJsonContext.cs](file:///home/andleo/Proyectos/Budgie/src/apps/Budgie.Api/BudgieJsonContext.cs)
-#### [MODIFY] [Program.cs](file:///home/andleo/Proyectos/Budgie/src/apps/Budgie.Api/Program.cs)
+#### [NEW] [002_master_architecture_updates.sql](src/apps/Budgie.Api/sql/002_master_architecture_updates.sql)
+#### [MODIFY] [BudgieJsonContext.cs](src/apps/Budgie.Api/BudgieJsonContext.cs)
+#### [MODIFY] [Program.cs](src/apps/Budgie.Api/Program.cs)
 
 ---
 
@@ -123,9 +123,9 @@ This plan outlines the systematic implementation of the Software Requirement Spe
   - Snapshot export/import in Settings.
   - Full translations updated in `src/i18n/locales/es.json` and `en.json`.
 
-#### [MODIFY] [api-client.ts](file:///home/andleo/Proyectos/Budgie/src/apps/Budgie.Web/src/lib/api-client.ts)
-#### [MODIFY] [es.json](file:///home/andleo/Proyectos/Budgie/src/apps/Budgie.Web/src/i18n/locales/es.json)
-#### [MODIFY] [en.json](file:///home/andleo/Proyectos/Budgie/src/apps/Budgie.Web/src/i18n/locales/en.json)
+#### [MODIFY] [api-client.ts](src/apps/Budgie.Web/src/lib/api-client.ts)
+#### [MODIFY] [es.json](src/apps/Budgie.Web/src/i18n/locales/es.json)
+#### [MODIFY] [en.json](src/apps/Budgie.Web/src/i18n/locales/en.json)
 
 ---
 
@@ -141,10 +141,10 @@ This plan outlines the systematic implementation of the Software Requirement Spe
   - Test budget threshold calculations.
   - Test snapshot export and restore.
 
-#### [NEW] [LedgerControlStartDateTests.cs](file:///home/andleo/Proyectos/Budgie/tests/Budgie.Modules.Finances.UnitTests/LedgerControlStartDateTests.cs)
-#### [NEW] [EventDrivenSplitSettlementTests.cs](file:///home/andleo/Proyectos/Budgie/tests/Budgie.Modules.Finances.UnitTests/EventDrivenSplitSettlementTests.cs)
-#### [NEW] [ZeroTrustOnboardingIntegrationTests.cs](file:///home/andleo/Proyectos/Budgie/tests/Budgie.IntegrationTests/ZeroTrustOnboardingIntegrationTests.cs)
-#### [NEW] [SnapshotBackupRestoreIntegrationTests.cs](file:///home/andleo/Proyectos/Budgie/tests/Budgie.IntegrationTests/SnapshotBackupRestoreIntegrationTests.cs)
+#### [NEW] [LedgerControlStartDateTests.cs](tests/Budgie.Modules.Finances.UnitTests/LedgerControlStartDateTests.cs)
+#### [NEW] [EventDrivenSplitSettlementTests.cs](tests/Budgie.Modules.Finances.UnitTests/EventDrivenSplitSettlementTests.cs)
+#### [NEW] [ZeroTrustOnboardingIntegrationTests.cs](tests/Budgie.IntegrationTests/ZeroTrustOnboardingIntegrationTests.cs)
+#### [NEW] [SnapshotBackupRestoreIntegrationTests.cs](tests/Budgie.IntegrationTests/SnapshotBackupRestoreIntegrationTests.cs)
 
 ---
 

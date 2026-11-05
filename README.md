@@ -321,6 +321,4 @@ docker compose down -v            # Stop and delete volumes
 
 ## Despliegue
 
-La imagen se construye desde este repositorio y la despliega Komodo, usando el stack `budgie` en `komodo.andleo.dev` con el compose de `deploy/compose.yaml`. Cada push a `main` dispara el despliegue mediante un webhook.
-
-Las variables de entorno viven en la configuración del stack en Komodo, no en el repositorio. El compose las espera con los nombres `BUDGIE_HOST`, `POSTGRES_PASSWORD`, `JWT_SECRET` y `EMAILIMPORT_*`.
+La imagen se construye desde este repositorio. El despliegue lo realiza un orquestador externo (por ejemplo, `docker compose`), que inyecta el dominio y los secretos mediante variables de entorno; no se versionan en el repositorio. El compose de referencia está en `deploy/compose.yaml` y espera `BUDGIE_HOST`, `POSTGRES_PASSWORD`, `JWT_SECRET` y `EMAILIMPORT_*`.
