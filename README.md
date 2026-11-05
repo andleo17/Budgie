@@ -146,10 +146,122 @@ All configuration is passed via a `.env` file at the project root (see `.env.exa
 | `POSTGRES_DB` | `budgie` | — | Database name |
 | `POSTGRES_USER` | `budgie` | — | Database user |
 | `JWT_ISSUER` / `JWT_AUDIENCE` | `Budgie` | — | JWT issuer/audience |
+| `EMAILIMPORT_ENABLED` | `false` | — | Registers the background email sync worker (see [Connecting Gmail](#connecting-gmail-email-import)) |
+| `EMAILIMPORT_SYNCINTERVALMINUTES` | `10` | — | Minutes between automatic mailbox syncs |
+| `EMAILIMPORT_ENCRYPTIONKEY` | derived from `JWT_SECRET` | — | 32-byte key encrypting the stored OAuth credentials at rest |
+| `EMAILIMPORT_PROVIDERS_GMAIL_CLIENTID` | — | for Gmail | OAuth client id from Google Cloud Console |
+| `EMAILIMPORT_PROVIDERS_GMAIL_CLIENTSECRET` | — | for Gmail | OAuth client secret from Google Cloud Console |
 
 ### PostgreSQL 18 note
 
 The official PostgreSQL 18 image changed its layout versus 17: `PGDATA` defaults to `/var/lib/postgresql/18/docker` and the declared `VOLUME` moved to the parent `/var/lib/postgresql`. The compose file sets `PGDATA` explicitly and mounts the volume at the parent path. If you are migrating an existing PostgreSQL 17 volume, back it up and migrate via `pg_dumpall`/restore or `pg_upgrade` — do not mount the old child path `/var/lib/postgresql/data`.
+
+## Connecting Gmail (email import)
+
+Budgie can read your bank notification emails and turn them into transactions. The `EmailImport`
+module talks to the Gmail API with **read-only** access (`https://www.googleapis.com/auth/gmail.readonly`):
+it never marks messages as read and never writes anything back to the mailbox.
+
+There are three steps: create an OAuth client in Google Cloud, configure Budgie with it, then use
+**Settings → Email import → Connect email**.
+
+### 1. Create the OAuth client
+
+1. Open [Google Cloud Console](https://console.cloud.google.com/) and create (or pick) a project.
+2. **APIs & Services → Library** → enable the **Gmail API**.
+3. **APIs & Services → OAuth consent screen**:
+   - User type **External** (or **Internal** if you use Google Workspace).
+   - Add the scope `https://www.googleapis.com/auth/gmail.readonly`.
+   - While the publishing status is **Testing**, add your Google account under **Test users** —
+     otherwise Google rejects the consent with `access_denied`.
+4. **APIs & Services → Credentials → Create credentials → OAuth client ID**, type **Web application**.
+5. In **Authorized redirect URIs** add exactly the callback Budgie builds. It is derived from the
+   scheme and host of the request that starts the flow, so it must match character by character:
+   - Production behind a TLS proxy: `https://<your-domain>/api/email-import/connections/gmail/callback`
+   - Local development (API on port 5057): `http://localhost:5057/api/email-import/connections/gmail/callback`
+6. Copy the **Client ID** and **Client secret**.
+
+### 2. Configure Budgie
+
+**Docker** — set these in `.env` (the compose file maps them to `EmailImport__*`):
+
+```dotenv
+EMAILIMPORT_ENABLED=false                                      # background sync worker
+EMAILIMPORT_SYNCINTERVALMINUTES=10
+EMAILIMPORT_ENCRYPTIONKEY=                                      # generate it yourself, see below
+EMAILIMPORT_PROVIDERS_GMAIL_CLIENTID=<client-id>.apps.googleusercontent.com
+EMAILIMPORT_PROVIDERS_GMAIL_CLIENTSECRET=<client-secret>
+```
+
+Then `docker compose up -d`.
+
+**Local toolchain** — note that `.env` is only read by Docker Compose: `dotnet run` ignores it. Use
+user secrets (they live outside the repo, so the client secret never lands in git) or the equivalent
+`EmailImport__*` environment variables:
+
+```bash
+cd src/apps/Budgie.Api
+
+dotnet user-secrets set "EmailImport:Providers:gmail:ClientId" "<client-id>.apps.googleusercontent.com"
+dotnet user-secrets set "EmailImport:Providers:gmail:ClientSecret" "<client-secret>"
+dotnet user-secrets set "EmailImport:EncryptionKey" "$(openssl rand -hex 32)"
+dotnet user-secrets set "EmailImport:Enabled" "false"   # true to run the background worker
+```
+
+They load because `launchSettings.json` starts the API with `ASPNETCORE_ENVIRONMENT=Development`. Do
+**not** put the client secret in `appsettings.Development.json`: that file is tracked by git. Its
+`EmailImport` section is only here for reference, since it is the shape `appsettings.json` ships:
+
+```json
+{
+  "EmailImport": {
+    "Enabled": false,
+    "SyncIntervalMinutes": 10,
+    "EncryptionKey": "",
+    "Providers": {
+      "gmail": {
+        "ClientId": "<client-id>.apps.googleusercontent.com",
+        "ClientSecret": "<client-secret>"
+      }
+    }
+  }
+}
+```
+
+Worth knowing:
+
+- **The encryption key is yours to generate.** Google only hands out the client id and secret.
+  Any string works — it is hashed with SHA-256 into the 32-byte AES key — so a random value is
+  enough: `openssl rand -hex 32` (hex survives `.env` and shells without quoting surprises).
+- `Enabled=false` only turns the **background worker** off; you can still sync on demand with
+  **Sync now** (`POST /api/email-import/sync`). Set it to `true` on a long-running deployment.
+- With `EncryptionKey` empty the key is derived from `JWT:Secret` (with a warning in the log). Set a
+  real one in production **and keep it stable**: changing it makes every stored credential
+  undecryptable, and the mailbox has to be connected again.
+
+### 3. Connect the mailbox
+
+1. Sign in and complete the initial setup.
+2. **Settings → Email import → Connect email** (Gmail is the only provider today).
+3. Approve the read-only Gmail consent in the Google screen that opens.
+4. Google redirects to Budgie's callback; Budgie stores the encrypted refresh token and sends you back
+   to **Settings** with *"Mailbox connected!"*. The card then shows the mailbox address, the last sync
+   and the auto-commit threshold.
+
+Next, open **Email → Manage rules and inbox** to create the rules that match your bank's sender and
+subject, then either review the staged emails or let those above the confidence threshold commit
+automatically. Start with **Sync now** to see it work end to end.
+
+### Troubleshooting
+
+| Symptom | Cause / fix |
+|---------|-------------|
+| `redirect_uri_mismatch` | The registered URI does not match the one Budgie built. Check host and scheme: behind a reverse proxy the deployment must forward `X-Forwarded-Proto` (Budgie reads it), and in development the API listens on 5057. |
+| `EmailImport.ProviderNotConfigured` | Client id/secret are empty. Fill them and restart the API. |
+| `access_denied` right after picking the account | The account is not in **Test users** of a consent screen still in **Testing**. |
+| Sync starts failing days after connecting | Google expires refresh tokens after **7 days** while the OAuth app is in **Testing**. Reconnect, or complete Google verification and publish the app. |
+| `EmailImport.AlreadyConnected` | One mailbox per provider per user. Disconnect it before connecting another. |
+| Connect fails inside the devcontainer | The Vite service proxies `/api` to `http://app:5057`, so the redirect URI is built as `http://app:5057/...` — Google rejects plain `http` for non-loopback hosts and your browser cannot resolve it. Run the frontend on your host instead (`cd src/apps/Budgie.Web && bun run dev`, whose default proxy target is `http://localhost:5057`) and register the `localhost:5057` URI. The callback then lands on the API host, so go back to `http://localhost:5173/settings` to see the connection. |
 
 ## Project Structure
 
