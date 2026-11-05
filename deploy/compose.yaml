@@ -1,0 +1,68 @@
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: src/apps/Budgie.Api/Dockerfile
+    image: budgie:latest
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
+      ASPNETCORE_URLS: http://0.0.0.0:80
+      ConnectionStrings__BudgieDb: Host=${DB_HOST:-db};Database=${POSTGRES_DB:-budgie};Username=${POSTGRES_USER:-budgie};Password=${POSTGRES_PASSWORD:?error}
+      Jwt__Secret: ${JWT_SECRET:?error}
+      Jwt__Issuer: ${JWT_ISSUER:-Budgie}
+      Jwt__Audience: ${JWT_AUDIENCE:-Budgie}
+      Registration__Mode: ${REGISTRATION_MODE:-Auto}
+      EmailImport__Enabled: ${EMAILIMPORT_ENABLED:-false}
+      EmailImport__SyncIntervalMinutes: ${EMAILIMPORT_SYNCINTERVALMINUTES:-10}
+      EmailImport__EncryptionKey: ${EMAILIMPORT_ENCRYPTIONKEY:?error}
+      EmailImport__Providers__gmail__ClientId: ${EMAILIMPORT_PROVIDERS_GMAIL_CLIENTID:?error}
+      EmailImport__Providers__gmail__ClientSecret: ${EMAILIMPORT_PROVIDERS_GMAIL_CLIENTSECRET:?error}
+      Logging__LogLevel__Default: ${LOG_LEVEL:-Warning}
+    volumes:
+      - budgie_uploads:/app/wwwroot/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks:
+      - default
+      - proxy
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.budgie.tls=true
+      - traefik.http.routers.budgie.rule=Host(`${BUDGIE_HOST:?error}`)
+      - traefik.http.routers.budgie.entrypoints=websecure
+      - traefik.http.services.budgie.loadbalancer.server.port=80
+      - traefik.docker.network=proxy
+
+  db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-budgie}
+      POSTGRES_USER: ${POSTGRES_USER:-budgie}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?error}
+      PGDATA: /var/lib/postgresql/18/docker
+    volumes:
+      - budgie_postgres_data:/var/lib/postgresql
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - default
+
+volumes:
+  budgie_postgres_data:
+  budgie_uploads:
+
+networks:
+  proxy:
+    external: true
